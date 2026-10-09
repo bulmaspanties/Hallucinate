@@ -98,6 +98,8 @@ Item {
                     TrackRow {
                         width: parent.width
                         path: model.path
+                        audioFormat: model.codec
+                        audioBitrate: model.bitrate
                         rowIndex: index
                         number: index + 1
                         title: model.title

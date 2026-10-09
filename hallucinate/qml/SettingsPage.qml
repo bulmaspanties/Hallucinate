@@ -21,6 +21,17 @@ Item {
 
         Text { text: "Settings"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(30); font.weight: Font.Bold }
         Text { text: "Appearance"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        StyledCheck {
+            text: "Show audio format and average bitrate on tracks"
+            checked: player.showTrackInfo
+            onToggled: player.setShowTrackInfo(checked)
+            Accessible.name: "Show track audio format and average bitrate"
+        }
+        Text {
+            text: "Shows compact format and approximate average bitrate badges in song rows and the now-playing bar."
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12)
+            wrapMode: Text.WordWrap
+        }
         Row {
             spacing: 12
             Text {

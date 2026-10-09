@@ -1,5 +1,6 @@
 import io
 import json
+import subprocess
 import urllib.error
 
 import mutagen
@@ -42,6 +43,37 @@ def test_write_tags_formats(tmp_path, ext):
     tagedit.write_tags(str(p), {"title": "New é", "artist": "Art", "album": "Alb", "year": "2001"})
     tags = read_track(str(p))
     assert (tags["title"], tags["artist"], tags["album"]) == ("New é", "Art", "Alb")
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize(("ext", "codec"), [
+    ("flac", "FLAC"), ("mp3", "MP3"), ("ogg", "VORBIS"), ("opus", "OPUS"),
+    ("m4a", "AAC"), ("alac.m4a", "ALAC"), ("wav", "WAV"), ("wma", "WMA"),
+    ("wv", "WAVPACK"), ("aiff", "AIFF"),
+])
+def test_read_audio_codec_and_bitrate(tmp_path, ext, codec):
+    path = encode(tmp_path / f"audio.{ext.split('.')[-1]}", ext, seconds=0.8)
+
+    track = read_track(str(path))
+
+    assert track["codec"] == codec
+    assert track["fmt"] == ext.split(".")[-1].upper()
+    assert track["bitrate"] > 0
+
+
+@needs_ffmpeg
+def test_read_vbr_bitrate_is_close_to_file_average(tmp_path):
+    path = tmp_path / "vbr.mp3"
+    subprocess.run([
+        FFMPEG, "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+        "sine=frequency=440:duration=4", "-q:a", "2", str(path),
+    ], check=True)
+
+    track = read_track(str(path))
+    expected_average = path.stat().st_size * 8 / track["duration"]
+
+    assert track["codec"] == "MP3"
+    assert track["bitrate"] == pytest.approx(expected_average, rel=0.1)
 
 
 def test_write_tags_rejects_bad_files(tmp_path):

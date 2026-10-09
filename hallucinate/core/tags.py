@@ -217,6 +217,33 @@ def is_readable_audio(path: str) -> bool:
         return False
 
 
+def audio_codec(f, ext: str) -> str:
+    """Identify the encoded audio stream where Mutagen exposes it; otherwise use a format label."""
+    info = getattr(f, "info", None)
+    codec = str(getattr(info, "codec", "") or "").lower()
+    if codec == "alac":
+        return "ALAC"
+    if codec.startswith("mp4a."):
+        return "AAC"
+    module = type(f).__module__.rsplit(".", 1)[-1].lower()
+    return {
+        "mp3": "MP3",
+        "flac": "FLAC",
+        "oggflac": "FLAC",
+        "oggopus": "OPUS",
+        "oggvorbis": "VORBIS",
+        "wave": "WAV",
+        "aiff": "AIFF",
+        "asf": "WMA",
+        "wavpack": "WAVPACK",
+        "monkeysaudio": "APE",
+        "tta": "TTA",
+        "mpc": "MPC",
+        "dsf": "DSD",
+        "dff": "DSD",
+    }.get(module, ext.lstrip(".").upper())
+
+
 def _open(path: str):
     try:
         return mutagen.File(path)
@@ -269,6 +296,7 @@ def _read_track(path, art_known):
         "genre": _get(tags, "genre") or extra.get("genre", ""),
         "duration": float(getattr(info, "length", 0) or 0),
         "fmt": os.path.splitext(path)[1].lstrip(".").upper(),
+        "codec": audio_codec(f, ext),
         "bitrate": int(getattr(info, "bitrate", 0) or 0) or (
             int(st.st_size * 8 / info.length) if getattr(info, "length", 0) else 0),
         "sample_rate": int(getattr(info, "sample_rate", 0) or 0) or (48000 if ext == ".opus" else 0),

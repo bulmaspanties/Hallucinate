@@ -68,6 +68,8 @@ Item {
         }
         delegate: TrackRow {
             path: model.path
+            audioFormat: model.codec
+            audioBitrate: model.bitrate
             rowIndex: index
             context: page.liked ? "liked" : "playlist"
             width: ListView.view.width - 12

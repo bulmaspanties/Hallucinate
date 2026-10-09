@@ -104,6 +104,7 @@ class Player(QObject):
         self._visual_levels_ready.connect(self._apply_visualizer_levels)
 
         self._settings = QSettings("hallucinate", "hallucinate")
+        self._show_track_info = str(self._settings.value("display/showTrackInfo", "false")).lower() == "true"
         try:
             stored_volume = float(self._settings.value("volume", 0.8))
             self._volume = stored_volume if math.isfinite(stored_volume) else 0.8
@@ -184,6 +185,18 @@ class Player(QObject):
         except (TypeError, ValueError):
             return default
         return min(max(v, lo), hi) if math.isfinite(v) else default
+
+    @Property(bool, notify=audioSettingsChanged)
+    def showTrackInfo(self):
+        return self._show_track_info
+
+    @Slot(bool)
+    def setShowTrackInfo(self, enabled):
+        enabled = bool(enabled)
+        if enabled != self._show_track_info:
+            self._show_track_info = enabled
+            self._settings.setValue("display/showTrackInfo", "true" if enabled else "false")
+            self.audioSettingsChanged.emit()
 
     # --- ReplayGain / crossfade settings ----------------------------------
     @Property(str, notify=audioSettingsChanged)

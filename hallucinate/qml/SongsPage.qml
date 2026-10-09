@@ -94,6 +94,8 @@ Item {
         ScrollBar.vertical: ScrollBar {}
         delegate: TrackRow {
             path: model.path
+            audioFormat: model.codec
+            audioBitrate: model.bitrate
             rowIndex: index
             width: ListView.view.width - 12
             title: model.title

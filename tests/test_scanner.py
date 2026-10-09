@@ -25,6 +25,15 @@ def test_tags_and_albums(db, scan, music):
     assert db.album_tracks(loose["album_key"])[0]["title"] == "loose"
 
 
+def test_scan_stores_format_and_probe_bitrate(db, scan, music):
+    scan(music)
+    rows = {r["fmt"]: r for r in db.tracks()}
+    assert rows["MP3"]["codec"] == "MP3"
+    assert rows["WAV"]["codec"] == "WAV"
+    assert rows["MP3"]["bitrate"] > 0
+    assert rows["WAV"]["bitrate"] > 0
+
+
 def test_incremental_rescan_skips_unchanged(db, scan, music):
     scan(music)
     stats = scan(music)

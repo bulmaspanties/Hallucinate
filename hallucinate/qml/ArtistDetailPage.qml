@@ -75,6 +75,8 @@ Item {
                 model: page.tracksModel
                 TrackRow {
             path: model.path
+            audioFormat: model.codec
+            audioBitrate: model.bitrate
             rowIndex: index
                     width: col.width
                     title: model.title

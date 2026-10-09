@@ -231,13 +231,22 @@ def test_old_database_is_migrated(tmp_path):
       aa_tag INTEGER NOT NULL DEFAULT 0, album TEXT NOT NULL, album_key TEXT NOT NULL, track_no INTEGER NOT NULL DEFAULT 0,
       disc_no INTEGER NOT NULL DEFAULT 0, year INTEGER NOT NULL DEFAULT 0, genre TEXT NOT NULL DEFAULT '',
       duration REAL NOT NULL DEFAULT 0, fmt TEXT NOT NULL DEFAULT '', bitrate INTEGER NOT NULL DEFAULT 0,
-      sample_rate INTEGER NOT NULL DEFAULT 0, art TEXT, added REAL NOT NULL);
-      INSERT INTO tracks(path,mtime,size,title,artist,album_artist,album,album_key,added)
-      VALUES('/x/a.mp3',1,1,'Ünï','Bjørk','Bjørk','Hömogenic','k',1);""")
+      sample_rate INTEGER NOT NULL DEFAULT 0, art TEXT, rg_track REAL, rg_album REAL, rg_peak REAL,
+      added REAL NOT NULL);
+      INSERT INTO tracks(path,mtime,size,title,artist,album_artist,album,album_key,fmt,added)
+      VALUES('/x/a.mp3',1,1,'Ünï','Bjørk','Bjørk','Hömogenic','k','MP3',1);
+      INSERT INTO tracks(path,mtime,size,title,artist,album_artist,album,album_key,fmt,added)
+      VALUES('/x/b.m4a',1,1,'Song','Bjørk','Bjørk','Album','k2','M4A',1);""")
     c.commit()
     c.close()
     d = Database(path)
     assert d.search("homogenic")["albums"] and d.artists()[0]["name"] == "Bjørk"
+    migrated = d.track(1)
+    assert migrated["codec"] == "MP3"
+    assert migrated["mtime"] == 1
+    ambiguous = d.track(2)
+    assert ambiguous["codec"] == "M4A"
+    assert ambiguous["mtime"] == 0
     d.close()
 
 

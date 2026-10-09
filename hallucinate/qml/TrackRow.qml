@@ -16,6 +16,8 @@ Rectangle {
     property string path: ""
     property string context: ""
     property int rowIndex: -1
+    property string audioFormat: ""
+    property int audioBitrate: 0
     readonly property bool liked: path.length > 0 && userLib.likesRevision >= 0 && userLib.isLiked(path)
     signal enqueue()
 
@@ -29,7 +31,8 @@ Rectangle {
     Keys.onReturnPressed: row.activated()
     Keys.onEnterPressed: row.activated()
     Accessible.role: Accessible.ListItem
-    Accessible.name: title + (artist.length ? ", " + artist : "")
+    Accessible.name: title + (artist.length ? ", " + artist : "") +
+                     (player.showTrackInfo && audioFormat.length ? ", " + audioFormat + " audio" : "")
     Accessible.onPressAction: row.activated()
     Rectangle { anchors.fill: parent; anchors.margins: -2; radius: Theme.radiusSmall; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: row.activeFocus }
     MouseArea {
@@ -80,13 +83,23 @@ Rectangle {
             font.pixelSize: Theme.fontSize(14)
             elide: Text.ElideRight
         }
-        Text {
+        Row {
             width: parent.width
-            text: row.artist
-            color: Theme.textDim
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize(12)
-            elide: Text.ElideRight
+            spacing: 6
+            Text {
+                width: Math.max(24, parent.width - (audioBadge.visible ? audioBadge.width : 0) - parent.spacing)
+                text: row.artist
+                color: Theme.textDim
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(12)
+                elide: Text.ElideRight
+            }
+            AudioInfoBadge {
+                id: audioBadge
+                formatName: row.audioFormat
+                bitrate: row.audioBitrate
+                visible: player.showTrackInfo
+            }
         }
     }
     Text {

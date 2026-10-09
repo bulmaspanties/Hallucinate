@@ -5,6 +5,7 @@ from PySide6.QtCore import Property, QAbstractListModel, QModelIndex, Qt, Signal
 TRACK_KEYS = [
     "id", "path", "title", "artist", "album", "album_artist", "album_key", "track_no",
     "disc_no", "year", "genre", "duration", "durText", "fmt", "artUrl",
+    "codec", "bitrate",
 ]
 ALBUM_KEYS = ["album_key", "album", "album_artist", "year", "n", "duration", "durText", "artUrl"]
 ARTIST_KEYS = ["name", "albums", "tracks", "artUrl"]

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] - 2026-10-09
+
+### Added
+- Optional, theme-aware track format and approximate average-bitrate badges in song rows and now playing; configurable in Settings and off by default.
+- Flatpak build and offscreen launch smoke test in CI, plus a stricter AppImage launch smoke test.
+
+### Fixed
+- Report detected codecs (including AAC vs ALAC and Vorbis vs Opus) separately from container extensions; legacy libraries are migrated and only ambiguous containers are rescanned.
+
 ## [0.3.0] - 2026-10-09
 
 ### Added

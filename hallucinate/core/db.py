@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tracks(
   genre TEXT NOT NULL DEFAULT '',
   duration REAL NOT NULL DEFAULT 0,
   fmt TEXT NOT NULL DEFAULT '',
+  codec TEXT NOT NULL DEFAULT '',
   bitrate INTEGER NOT NULL DEFAULT 0,
   sample_rate INTEGER NOT NULL DEFAULT 0,
   art TEXT,
@@ -61,7 +62,7 @@ FTS = (
 
 COLS = (
     "path mtime size title artist album_artist aa_tag album album_key track_no disc_no "
-    "year genre duration fmt bitrate sample_rate art rg_track rg_album rg_peak"
+    "year genre duration fmt codec bitrate sample_rate art rg_track rg_album rg_peak"
 ).split()
 
 SEARCH_COLS = ["s_title", "s_album", "s_aa", "s_artist"]
@@ -109,6 +110,17 @@ class Database:
                 self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} REAL")
             # Zero mtime makes the next scan re-read every file so ReplayGain tags get picked up.
             self.conn.execute("UPDATE tracks SET mtime=0")
+        if "codec" not in cols:
+            self.conn.execute("ALTER TABLE tracks ADD COLUMN codec TEXT NOT NULL DEFAULT ''")
+            self.conn.execute(
+                """UPDATE tracks SET codec=CASE UPPER(fmt)
+                     WHEN 'WAVE' THEN 'WAV' WHEN 'AIF' THEN 'AIFF' WHEN 'WV' THEN 'WAVPACK'
+                     WHEN 'OGA' THEN 'OGG' ELSE UPPER(fmt) END"""
+            )
+            # These extensions can contain different codecs; re-read only the ambiguous files.
+            self.conn.execute(
+                "UPDATE tracks SET mtime=0 WHERE UPPER(fmt) IN ('M4A', 'M4B', 'MP4', 'OGG', 'OGA', 'MKA')"
+            )
         missing = [c for c in SEARCH_COLS if c not in cols]
         if missing:
             for c in missing:
@@ -449,6 +461,7 @@ class Database:
 
     def upsert_track(self, t: dict) -> int:
         params = {c: t.get(c) for c in COLS}
+        params["codec"] = t.get("codec") or t.get("fmt", "")
         params["s_title"] = fold(t["title"])
         params["s_album"] = fold(t["album"])
         params["s_aa"] = fold(t["album_artist"])

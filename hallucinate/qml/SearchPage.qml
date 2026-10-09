@@ -86,6 +86,8 @@ Item {
                 model: library.searchTracks
                 TrackRow {
             path: model.path
+            audioFormat: model.codec
+            audioBitrate: model.bitrate
             rowIndex: index
                     width: col.width
                     title: model.title
