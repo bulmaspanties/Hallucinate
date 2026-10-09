@@ -17,6 +17,9 @@ All notable changes to this project are documented here. Format based on
 - Liked Songs and playlists; Recently played / Most played on Home.
 - ReplayGain, crossfade and a 10-band FIR equalizer (numpy; audio is routed through a Qt audio tap while it is enabled).
 - Tag editor (track/album), cover set/fetch (MusicBrainz + Cover Art Archive, optional embedding), and a synced lyrics panel (embedded, `.lrc`, LRCLIB).
+- Mini player window and system tray icon (menu, tooltip, middle-click play/pause, close-to-tray option) in Settings → Desktop.
+- Keyboard focus rings and accessible names/roles for buttons, rows and album cards; tooltips on icon buttons.
+- `scripts/screenshots.py` renders README screenshots offscreen (also usable at `--scale 2` for HiDPI checks); screenshots and theme GIF in `docs/`.
 - Scan progress bar, first-run "Choose music folder" flow, and loading/empty/error states (missing folders, unreadable files).
 
 ## [0.1.1] - 2026-10-09

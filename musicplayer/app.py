@@ -4,9 +4,10 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtWidgets import QApplication
 
 from . import __version__
 from .core import paths
@@ -15,6 +16,7 @@ from .lyricsctl import LyricsController
 from .metaedit import MetadataEditor
 from .player import Player
 from .scrobbling import LastFmScrobbler
+from .shell import DesktopShell
 from .themes import ThemeManager
 from .thumbs import ArtProvider
 from .userlib import UserLibrary
@@ -30,7 +32,7 @@ def main(argv=None) -> int:
     args, qt_args = ap.parse_known_args(argv if argv is not None else sys.argv[1:])
 
     QQuickStyle.setStyle("Basic")
-    app = QGuiApplication([sys.argv[0], *qt_args])
+    app = QApplication([sys.argv[0], *qt_args])
     app.setApplicationName("musicplayer")
     app.setOrganizationName("musicplayer")
     app.setApplicationDisplayName("Music Player")
@@ -56,6 +58,8 @@ def main(argv=None) -> int:
     scrobbler = LastFmScrobbler(player, paths.data_dir())
     theme_manager = ThemeManager(paths.config_dir(), player)
 
+    shell = DesktopShell(app, player, app.windowIcon())
+
     for f in args.folders:
         library.addFolder(f)
     if not library.folders:
@@ -74,12 +78,14 @@ def main(argv=None) -> int:
     ctx.setContextProperty("metaEditor", meta_editor)
     ctx.setContextProperty("lyricsCtl", lyrics)
     ctx.setContextProperty("scrobbler", scrobbler)
+    ctx.setContextProperty("shell", shell)
     ctx.setContextProperty("themeManager", theme_manager)
     engine.addImportPath(str(HERE / "qml"))
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "main.qml")))
     if not engine.rootObjects():
         return 1
 
+    shell.setWindow(engine.rootObjects()[0])
     mpris = None
     try:
         if not sys.platform.startswith("linux"):
@@ -102,6 +108,7 @@ def main(argv=None) -> int:
 
     code = app.exec()
     del engine
+    shell.shutdown()
     scrobbler.shutdown()
     del theme_manager
     player.shutdown()

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QImage
+from PySide6.QtGui import QColor, QIcon, QImage
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
@@ -12,6 +12,7 @@ from musicplayer.lyricsctl import LyricsController
 from musicplayer.metaedit import MetadataEditor
 from musicplayer.player import Player
 from musicplayer.scrobbling import LastFmScrobbler
+from musicplayer.shell import DesktopShell
 from musicplayer.themes import BUILTIN_THEME_DIR, ThemeManager
 from musicplayer.userlib import UserLibrary
 
@@ -144,6 +145,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     lyrics = LyricsController(tmp_path / "library.db", player)
     context.setContextProperty("metaEditor", meta_editor)
     context.setContextProperty("lyricsCtl", lyrics)
+    shell = DesktopShell(qapp, player, QIcon())
+    context.setContextProperty("shell", shell)
     context.setContextProperty("player", player)
     context.setContextProperty("scrobbler", scrobbler)
     context.setContextProperty("themeManager", manager)

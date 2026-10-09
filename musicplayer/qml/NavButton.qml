@@ -7,6 +7,14 @@ Item {
     property bool selected: false
     signal clicked()
     height: 40
+    activeFocusOnTab: true
+    Keys.onSpacePressed: item.clicked()
+    Keys.onReturnPressed: item.clicked()
+    Keys.onEnterPressed: item.clicked()
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.onPressAction: item.clicked()
+    Rectangle { anchors.fill: parent; anchors.margins: -2; radius: Theme.radiusSmall; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: item.activeFocus }
     Rectangle {
         anchors.fill: parent
         radius: Theme.radiusSmall

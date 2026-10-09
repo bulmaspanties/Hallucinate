@@ -96,8 +96,8 @@ def touch_newer(path):
 @pytest.fixture(scope="session")
 def qapp():
     pytest.importorskip("PySide6.QtMultimedia", exc_type=ImportError)
-    from PySide6.QtGui import QGuiApplication
-    app = QGuiApplication.instance() or QGuiApplication([])
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication([])
     yield app
 
 

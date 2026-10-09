@@ -102,6 +102,8 @@ ApplicationWindow {
 
     TrackMenu { id: trackMenu }
     TagEditor { id: tagEditor }
+    MiniPlayer {}
+    onClosing: function (close) { close.accepted = !shell.handleClose() }
     Dialog {
         id: createDlg
         parent: Overlay.overlay
@@ -281,6 +283,7 @@ ApplicationWindow {
     Shortcut { sequence: "S"; enabled: !window.typing; onActivated: player.toggleShuffle() }
     Shortcut { sequence: "R"; enabled: !window.typing; onActivated: player.cycleRepeat() }
     Shortcut { sequence: "Q"; enabled: !window.typing; onActivated: { window.queueOpen = !window.queueOpen; if (window.queueOpen) window.lyricsOpen = false } }
+    Shortcut { sequence: "Ctrl+M"; onActivated: shell.toggleMini() }
     Shortcut { sequence: "L"; enabled: !window.typing; onActivated: { window.lyricsOpen = !window.lyricsOpen; if (window.lyricsOpen) window.queueOpen = false } }
     Shortcut { sequence: "Alt+Left"; onActivated: Nav.back() }
     Shortcut { sequences: ["/", "Ctrl+F", "Ctrl+K"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }

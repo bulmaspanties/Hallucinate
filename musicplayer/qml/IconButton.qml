@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import "."
 
 Item {
@@ -11,6 +12,14 @@ Item {
     implicitWidth: size + 18
     implicitHeight: size + 18
     opacity: enabled ? 1 : 0.4
+    activeFocusOnTab: true
+    Keys.onSpacePressed: btn.clicked()
+    Keys.onReturnPressed: btn.clicked()
+    Keys.onEnterPressed: btn.clicked()
+    Accessible.role: Accessible.Button
+    Accessible.name: tip.length ? tip : icon
+    Accessible.onPressAction: btn.clicked()
+    Rectangle { anchors.fill: parent; anchors.margins: -2; radius: width / 2; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: btn.activeFocus }
 
     Rectangle {
         anchors.fill: parent
@@ -33,4 +42,7 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onClicked: btn.clicked()
     }
+    ToolTip.visible: ma.containsMouse && tip.length > 0
+    ToolTip.text: tip
+    ToolTip.delay: 600
 }

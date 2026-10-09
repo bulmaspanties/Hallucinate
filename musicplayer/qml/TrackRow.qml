@@ -24,6 +24,14 @@ Rectangle {
     color: hh.hovered ? Theme.surface : "transparent"
 
     HoverHandler { id: hh }
+    activeFocusOnTab: true
+    Keys.onSpacePressed: row.activated()
+    Keys.onReturnPressed: row.activated()
+    Keys.onEnterPressed: row.activated()
+    Accessible.role: Accessible.ListItem
+    Accessible.name: title + (artist.length ? ", " + artist : "")
+    Accessible.onPressAction: row.activated()
+    Rectangle { anchors.fill: parent; anchors.margins: -2; radius: Theme.radiusSmall; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: row.activeFocus }
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor

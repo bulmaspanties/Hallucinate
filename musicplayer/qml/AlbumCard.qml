@@ -10,6 +10,13 @@ Item {
     property real cardWidth: 170
     width: cardWidth
     height: cardWidth + 62
+    activeFocusOnTab: true
+    Keys.onReturnPressed: Nav.openAlbum(card.albumKey)
+    Keys.onSpacePressed: Nav.openAlbum(card.albumKey)
+    Accessible.role: Accessible.Button
+    Accessible.name: title + (subtitle.length ? ", " + subtitle : "")
+    Accessible.onPressAction: Nav.openAlbum(card.albumKey)
+    Rectangle { anchors.fill: parent; anchors.margins: -4; radius: Theme.radius + 4; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: card.activeFocus }
 
     Rectangle {
         anchors.fill: parent

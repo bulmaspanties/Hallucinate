@@ -10,7 +10,15 @@ OSes secondary) with a Spotify-style search-and-browse experience. Not
 playlist-driven: type to find, click to play.
 
 ## Screenshots
-> _Screenshots coming soon._ Add images under `docs/screenshots/` and link them here.
+![Themes](docs/screenshots/themes.gif)
+
+| Home | Albums |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Albums](docs/screenshots/albums.png) |
+| Songs | Settings |
+| ![Songs](docs/screenshots/songs.png) | ![Settings](docs/screenshots/settings.png) |
+
+_Screenshots are rendered offscreen from a synthetic library: `python scripts/screenshots.py docs/screenshots [--scale 2]`._
 
 ## Features
 - Scans folders (mutagen tags + embedded/folder cover art) into SQLite with FTS5 instant search; incremental rescans (mtime/size), background scanning, file watching, and removal of moved/deleted paths.
@@ -23,6 +31,8 @@ playlist-driven: type to find, click to play.
 - ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback, and a 10-band equalizer with presets (needs numpy).
 - Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE) and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
 - Lyrics panel with synced highlighting: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; can be disabled).
+- Mini player (always-on-top, `Ctrl+M`) and a system tray icon with play/pause/next/previous, optional close-to-tray.
+- Keyboard focus rings and screen-reader names on buttons, rows and cards; renders crisply on HiDPI (tested at 2x).
 - Live-switchable, file-backed themes with album-art accent mode and keyboard-friendly UI.
 
 ## Install
@@ -110,7 +120,7 @@ with a size scale from 0.75 to 1.5:
 
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·
-Q queue · L lyrics · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
+Q queue · L lyrics · Ctrl+M mini player · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
 
 ## Tests
 ```sh
@@ -138,7 +148,7 @@ FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 - Real-device verification of APE playback and desktop media keys
 - ListenBrainz scrobbling
 - Packaging: AUR submission, Flatpak, code-signed Windows builds, macOS
-- Screenshots and a project website
+- A project website
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).

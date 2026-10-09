@@ -14,6 +14,14 @@ Rectangle {
     border.color: Theme.border
     border.width: primary ? 0 : 1
     Behavior on color { ColorAnimation { duration: 120 } }
+    activeFocusOnTab: true
+    Keys.onSpacePressed: btn.clicked()
+    Keys.onReturnPressed: btn.clicked()
+    Keys.onEnterPressed: btn.clicked()
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.onPressAction: btn.clicked()
+    Rectangle { anchors.fill: parent; anchors.margins: -2; radius: height / 2; color: "transparent"; border.width: 2; border.color: Theme.accent; visible: btn.activeFocus }
 
     Text {
         id: label

@@ -44,6 +44,7 @@ Canvas {
             line([.85,.5,.85,.7,.22,.7]); tri(w*.26,h*.54,w*.04,h*.7,w*.26,h*.86)
             if (name === "repeat1") { ctx.font = "bold " + Math.round(h*.45) + "px sans-serif"; ctx.textAlign = "center"; ctx.fillText("1", w*.5, h*.62) }
             break
+        case "expand": line([.15,.55,.15,.15,.55,.15]); line([.85,.45,.85,.85,.45,.85]); line([.15,.15,.45,.45]); line([.85,.85,.55,.55]); break
         case "queue": line([.1,.25,.9,.25]); line([.1,.5,.9,.5]); line([.1,.75,.55,.75]); break
         case "volume":
             ctx.beginPath(); ctx.moveTo(w*.1,h*.38); ctx.lineTo(w*.3,h*.38); ctx.lineTo(w*.52,h*.18); ctx.lineTo(w*.52,h*.82); ctx.lineTo(w*.3,h*.62); ctx.lineTo(w*.1,h*.62); ctx.closePath(); ctx.fill()

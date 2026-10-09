@@ -111,3 +111,11 @@ theme loading, persistence, album-art accent selection, and live QML color/font
 updates. It does not replace testing actual device media keys, live Last.fm
 authorization, all user-supplied codec variants, or real APE decoding on the
 target system.
+
+## Desktop integration (0.2.0)
+- [ ] Tray icon appears (KDE/GNOME with AppIndicator extension/Windows); left-click toggles the window, middle-click toggles playback, menu actions work.
+- [ ] Settings → Desktop: disabling the tray makes closing the window quit; "keep playing in the tray" hides the window instead.
+- [ ] `Ctrl+M` opens the mini player (main window hides); Esc / expand button restores it; closing the mini window restores the main window.
+- [ ] Tab moves keyboard focus through sidebar, transport buttons, rows and album cards with a visible ring; Enter/Space activates.
+- [ ] Orca (Linux) / Narrator (Windows) announce button names (Play, Next, Queue, Lyrics…).
+- [ ] HiDPI: at 150%/200% scaling covers and text are sharp and nothing clips (also `QT_SCALE_FACTOR=2`).

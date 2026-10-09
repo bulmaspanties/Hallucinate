@@ -97,6 +97,22 @@ Item {
             onClicked: themeManager.reloadThemes()
         }
 
+        Text { text: "Desktop"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        StyledCheck {
+            visible: shell.trayAvailable
+            text: "Show system tray icon"
+            checked: shell.trayEnabled
+            onToggled: shell.setTrayEnabled(checked)
+        }
+        StyledCheck {
+            visible: shell.trayAvailable
+            enabled: shell.trayEnabled
+            text: "Keep playing in the tray when the window is closed"
+            checked: shell.closeToTray
+            onToggled: shell.setCloseToTray(checked)
+        }
+        PillButton { text: "Open mini player"; onClicked: shell.toggleMini() }
+
         Text { text: "Playback"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
         Row {
             spacing: 12

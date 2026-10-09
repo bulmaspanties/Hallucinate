@@ -6,6 +6,7 @@ Slider {
     id: s
     implicitHeight: 18
     padding: 0
+    Accessible.name: "Slider"
     background: Rectangle {
         x: s.leftPadding
         y: s.topPadding + s.availableHeight / 2 - height / 2
