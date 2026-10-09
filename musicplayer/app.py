@@ -31,7 +31,11 @@ def main(argv=None) -> int:
     app.setOrganizationName("musicplayer")
     app.setApplicationDisplayName("Music Player")
     app.setDesktopFileName("musicplayer")
-    icon = HERE / "assets" / "musicplayer.svg"
+    if sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("musicplayer.MusicPlayer")
+    icon = HERE / "assets" / ("musicplayer.ico" if sys.platform == "win32" else "musicplayer.svg")
     if icon.exists():
         app.setWindowIcon(QIcon(str(icon)))
 
@@ -62,14 +66,17 @@ def main(argv=None) -> int:
 
     mpris = None
     try:
+        if not sys.platform.startswith("linux"):
+            raise RuntimeError("only available on Linux")
         from .mpris import MprisService
 
         window = engine.rootObjects()[0]
         mpris = MprisService(player, lambda: (window.show(), window.raise_()), app.quit)
     except Exception as e:  # MPRIS is optional
-        print(f"MPRIS unavailable: {e}", file=sys.stderr)
+        if sys.stderr is not None:
+            print(f"MPRIS unavailable: {e}", file=sys.stderr)
 
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
+    signal.signal(signal.SIGINT, lambda *_: app.quit())  # also valid on Windows
     if args.quit_after is not None:
         QTimer.singleShot(args.quit_after, app.quit)
     # Python needs to wake up periodically to handle SIGINT.

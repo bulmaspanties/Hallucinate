@@ -22,11 +22,15 @@ playlist-driven: type to find, click to play.
 - Live-switchable, file-backed themes with album-art accent mode and keyboard-friendly UI.
 
 ## Install
-### AUR (once published)
+### AUR — **not yet published to AUR**
+PKGBUILDs for `musicplayer` and `musicplayer-git` are ready in `packaging/aur/` but have not been submitted yet. Until then, build locally:
 ```sh
-yay -S musicplayer        # stable; or musicplayer-git for the development version
+cd packaging/aur/musicplayer-git && makepkg -si
 ```
 Maintainer notes: [packaging/aur/README.md](packaging/aur/README.md).
+
+### Windows
+Download `musicplayer-*-windows-x64-setup.exe` (installer) or `musicplayer-*-windows-x64.zip` (portable; run `MusicPlayer\MusicPlayer.exe`) from [Releases](https://github.com/bulmaspanties/music-player/releases). Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn. MPRIS is Linux-only; Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\musicplayer`.
 
 ### AppImage (any x86_64 Linux)
 Download `musicplayer-*-x86_64.AppImage` from the [Releases](https://github.com/bulmaspanties/music-player/releases) page:
@@ -124,7 +128,7 @@ FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 - Real-device verification of APE playback and desktop media keys
 - Playlists and tag editing
 - ListenBrainz scrobbling
-- Packaging: AUR submission, Flatpak, Windows/macOS builds
+- Packaging: AUR submission, Flatpak, code-signed Windows builds, macOS
 - Screenshots and a project website
 
 ## Contributing

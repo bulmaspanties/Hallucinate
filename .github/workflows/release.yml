@@ -37,3 +37,39 @@ jobs:
           sha256sum musicplayer-*.AppImage > SHA256SUMS
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
           gh release upload "$GITHUB_REF_NAME" musicplayer-*.AppImage SHA256SUMS --clobber
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build exe, zip and installer
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '' }
+          ./packaging/windows/build.ps1 -Version $v
+      - name: Smoke test (offscreen)
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+          APPDATA: ${{ runner.temp }}\appdata
+        run: |
+          $p = Start-Process dist\MusicPlayer\MusicPlayer.exe -ArgumentList '--quit-after','4000' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'exe did not exit' }
+          if ($p.ExitCode -ne 0) { throw "exe exited with $($p.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*-setup.exe --clobber

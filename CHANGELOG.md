@@ -6,6 +6,7 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
+- Windows build (PyInstaller onedir zip + Inno Setup installer) attached to releases; MPRIS skipped off Linux, Windows icon and config paths.
 - AUR packaging (`musicplayer`, `musicplayer-git`) in `packaging/aur/`.
 - AppImage build script and a release workflow that attaches it to tagged releases.
 - Live-switchable file-backed themes (Dark, Light, Catppuccin Mocha/Latte, Nord,

@@ -19,7 +19,14 @@ def data_dir() -> Path:
 
 def config_dir() -> Path:
     override = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(override) if override else Path.home() / ".config"
+    if override:
+        base = Path(override)
+    elif sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path.home() / ".config"
     result = base / "musicplayer"
     result.mkdir(parents=True, exist_ok=True)
     return result
