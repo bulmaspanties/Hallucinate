@@ -27,6 +27,7 @@ modules:
         - --share=network
     build-commands:
       - pip3 install --no-cache-dir --prefix=/app .
+      - gssapi="$(find /usr/lib -name libgssapi_krb5.so.2 -print -quit)" && test -n "$gssapi" && install -Dm755 "$gssapi" /app/lib/libgssapi_krb5.so.2
       - install -Dm644 packaging/hallucinate.desktop /app/share/applications/io.github.bulmaspanties.Hallucinate.desktop
       - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/hallucinate.png
       - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/io.github.bulmaspanties.Hallucinate.png
