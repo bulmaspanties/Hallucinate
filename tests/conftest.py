@@ -104,6 +104,7 @@ def qapp():
 def wait_for(cond, timeout=8.0, step=20):
     """Spin the Qt event loop until cond() is truthy; returns its last value."""
     import time
+
     from PySide6.QtTest import QTest
     end = time.monotonic() + timeout
     while time.monotonic() < end:

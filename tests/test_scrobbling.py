@@ -4,10 +4,10 @@ import time
 from urllib.parse import parse_qs
 
 import pytest
+from conftest import wait_for
 from PySide6.QtCore import QObject, Signal
 
 import musicplayer.scrobbling as scrobbling
-from conftest import wait_for
 
 
 class FakePlayer(QObject):

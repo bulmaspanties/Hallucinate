@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QObject, QMetaObject, Q_ARG, QUrl, Qt, Signal
+from PySide6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle

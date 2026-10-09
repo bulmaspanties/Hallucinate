@@ -6,7 +6,7 @@ import os
 from collections import Counter
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import Property, QObject, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage
 
 logger = logging.getLogger(__name__)

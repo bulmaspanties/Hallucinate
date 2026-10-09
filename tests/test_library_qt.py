@@ -1,5 +1,4 @@
 import pytest
-
 from conftest import make_mp3, wait_for
 
 

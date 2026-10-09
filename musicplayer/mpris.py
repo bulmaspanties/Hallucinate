@@ -1,6 +1,6 @@
 """MPRIS2 (org.mpris.MediaPlayer2) service so media keys and desktop widgets work."""
 from PySide6.QtCore import ClassInfo, Property, QObject, QUrl, Signal, Slot
-from PySide6.QtDBus import (QDBusAbstractAdaptor, QDBusConnection, QDBusMessage, QDBusObjectPath)
+from PySide6.QtDBus import QDBusAbstractAdaptor, QDBusConnection, QDBusMessage, QDBusObjectPath
 
 SERVICE = "org.mpris.MediaPlayer2.musicplayer"
 PATH = "/org/mpris/MediaPlayer2"

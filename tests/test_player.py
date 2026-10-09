@@ -2,7 +2,6 @@ import json
 import time
 
 import pytest
-
 from audio import FFMPEG, FORMATS, encode
 from conftest import wait_for
 

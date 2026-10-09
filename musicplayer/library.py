@@ -1,7 +1,7 @@
 import os
 import threading
 
-from PySide6.QtCore import (Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot)
+from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot
 
 from .core.db import Database, fold
 from .core.scanner import Scanner

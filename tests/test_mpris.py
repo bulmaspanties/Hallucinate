@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from audio import FFMPEG, encode
 
 DBUS_RUN_SESSION = shutil.which("dbus-run-session")

@@ -3,8 +3,8 @@ import shutil
 import time
 
 import pytest
+from conftest import make_mp3
 
-from conftest import make_mp3, touch_newer
 from musicplayer.core.db import Database
 
 

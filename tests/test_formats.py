@@ -1,8 +1,8 @@
 import shutil
 
 import pytest
-
 from audio import FFMPEG, FORMATS, encode, make_ape
+
 from musicplayer.core.tags import read_track
 
 needs_ffmpeg = pytest.mark.skipif(not FFMPEG, reason="ffmpeg not installed")
