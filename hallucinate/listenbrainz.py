@@ -5,7 +5,7 @@ import threading
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 import keyring
@@ -85,11 +85,15 @@ def fetch_listenbrainz_history(base, user, token=None, progress=None, limit=1000
         params = {"count": 1000}
         if max_ts:
             params["max_ts"] = max_ts
-        page = parse_listens(lb_request(base, f"/1/user/{user}/listens", token, params=params))
+        page = parse_listens(lb_request(base, f"/1/user/{quote(user, safe='')}/listens", token, params=params))
         if not page:
             break
         items += page
-        max_ts = min(p["ts"] for p in page if p["ts"])
+        oldest = min(p["ts"] for p in page if p["ts"])
+        if max_ts is not None and oldest >= max_ts:
+            max_ts = max_ts - 1
+        else:
+            max_ts = oldest
         if progress:
             progress(len(items))
     return items
@@ -143,6 +147,7 @@ class ListenBrainzScrobbler(QObject):
         self._started = int(time.time())
         self._import_status = ""
         self._importing = False
+        self._closing = False
         self._keyring_error = ""
         self._load_keyring()
         self._load_queue()
@@ -150,7 +155,7 @@ class ListenBrainzScrobbler(QObject):
         self._importDone.connect(self._on_import_done)
         self._timer = QTimer(self)
         self._timer.setInterval(2000)
-        self._timer.timeout.connect(self._flush)
+        self._timer.timeout.connect(self._tick)
         self._timer.start()
         player.trackChanged.connect(self._on_track_changed)
         player.stateChanged.connect(self._send_now_playing)
@@ -170,7 +175,16 @@ class ListenBrainzScrobbler(QObject):
     def _load_queue(self):
         try:
             data = json.loads(self._queue_path.read_text(encoding="utf-8"))
-            self._pending = [i for i in data if isinstance(i, dict) and "listened_at" in i and "track_metadata" in i]
+            if not isinstance(data, list):
+                raise ValueError("listen queue must be a list")
+            self._pending = [
+                item for item in data
+                if isinstance(item, dict)
+                and isinstance(item.get("listened_at"), int)
+                and isinstance(item.get("track_metadata"), dict)
+            ]
+            if len(self._pending) != len(data):
+                self._set_status("Ignored invalid records in the ListenBrainz offline queue.")
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError) as exc:
@@ -184,6 +198,7 @@ class ListenBrainzScrobbler(QObject):
             tmp.replace(self._queue_path)
         except OSError as exc:
             logger.warning("Could not persist ListenBrainz queue: %s", exc)
+            self._set_status(f"Could not persist offline listens: {exc}")
 
     def _set_status(self, text):
         if text != self._status:
@@ -229,11 +244,14 @@ class ListenBrainzScrobbler(QObject):
             return
         self._base = server.strip() or DEFAULT_URL
         self._set_status("Validating token…")
-        self._start("validate", lambda: lb_request(self._base, "/1/validate-token", params={"token": token}),
-                    item=token)
+        base = self._base
+        self._start("validate", lambda: lb_request(base, "/1/validate-token", token), item=token)
 
     @Slot()
     def disconnectAccount(self):
+        if self._busy:
+            self._set_status("Wait for the current ListenBrainz request to finish before disconnecting.")
+            return
         try:
             for k in ("token", "user"):
                 if keyring.get_password(KEYRING_SERVICE, k):
@@ -246,7 +264,7 @@ class ListenBrainzScrobbler(QObject):
         self._set_status("Disconnected from ListenBrainz. Pending listens are kept.")
 
     def _start(self, action, work, item=None):
-        if self._busy:
+        if self._busy or self._closing:
             return False
         self._busy = True
         self.busyChanged.emit()
@@ -267,13 +285,10 @@ class ListenBrainzScrobbler(QObject):
         self.busyChanged.emit()
         result, item = payload
         if error:
-            fatal = error.startswith("!")
             self._set_status(error.lstrip("!"))
-            if action == "submit" and fatal and self._pending:
-                self._pending.pop(0)  # a listen the server will never accept
-                self._save_queue()
-                self.pendingCountChanged.emit()
-            elif action != "validate":
+            if action == "now":
+                self._now_key = ""
+            if action != "validate":
                 self._retry_delay = min(self._retry_delay * 2, MAX_RETRY_SECONDS)
                 self._retry_at = time.monotonic() + self._retry_delay
             return
@@ -300,6 +315,9 @@ class ListenBrainzScrobbler(QObject):
                 self.pendingCountChanged.emit()
             self._set_status("Listen submitted to ListenBrainz.")
             self._flush()
+        elif action == "now":
+            self._set_status("ListenBrainz now-playing updated.")
+            self._flush()
 
     # --- scrobbling ------------------------------------------------------------
     def _on_track_changed(self):
@@ -310,7 +328,8 @@ class ListenBrainzScrobbler(QObject):
     def _send_now_playing(self):
         track = dict(self.player.current or {})
         key = f"{track.get('path')}"
-        if not (self.connected and self.player.playing and track and key != self._now_key) or self._busy:
+        if (not (self.connected and self.player.playing and track and key != self._now_key)
+                or self._busy or time.monotonic() < self._retry_at):
             return
         try:
             meta = track_metadata(track)
@@ -320,6 +339,10 @@ class ListenBrainzScrobbler(QObject):
         payload = {"listen_type": "playing_now", "payload": [{"track_metadata": meta}]}
         base, token = self._base, self._token
         self._start("now", lambda: lb_request(base, "/1/submit-listens", token, payload))
+
+    def _tick(self):
+        self._send_now_playing()
+        self._flush()
 
     def _on_played(self, track):
         try:
@@ -337,14 +360,25 @@ class ListenBrainzScrobbler(QObject):
         item = dict(self._pending[0])
         payload = {"listen_type": "single", "payload": [item]}
         base, token = self._base, self._token
-        self._start("submit", lambda: lb_request(base, "/1/submit-listens", token, payload), item=self._pending[0])
+
+        def submit():
+            result = lb_request(base, "/1/submit-listens", token, payload)
+            if result.get("status") != "ok":
+                raise RuntimeError(f"ListenBrainz did not accept the queued listen: {result.get('status', 'invalid response')}")
+            return result
+
+        self._start("submit", submit, item=self._pending[0])
 
     # --- history import ----------------------------------------------------------
     @Slot(str, str)
     def importHistory(self, source, user):
         """Import listens from 'listenbrainz' or 'lastfm' into the local play history."""
+        if source not in ("listenbrainz", "lastfm"):
+            self._import_status = "Choose ListenBrainz or Last.fm as the import source."
+            self.importChanged.emit()
+            return
         user = user.strip() or (self._user if source == "listenbrainz" else "")
-        if self._importing or not user:
+        if self._closing or self._importing or not user:
             self._import_status = "Enter a username to import from."
             self.importChanged.emit()
             return
@@ -355,7 +389,8 @@ class ListenBrainzScrobbler(QObject):
         ulib = self.userlib
 
         def progress(n):
-            self._importDone.emit({"progress": n}, "")
+            if not self._closing:
+                self._importDone.emit({"progress": n}, "")
 
         def run():
             try:
@@ -367,11 +402,14 @@ class ListenBrainzScrobbler(QObject):
                     items = fetch_lastfm_history(user, key, progress)
                 else:
                     items = fetch_listenbrainz_history(base, user, token, progress)
+                if self._closing:
+                    return
                 if ulib is None:
                     raise RuntimeError("Library unavailable")
-                ulib.importPlays(items, source, lambda res: self._importDone.emit(res, ""))
+                ulib.importPlays(items, source, lambda res, err="": self._importDone.emit(res, err))
             except Exception as exc:  # noqa: BLE001
-                self._importDone.emit(None, str(exc))
+                if not self._closing:
+                    self._importDone.emit(None, str(exc))
 
         threading.Thread(target=run, name="history-import", daemon=True).start()
 
@@ -389,6 +427,7 @@ class ListenBrainzScrobbler(QObject):
 
     @Slot()
     def shutdown(self):
+        self._closing = True
         self._timer.stop()
 
 

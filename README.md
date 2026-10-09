@@ -99,6 +99,15 @@ Scrobbles are queued while offline and retried with backoff when connected.
 On headless Linux, install and unlock a Secret Service-compatible keyring before
 connecting. The app does not fall back to plaintext credential storage.
 
+## ListenBrainz
+In Settings, paste a ListenBrainz user token from
+[listenbrainz.org/profile/](https://listenbrainz.org/profile/) and connect.
+The token and account name are kept in the system keyring. Hallucinate updates
+now-playing and submits listens when they meet the player listen threshold;
+offline listens are stored locally and retried. The same page can import recent
+listening history from either ListenBrainz or Last.fm by username. Imported
+history is deduplicated and matched tracks update local listening statistics.
+
 ## Discord Rich Presence
 Optional "Listening to" activity (title, artist, album, progress, cover via Cover Art Archive). Talks to Discord's local IPC directly (no extra dependency), runs off the GUI thread, and reconnects automatically if Discord is closed or started later. Works with native, Flatpak and Snap Discord on Linux, and on Windows.
 

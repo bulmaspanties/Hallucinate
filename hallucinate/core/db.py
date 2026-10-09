@@ -204,13 +204,16 @@ class Database:
         added = matched = 0
         lookup = {}
         for r in self.conn.execute("SELECT path, artist, title FROM tracks"):
-            lookup.setdefault((r["artist"].casefold(), r["title"].casefold()), r["path"])
+            lookup.setdefault((fold(r["artist"]), fold(r["title"])), r["path"])
         for it in items:
             artist, title = (it.get("artist") or "").strip(), (it.get("title") or "").strip()
-            ts = float(it.get("ts") or 0)
+            try:
+                ts = float(it.get("ts") or 0)
+            except (TypeError, ValueError):
+                continue
             if not artist or not title or ts <= 0:
                 continue
-            path = lookup.get((artist.casefold(), title.casefold()))
+            path = lookup.get((fold(artist), fold(title)))
             cur = self.conn.execute(
                 "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, source) VALUES(?,?,?,?,?,?)",
                 (ts, path, artist, title, it.get("album") or "", source))

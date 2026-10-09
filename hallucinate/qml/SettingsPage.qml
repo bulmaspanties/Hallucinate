@@ -324,6 +324,75 @@ Item {
             font.pixelSize: Theme.fontSize(13)
             wrapMode: Text.WordWrap
         }
+        Text { text: "ListenBrainz"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Connect with a ListenBrainz user token to send now-playing updates and listens. Tokens stay in the system keyring; failed submissions remain queued for retry."
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
+        }
+        Row {
+            spacing: 10
+            TextField {
+                id: lbToken
+                width: 320; height: 38
+                visible: !listenbrainz.connected
+                placeholderText: "ListenBrainz user token"
+                echoMode: TextInput.Password
+                color: Theme.text; placeholderTextColor: Theme.textDim
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14); leftPadding: 14
+                background: Rectangle { radius: Theme.radiusLarge; color: Theme.surface; border.color: lbToken.activeFocus ? Theme.accent : Theme.border }
+            }
+            PillButton {
+                visible: !listenbrainz.connected
+                primary: true
+                text: listenbrainz.busy ? "Validating…" : "Connect ListenBrainz"
+                enabled: lbToken.text.length > 0 && !listenbrainz.busy
+                onClicked: { listenbrainz.connectToken(lbToken.text, ""); lbToken.text = "" }
+            }
+            PillButton {
+                visible: listenbrainz.connected
+                text: "Disconnect ListenBrainz"
+                enabled: !listenbrainz.busy
+                onClicked: listenbrainz.disconnectAccount()
+            }
+        }
+        Text {
+            width: parent.width
+            text: listenbrainz.status + (listenbrainz.pendingCount > 0 ? " · " + listenbrainz.pendingCount + " queued listens" : "")
+            color: listenbrainz.connected ? Theme.accent : Theme.textDim
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13); wrapMode: Text.WordWrap
+        }
+        Text { text: "Import listening history"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
+        Row {
+            spacing: 10
+            StyledCombo {
+                id: historySource
+                width: 150
+                model: ["ListenBrainz", "Last.fm"]
+            }
+            TextField {
+                id: historyUser
+                width: 260; height: 38
+                placeholderText: historySource.currentIndex === 0 && listenbrainz.connected ? "Username (blank = connected account)" : "Username"
+                color: Theme.text; placeholderTextColor: Theme.textDim
+                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14); leftPadding: 14
+                background: Rectangle { radius: Theme.radiusLarge; color: Theme.surface; border.color: historyUser.activeFocus ? Theme.accent : Theme.border }
+            }
+            PillButton {
+                primary: true
+                text: listenbrainz.importing ? "Importing…" : "Import history"
+                enabled: !listenbrainz.importing && historyUser.text.length > 0
+                         || (!listenbrainz.importing && historySource.currentIndex === 0 && listenbrainz.connected)
+                onClicked: listenbrainz.importHistory(historySource.currentIndex === 0 ? "listenbrainz" : "lastfm", historyUser.text)
+            }
+        }
+        Text {
+            visible: listenbrainz.importStatus.length > 0
+            width: parent.width
+            text: listenbrainz.importStatus
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13); wrapMode: Text.WordWrap
+        }
         Text { text: "About Hallucinate"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
         Image {
             width: 260
