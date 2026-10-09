@@ -293,3 +293,71 @@ def test_played_signal_after_half(make_player, tmp_path):
     assert got[0]["path"] == str(f)
     time.sleep(0.5)
     assert len(got) == 1
+
+
+def test_replaygain_factor():
+    from musicplayer.player import replaygain_factor
+    t = {"rg_track": -6.0, "rg_album": -3.0, "rg_peak": 0.5}
+    assert replaygain_factor(t, "off") == 1.0
+    assert replaygain_factor(None, "track") == 1.0
+    assert abs(replaygain_factor({"rg_track": -6.0}, "track") - 0.501) < 0.01
+    assert abs(replaygain_factor({"rg_track": -6.0, "rg_album": -3.0}, "album") - 0.708) < 0.01
+    assert abs(replaygain_factor({"rg_track": -6.0}, "album") - 0.501) < 0.01  # falls back
+    assert replaygain_factor({"rg_track": 12.0, "rg_peak": 0.5}, "track") == 2.0  # peak clamp
+    assert replaygain_factor({"rg_track": -6.0}, "track", preamp_db=6.0) == pytest.approx(1.0)
+    assert replaygain_factor({"rg_track": None}, "track") == 1.0
+
+
+def test_replaygain_sets_output_volume(make_player, tmp_path):
+    p = make_player(session=False)
+    p.setVolume(1.0)
+    f = encode(tmp_path / "g.wav", "wav", seconds=2.0)
+    t = track(f, 1, 2.0)
+    t["rg_track"] = -6.0
+    p.setReplayGainMode("track")
+    p.playList([t], 0)
+    assert abs(p._voice.audio.volume() - 0.501) < 0.01
+    p.setReplayGainMode("off")
+    assert p._voice.audio.volume() == pytest.approx(1.0)
+    p.setReplayGainMode("off")
+
+
+def test_crossfade_overlaps_tracks(make_player, tmp_path):
+    p = make_player(session=False)
+    p.setVolume(1.0)
+    p.setCrossfade(1)
+    tracks = [track(encode(tmp_path / f"x{i}.flac", "flac", seconds=4, title=f"x{i}"), i, 4) for i in range(2)]
+    p.playList(tracks, 0)
+    assert wait_for(lambda: is_playing(p) and p.position > 100)
+    p.seek(2500)
+    assert wait_for(lambda: p._fading, timeout=6)
+    assert p.currentIndex == 1
+    old = p._standby
+    assert old.player.playbackState().name == "PlayingState"
+    assert wait_for(lambda: not p._fading, timeout=4)
+    assert old.player.playbackState().name != "PlayingState"
+    assert p._voice.audio.volume() == pytest.approx(1.0)
+    p.setCrossfade(0)
+
+
+def test_eq_enabled_plays_and_seeks(make_player, tmp_path):
+    from PySide6.QtMultimedia import QMediaDevices
+    if QMediaDevices.defaultAudioOutput().isNull():
+        pytest.skip("no audio output device")
+    p = make_player(session=False)
+    f = encode(tmp_path / "eq.flac", "flac", seconds=3)
+    p.setEqPreset("Rock")
+    p.setEqEnabled(True)
+    assert p.eqEnabled and p.eqPreset == "Rock"
+    p.playList([track(f, 1, 3)], 0)
+    assert wait_for(lambda: is_playing(p) and p.position > 300), p.error
+    assert p._voice.tap is not None and not p._voice.tap.failed
+    p.pause()
+    assert p.state == "Paused"
+    p.seek(1500)
+    p.play()
+    assert wait_for(lambda: p.position > 1700)
+    p.setEqEnabled(False)
+    assert p._voice.tap is None and p._voice.audio.volume() > 0
+    assert wait_for(lambda: p.position > 1900)
+    assert p.error == ""

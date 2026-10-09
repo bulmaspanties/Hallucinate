@@ -14,6 +14,7 @@ pkgbase = musicplayer-git
 	depends = pyside6
 	depends = python-mutagen
 	depends = python-keyring
+	depends = python-numpy
 	depends = qt6-multimedia-ffmpeg
 	depends = qt6-declarative
 	optdepends = gnome-keyring: store Last.fm credentials in the system keyring

@@ -3,11 +3,13 @@ import logging
 import math
 import os
 import random
+import time
 from pathlib import Path
 
 from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
+from . import eq
 from .core.tags import is_readable_audio
 from .models import TRACK_KEYS, DictModel
 
@@ -28,12 +30,32 @@ class _Voice:
         self.player.setAudioOutput(self.audio)
         self.index = -1  # queue index the loaded source belongs to
         self.path = ""
+        self.fade = 1.0  # crossfade multiplier
+        self.tap = None  # equalizer tap, present while the equalizer is on
 
     def clear(self):
         self.player.stop()
         self.player.setSource(QUrl())
         self.index = -1
         self.path = ""
+        self.fade = 1.0
+        if self.tap is not None:
+            self.tap.reset()
+
+
+def replaygain_factor(track, mode, preamp_db=0.0):
+    """Linear gain for a track under the given ReplayGain mode ("off", "track" or "album")."""
+    if mode not in ("track", "album") or not track:
+        return 1.0
+    keys = ("rg_album", "rg_track") if mode == "album" else ("rg_track", "rg_album")
+    gain = next((track[k] for k in keys if isinstance(track.get(k), (int, float))), None)
+    if gain is None:
+        return 1.0
+    factor = 10 ** ((gain + preamp_db) / 20)
+    peak = track.get("rg_peak")
+    if isinstance(peak, (int, float)) and peak > 0:
+        factor = min(factor, 1.0 / peak)
+    return factor
 
 
 class Player(QObject):
@@ -47,6 +69,8 @@ class Player(QObject):
     queueChanged = Signal()
     errorChanged = Signal()
     seeked = Signal(int)
+    audioSettingsChanged = Signal()
+    eqChanged = Signal()
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
 
     def __init__(self, parent=None, session_file=None):
@@ -71,6 +95,29 @@ class Player(QObject):
             self._volume = stored_volume if math.isfinite(stored_volume) else 0.8
         except (TypeError, ValueError):
             self._volume = 0.8
+        self._rg_mode = str(self._settings.value("replaygain/mode", "off"))
+        if self._rg_mode not in ("off", "track", "album"):
+            self._rg_mode = "off"
+        self._rg_preamp = self._float_setting("replaygain/preamp", 0.0, -15.0, 15.0)
+        self._crossfade = int(self._float_setting("crossfade", 0, 0, 12))
+        self._eq_enabled = False
+        self._eq_gains = [0.0] * len(eq.BANDS)
+        self._eq_preset = "Flat"
+        if eq.available():
+            self._eq_enabled = str(self._settings.value("eq/enabled", "false")).lower() == "true"
+            try:
+                g = json.loads(str(self._settings.value("eq/gains", "[]")))
+                if isinstance(g, list) and len(g) == len(eq.BANDS):
+                    self._eq_gains = [min(max(float(x), -eq.MAX_GAIN_DB), eq.MAX_GAIN_DB) for x in g]
+            except (ValueError, TypeError):
+                pass
+            self._eq_preset = self._detect_preset()
+        self._fading = False
+        self._fade_start = 0.0
+        self._fade_ms = 0
+        self._fade_timer = QTimer(self)
+        self._fade_timer.setInterval(40)
+        self._fade_timer.timeout.connect(self._fade_tick)
         self._voices = [_Voice(self), _Voice(self)]
         self._cur = 0
         for n, v in enumerate(self._voices):
@@ -81,6 +128,9 @@ class Player(QObject):
             p.durationChanged.connect(lambda *_, n=n: self._on_duration(n))
             p.mediaStatusChanged.connect(lambda st, n=n: self._on_media_status(n, st))
             p.errorOccurred.connect(lambda err, msg, n=n: self._on_error(n, msg))
+            p.playbackStateChanged.connect(lambda st, n=n: self._tap_state(n, st))
+        if self._eq_enabled:
+            self._sync_taps()
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -96,6 +146,175 @@ class Player(QObject):
         self._play_counted = False
         self._transitioning = False
         self._ended = False
+
+    def _float_setting(self, key, default, lo, hi):
+        try:
+            v = float(self._settings.value(key, default))
+        except (TypeError, ValueError):
+            return default
+        return min(max(v, lo), hi) if math.isfinite(v) else default
+
+    # --- ReplayGain / crossfade settings ----------------------------------
+    @Property(str, notify=audioSettingsChanged)
+    def replayGainMode(self):
+        return self._rg_mode
+
+    @Property(float, notify=audioSettingsChanged)
+    def replayGainPreamp(self):
+        return self._rg_preamp
+
+    @Property(int, notify=audioSettingsChanged)
+    def crossfade(self):
+        return self._crossfade
+
+    @Slot(str)
+    def setReplayGainMode(self, mode):
+        if mode in ("off", "track", "album") and mode != self._rg_mode:
+            self._rg_mode = mode
+            self._settings.setValue("replaygain/mode", mode)
+            self._apply_volume()
+            self.audioSettingsChanged.emit()
+
+    @Slot(float)
+    def setReplayGainPreamp(self, db):
+        db = min(max(float(db), -15.0), 15.0)
+        if db != self._rg_preamp:
+            self._rg_preamp = db
+            self._settings.setValue("replaygain/preamp", db)
+            self._apply_volume()
+            self.audioSettingsChanged.emit()
+
+    @Slot(int)
+    def setCrossfade(self, seconds):
+        seconds = min(max(int(seconds), 0), 12)
+        if seconds != self._crossfade:
+            self._crossfade = seconds
+            self._settings.setValue("crossfade", seconds)
+            self.audioSettingsChanged.emit()
+
+    # --- equalizer -----------------------------------------------------------
+    def _detect_preset(self):
+        for name, gains in eq.PRESETS.items():
+            if all(abs(a - b) < 0.05 for a, b in zip(self._eq_gains, gains)):
+                return name
+        return "Custom"
+
+    @Property(bool, constant=True)
+    def eqAvailable(self):
+        return eq.available()
+
+    @Property(bool, notify=eqChanged)
+    def eqEnabled(self):
+        return self._eq_enabled
+
+    @Property("QVariantList", notify=eqChanged)
+    def eqGains(self):
+        return list(self._eq_gains)
+
+    @Property(str, notify=eqChanged)
+    def eqPreset(self):
+        return self._eq_preset
+
+    @Property("QVariantList", constant=True)
+    def eqPresets(self):
+        return list(eq.PRESETS)
+
+    @Property("QVariantList", constant=True)
+    def eqBands(self):
+        return [f"{b // 1000}k" if b >= 1000 else str(b) for b in eq.BANDS]
+
+    def _save_eq(self):
+        self._settings.setValue("eq/enabled", "true" if self._eq_enabled else "false")
+        self._settings.setValue("eq/gains", json.dumps(self._eq_gains))
+        self._eq_preset = self._detect_preset()
+        for voice in self._voices:
+            if voice.tap is not None:
+                voice.tap.processor.set_gains(self._eq_gains)
+        self.eqChanged.emit()
+
+    @Slot(bool)
+    def setEqEnabled(self, on):
+        if on and not eq.available():
+            return
+        if on != self._eq_enabled:
+            self._eq_enabled = on
+            self._sync_taps()
+            self._save_eq()
+
+    @Slot(int, float)
+    def setEqBand(self, band, db):
+        if 0 <= band < len(self._eq_gains):
+            self._eq_gains[band] = min(max(float(db), -eq.MAX_GAIN_DB), eq.MAX_GAIN_DB)
+            self._save_eq()
+
+    @Slot(str)
+    def setEqPreset(self, name):
+        if name in eq.PRESETS:
+            self._eq_gains = [float(g) for g in eq.PRESETS[name]]
+            self._save_eq()
+
+    def _sync_taps(self):
+        for voice in self._voices:
+            if self._eq_enabled and voice.tap is None:
+                tap = eq.EqTap(eq.EqProcessor(), self)
+                tap.processor.set_gains(self._eq_gains)
+                voice.tap = tap
+                voice.player.setAudioBufferOutput(tap.output)
+                tap.setRunning(voice.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+            elif not self._eq_enabled and voice.tap is not None:
+                voice.player.setAudioBufferOutput(None)
+                voice.tap.close()
+                voice.tap.deleteLater()
+                voice.tap = None
+        self._apply_volume()
+
+    def _tap_state(self, n, state):
+        tap = self._voices[n].tap
+        if tap is None:
+            return
+        running = state == QMediaPlayer.PlaybackState.PlayingState
+        if running or n == self._cur:  # a swapped-out voice keeps draining its sink for gapless playback
+            tap.setRunning(running)
+
+    def _voice_track(self, voice):
+        return self._queue[voice.index] if 0 <= voice.index < len(self._queue) else None
+
+    def _apply_volume(self):
+        for voice in self._voices:
+            gain = replaygain_factor(self._voice_track(voice), self._rg_mode, self._rg_preamp)
+            level = min(1.0, self._volume ** 2 * gain * voice.fade)
+            if voice.tap is not None:
+                voice.audio.setVolume(0.0)  # still paces the decoder; the tap's sink plays the sound
+                voice.tap.setVolume(level)
+            else:
+                voice.audio.setVolume(level)
+
+    def _start_fade(self, ms):
+        self._fading = True
+        self._fade_ms = max(ms, 1)
+        self._fade_start = time.monotonic()
+        self._voice.fade = 0.0
+        self._standby.fade = 1.0
+        self._fade_timer.start()
+        self._apply_volume()
+
+    def _fade_tick(self):
+        t = min(1.0, (time.monotonic() - self._fade_start) * 1000 / self._fade_ms)
+        self._voice.fade = t
+        self._standby.fade = 1.0 - t
+        self._apply_volume()
+        if t >= 1.0:
+            self._end_fade()
+
+    def _end_fade(self):
+        if not self._fading:
+            return
+        self._fading = False
+        self._fade_timer.stop()
+        old = self._standby
+        old.player.pause()
+        old.fade = self._voice.fade = 1.0
+        self._apply_volume()
 
     # --- helpers -----------------------------------------------------------
     @property
@@ -204,6 +423,8 @@ class Player(QObject):
     def play(self):
         if self.hasTrack:
             if self._ended or self._player.mediaStatus() == QMediaPlayer.MediaStatus.EndOfMedia:
+                if self._voice.tap is not None:
+                    self._voice.tap.reset()
                 self._player.setPosition(0)
             self._ended = False
             self._player.play()
@@ -213,6 +434,7 @@ class Player(QObject):
     @Slot()
     def pause(self):
         self._ended = False
+        self._end_fade()
         self._player.pause()
         self.stateChanged.emit()
         self.saveSession()
@@ -220,6 +442,7 @@ class Player(QObject):
     @Slot()
     def stop(self):
         self._ended = False
+        self._end_fade()
         self._player.stop()
         self.stateChanged.emit()
         self.saveSession()
@@ -242,6 +465,8 @@ class Player(QObject):
         if self._ended:
             self._ended = False
             self.stateChanged.emit()
+        if self._voice.tap is not None:
+            self._voice.tap.reset()
         self._player.setPosition(ms)
         self.seeked.emit(ms)
 
@@ -254,8 +479,7 @@ class Player(QObject):
         v = float(v)
         v = min(max(v, 0.0), 1.0) if math.isfinite(v) else 0.0
         self._volume = v
-        for voice in self._voices:
-            voice.audio.setVolume(v * v)
+        self._apply_volume()
         self._settings.setValue("volume", v)
         self.volumeChanged.emit()
 
@@ -451,7 +675,7 @@ class Player(QObject):
             return None if (self._repeat == REPEAT_OFF and auto) else 0
         return nxt
 
-    def _load(self, i, autoplay=True, record=True):
+    def _load(self, i, autoplay=True, record=True, fade_ms=0, drain=False):
         if not 0 <= i < len(self._queue):
             return
         if record and self.hasTrack and i != self._index:
@@ -476,6 +700,7 @@ class Player(QObject):
                     return
             self._reset_empty()
             return
+        self._end_fade()
         self._index = i
         if self._shuffle and len(self._played) >= len(self._queue):
             self._played.clear()
@@ -492,28 +717,38 @@ class Player(QObject):
         sb = self._standby
         if autoplay and sb.index == i and sb.path == path and sb.player.source().isValid():
             # Pause before end-of-stream; Qt's FFmpeg backend can stall on EndOfMedia.
-            self._voice.player.pause()
+            if not fade_ms:
+                self._voice.player.pause()
+                if self._voice.tap is not None and not drain:
+                    self._voice.tap.reset()
             self._cur = 1 - self._cur
+            if self._voice.tap is not None:
+                self._voice.tap.reset()
             self._player.setPosition(0)
             self.gapless_swaps += 1
+            if fade_ms:
+                self._start_fade(fade_ms)
             self._player.play()
         else:
             self._voice.index, self._voice.path = i, path
+            if self._voice.tap is not None:
+                self._voice.tap.reset()
             self._player.setSource(QUrl.fromLocalFile(path))
             if autoplay:
                 self._player.play()
             if sb.index not in (-1, i):
                 sb.clear()
+        self._apply_volume()
         self.trackChanged.emit()
         self.stateChanged.emit()
         self.durationChanged.emit()
         self.positionChanged.emit()
 
     def _maybe_preload(self):
-        if not self.hasTrack or not self.playing:
+        if not self.hasTrack or not self.playing or self._fading:
             return
         dur = self._player.duration()
-        if dur <= 0 or dur - self._player.position() > PRELOAD_MS:
+        if dur <= 0 or dur - self._player.position() > PRELOAD_MS + self._crossfade * 1000:
             return
         nxt = self._compute_next(auto=True)
         sb = self._standby
@@ -524,8 +759,11 @@ class Player(QObject):
             return
         sb.player.pause()
         sb.index, sb.path = nxt, path
+        if sb.tap is not None:
+            sb.tap.reset()
         sb.player.setSource(QUrl.fromLocalFile(path))
         sb.player.pause()  # prepare the decoder without taking the audio device
+        self._apply_volume()
 
     def _on_position(self, n):
         if n != self._cur:
@@ -535,6 +773,8 @@ class Player(QObject):
         pos = self._player.position()
         dur = self._player.duration()
         self._count_listening(pos, dur)
+        if self._try_crossfade(pos, dur):
+            return
         if (not self._transitioning and self.playing and dur > 0 and
                 dur - pos <= TRANSITION_MS):
             self._transitioning = True
@@ -542,6 +782,19 @@ class Player(QObject):
         if self.playing and abs(pos - self._last_saved_pos) > 5000:
             self._last_saved_pos = pos
             self.saveSession()
+
+    def _try_crossfade(self, pos, dur):
+        xf = self._crossfade * 1000
+        if not xf or self._fading or self._transitioning or not self.playing or self._repeat == REPEAT_ONE:
+            return False
+        if dur < 2 * xf or dur - pos > xf:
+            return False
+        nxt = self._compute_next(auto=True)
+        sb = self._standby
+        if nxt is None or nxt == self._index or sb.index != nxt or not sb.player.source().isValid():
+            return False
+        self._load(nxt, fade_ms=dur - pos)
+        return True
 
     def _count_listening(self, pos, dur):
         """Count real listening time (ignoring seeks) and emit `played` once per loaded track."""
@@ -565,7 +818,7 @@ class Player(QObject):
             return
         nxt = self._compute_next(auto=True)
         if nxt is not None:
-            self._load(nxt)
+            self._load(nxt, drain=True)
         else:
             self._ended = True
             self._player.pause()
@@ -614,6 +867,7 @@ class Player(QObject):
             self.errorChanged.emit()
 
     def shutdown(self):
+        self._fade_timer.stop()
         self.saveSession()
         for v in self._voices:
             v.clear()

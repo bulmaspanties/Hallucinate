@@ -10,7 +10,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 cp -r "$repo/packaging/appimage/appdir" "$work/appdir"
-printf 'PySide6>=6.5\nmutagen>=1.46\nkeyring>=24\n%s\n' "$repo" > "$work/appdir/requirements.txt"
+printf 'PySide6>=6.5\nmutagen>=1.46\nkeyring>=24\nnumpy>=1.24\n%s\n' "$repo" > "$work/appdir/requirements.txt"
 
 python3 -m venv "$work/venv"
 "$work/venv/bin/pip" install -q python-appimage

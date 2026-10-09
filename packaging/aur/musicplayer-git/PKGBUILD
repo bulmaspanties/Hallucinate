@@ -7,7 +7,7 @@ pkgdesc="Fast, modern desktop music player with Spotify-style search and browsin
 arch=('any')
 url="https://github.com/bulmaspanties/music-player"
 license=('MIT')
-depends=('python' 'pyside6' 'python-mutagen' 'python-keyring' 'qt6-multimedia-ffmpeg' 'qt6-declarative')
+depends=('python' 'pyside6' 'python-mutagen' 'python-keyring' 'python-numpy' 'qt6-multimedia-ffmpeg' 'qt6-declarative')
 makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 optdepends=('gnome-keyring: store Last.fm credentials in the system keyring'
             'kwallet: store Last.fm credentials in the system keyring')

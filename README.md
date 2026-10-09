@@ -41,7 +41,7 @@ Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself 
 
 ### Arch Linux
 ```sh
-sudo pacman -S pyside6 python-mutagen python-keyring qt6-multimedia-ffmpeg
+sudo pacman -S pyside6 python-mutagen python-keyring python-numpy qt6-multimedia-ffmpeg
 git clone https://github.com/bulmaspanties/music-player.git && cd music-player
 cd packaging/aur/musicplayer && makepkg -si      # or run from source (below)
 ```

@@ -97,6 +97,41 @@ Item {
             onClicked: themeManager.reloadThemes()
         }
 
+        Text { text: "Playback"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Row {
+            spacing: 12
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "ReplayGain"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
+            StyledCombo {
+                objectName: "rgMode"
+                model: ["Off", "Track", "Album"]
+                currentIndex: ["off", "track", "album"].indexOf(player.replayGainMode)
+                onActivated: player.setReplayGainMode(["off", "track", "album"][currentIndex])
+            }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Preamp " + player.replayGainPreamp.toFixed(1) + " dB"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
+            StyledSlider {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 140
+                from: -15; to: 15; stepSize: 0.5
+                value: player.replayGainPreamp
+                onMoved: player.setReplayGainPreamp(value)
+            }
+        }
+        Row {
+            spacing: 12
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Crossfade " + (player.crossfade > 0 ? player.crossfade + " s" : "off"); color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
+            StyledSlider {
+                objectName: "crossfade"
+                anchors.verticalCenter: parent.verticalCenter
+                width: 200
+                from: 0; to: 12; stepSize: 1
+                value: player.crossfade
+                onMoved: player.setCrossfade(value)
+            }
+        }
+        Text { text: "Gapless playback is always on; with crossfade off, consecutive tracks play back to back."; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
+        Text { text: "Equalizer"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        EqualizerPanel {}
+
         Text { text: "Music folders"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
         Text {
             text: "Folders are scanned in the background and watched for changes."
