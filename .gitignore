@@ -5,9 +5,9 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
-packaging/arch/src/
-packaging/arch/pkg/
-packaging/arch/*.pkg.tar.*
+packaging/aur/*/src/
+packaging/aur/*/pkg/
+packaging/aur/*/*.pkg.tar.*
 .ruff_cache/
 .mypy_cache/
 .coverage
@@ -17,3 +17,10 @@ htmlcov/
 .idea/
 .vscode/
 .env
+packaging/aur/*/src/
+packaging/aur/*/pkg/
+packaging/aur/*/*.pkg.tar.*
+packaging/aur/*/*.tar.gz
+packaging/aur/*/music-player/
+packaging/appimage/build/
+*.AppImage

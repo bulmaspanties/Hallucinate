@@ -1,0 +1,26 @@
+pkgbase = musicplayer-git
+	pkgdesc = Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML) - git version
+	pkgver = 0.1.0.r0.g3848ef5
+	pkgrel = 1
+	url = https://github.com/bulmaspanties/music-player
+	arch = any
+	license = MIT
+	makedepends = git
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-setuptools
+	makedepends = python-wheel
+	depends = python
+	depends = pyside6
+	depends = python-mutagen
+	depends = python-keyring
+	depends = qt6-multimedia-ffmpeg
+	depends = qt6-declarative
+	optdepends = gnome-keyring: store Last.fm credentials in the system keyring
+	optdepends = kwallet: store Last.fm credentials in the system keyring
+	provides = musicplayer
+	conflicts = musicplayer
+	source = git+https://github.com/bulmaspanties/music-player.git
+	sha256sums = SKIP
+
+pkgname = musicplayer-git

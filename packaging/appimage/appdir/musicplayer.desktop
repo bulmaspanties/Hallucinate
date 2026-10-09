@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Music Player
+GenericName=Music Player
+Comment=Fast, modern music player with instant search
+Exec=musicplayer %F
+Icon=musicplayer
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+MimeType=audio/mpeg;audio/flac;audio/x-flac;audio/ogg;audio/opus;audio/x-wav;audio/mp4;audio/aac;audio/x-ms-wma;audio/x-ape;
+StartupWMClass=musicplayer

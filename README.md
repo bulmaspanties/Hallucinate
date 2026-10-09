@@ -22,11 +22,24 @@ playlist-driven: type to find, click to play.
 - Live-switchable, file-backed themes with album-art accent mode and keyboard-friendly UI.
 
 ## Install
+### AUR (once published)
+```sh
+yay -S musicplayer        # stable; or musicplayer-git for the development version
+```
+Maintainer notes: [packaging/aur/README.md](packaging/aur/README.md).
+
+### AppImage (any x86_64 Linux)
+Download `musicplayer-*-x86_64.AppImage` from the [Releases](https://github.com/bulmaspanties/music-player/releases) page:
+```sh
+chmod +x musicplayer-*.AppImage && ./musicplayer-*.AppImage
+```
+Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself with `packaging/appimage/build.sh`.
+
 ### Arch Linux
 ```sh
 sudo pacman -S pyside6 python-mutagen python-keyring qt6-multimedia-ffmpeg
 git clone https://github.com/bulmaspanties/music-player.git && cd music-player
-cd packaging/arch && makepkg -si      # or run from source (below)
+cd packaging/aur/musicplayer && makepkg -si      # or run from source (below)
 ```
 ### pip (any OS)
 ```sh
