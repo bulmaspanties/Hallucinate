@@ -35,11 +35,11 @@ Item {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 8
-                    Text { text: "ARTIST"; color: Theme.textDim; font.pixelSize: 12; font.weight: Font.DemiBold }
-                    Text { text: page.artistName; color: Theme.text; font.pixelSize: 40; font.weight: Font.Bold }
+                    Text { text: "ARTIST"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12); font.weight: Font.DemiBold }
+                    Text { text: page.artistName; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(40); font.weight: Font.Bold }
                     Text {
                         text: page.info.albums + " albums • " + page.info.tracks + " songs"
-                        color: Theme.textDim; font.pixelSize: 14
+                        color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14)
                     }
                     Row {
                         spacing: 10
@@ -56,7 +56,7 @@ Item {
                 }
             }
 
-            Text { text: "Albums"; color: Theme.text; font.pixelSize: 20; font.weight: Font.DemiBold }
+            Text { text: "Albums"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
             ListView {
                 width: parent.width; height: 240
                 orientation: ListView.Horizontal
@@ -71,7 +71,7 @@ Item {
                 }
             }
 
-            Text { text: "Songs"; color: Theme.text; font.pixelSize: 20; font.weight: Font.DemiBold }
+            Text { text: "Songs"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
             Repeater {
                 model: page.tracksModel
                 TrackRow {

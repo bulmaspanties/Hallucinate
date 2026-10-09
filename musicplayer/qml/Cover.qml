@@ -19,7 +19,8 @@ Rectangle {
         anchors.centerIn: parent
         text: cover.fallback
         color: Theme.surfaceHi
-        font.pixelSize: Math.max(12, cover.width * 0.4)
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(Math.max(12, cover.width * 0.4))
         visible: img.status !== Image.Ready
     }
     Image {

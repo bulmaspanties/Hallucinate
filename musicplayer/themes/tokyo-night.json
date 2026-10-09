@@ -1,0 +1,17 @@
+{
+  "name": "Tokyo Night",
+  "colors": {
+    "bg": "#1a1b26",
+    "panel": "#16161e",
+    "surface": "#24283b",
+    "surfaceHi": "#343a52",
+    "border": "#414868",
+    "text": "#c0caf5",
+    "textDim": "#a9b1d6",
+    "accent": "#7aa2f7",
+    "error": "#f7768e",
+    "onAccent": "#1a1b26"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

@@ -17,6 +17,14 @@ def data_dir() -> Path:
     return base
 
 
+def config_dir() -> Path:
+    override = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(override) if override else Path.home() / ".config"
+    result = base / "musicplayer"
+    result.mkdir(parents=True, exist_ok=True)
+    return result
+
+
 def art_dir() -> Path:
     p = data_dir() / "art"
     p.mkdir(parents=True, exist_ok=True)

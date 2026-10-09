@@ -1,0 +1,17 @@
+{
+  "name": "Light",
+  "colors": {
+    "bg": "#f6f6f8",
+    "panel": "#ffffff",
+    "surface": "#eeeeF2",
+    "surfaceHi": "#e2e2e8",
+    "border": "#d3d3dc",
+    "text": "#20202a",
+    "textDim": "#686875",
+    "accent": "#6650d9",
+    "error": "#c83245",
+    "onAccent": "#ffffff"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

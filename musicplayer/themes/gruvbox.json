@@ -1,0 +1,17 @@
+{
+  "name": "Gruvbox",
+  "colors": {
+    "bg": "#282828",
+    "panel": "#1d2021",
+    "surface": "#3c3836",
+    "surfaceHi": "#504945",
+    "border": "#665c54",
+    "text": "#ebdbb2",
+    "textDim": "#bdae93",
+    "accent": "#fabd2f",
+    "error": "#fb4934",
+    "onAccent": "#282828"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

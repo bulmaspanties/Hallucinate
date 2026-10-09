@@ -27,7 +27,8 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             text: card.name
             color: Theme.text
-            font.pixelSize: 14
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(14)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
@@ -36,7 +37,8 @@ Item {
             horizontalAlignment: Text.AlignHCenter
             text: card.subtitle
             color: Theme.textDim
-            font.pixelSize: 12
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(12)
             elide: Text.ElideRight
         }
     }

@@ -84,12 +84,30 @@ codec decodes.
 - [ ] Test with an unavailable system keyring; verify the UI reports the failure
   and credentials/session keys are never written as plaintext.
 
+## Themes
+
+- [ ] Switch through all built-in themes; verify text, disabled controls, hover,
+  selection, error, and accent contrast remain readable in both light and dark
+  palettes.
+- [ ] Change theme while browsing and while playback is active; verify the
+  player, queue, dialogs, sliders, and Settings update immediately.
+- [ ] Enable album-art accent mode, switch between albums with different covers,
+  then play a track without artwork; verify the accent follows the cover and
+  falls back to the selected theme when no art is available.
+- [ ] Add a valid custom theme JSON under the displayed user theme directory,
+  select **Reload themes**, and verify its colors, radius, family, and font scale
+  apply live and persist after restart.
+- [ ] Add malformed or incomplete theme JSON, reload, and verify the app logs
+  the skipped file while the other themes remain selectable.
+
 ## Automated coverage
 
 The automated suite covers real FFmpeg-generated FLAC, MP3, Vorbis, Opus, AAC,
 ALAC, WAV, WMA, WavPack, and AIFF playback/seek files, common tag/fallback/corrupt
 inputs, player queue/session behavior, a D-Bus MPRIS session, and 50,000-row
 database query performance, plus mocked Last.fm signing, authorization, listen
-thresholds, and offline queue/retry behavior. It does not replace testing actual
-device media keys, live Last.fm authorization, all user-supplied codec variants,
-or real APE decoding on the target system.
+thresholds, and offline queue/retry behavior. Theme tests cover built-in/custom
+theme loading, persistence, album-art accent selection, and live QML color/font
+updates. It does not replace testing actual device media keys, live Last.fm
+authorization, all user-supplied codec variants, or real APE decoding on the
+target system.

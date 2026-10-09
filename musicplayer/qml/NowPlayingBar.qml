@@ -19,7 +19,7 @@ Rectangle {
         spacing: 12
         Cover {
             id: art
-            width: 60; height: 60; radius: 6
+            width: 60; height: 60; radius: Theme.radiusSmall
             source: player.hasTrack ? player.current.artUrl : ""
             MouseArea {
                 anchors.fill: parent
@@ -35,14 +35,15 @@ Rectangle {
             Text {
                 width: parent.width
                 text: player.hasTrack ? player.current.title : "Nothing playing"
-                color: Theme.text; font.pixelSize: 14; font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14); font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
             Text {
                 width: parent.width
                 text: player.error.length > 0 ? player.error : (player.hasTrack ? player.current.artist : "")
-                color: player.error.length > 0 ? "#ff6b6b" : Theme.textDim
-                font.pixelSize: 12
+                color: player.error.length > 0 ? Theme.error : Theme.textDim
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(12)
                 elide: Text.ElideRight
                 MouseArea {
                     anchors.fill: parent
@@ -66,12 +67,12 @@ Rectangle {
             IconButton { icon: "prev"; onClicked: player.previous() }
             Rectangle {
                 width: 42; height: 42; radius: 21
-                color: pp.containsMouse ? "white" : Theme.text
+                color: pp.containsMouse ? Theme.accentHi : Theme.accent
                 Icon {
                     anchors.centerIn: parent
                     width: 18; height: 18
                     name: player.playing ? "pause" : "play"
-                    color: "#0b0b10"
+                    color: Theme.onAccent
                 }
                 MouseArea { id: pp; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: player.toggle() }
             }
@@ -85,7 +86,7 @@ Rectangle {
         RowLayout {
             width: parent.width
             spacing: 10
-            Text { text: Theme.fmtTime(player.position); color: Theme.textDim; font.pixelSize: 11; Layout.preferredWidth: 38; horizontalAlignment: Text.AlignRight }
+            Text { text: Theme.fmtTime(player.position); color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); Layout.preferredWidth: 38; horizontalAlignment: Text.AlignRight }
             StyledSlider {
                 Layout.fillWidth: true
                 from: 0
@@ -94,7 +95,7 @@ Rectangle {
                 enabled: player.hasTrack
                 onMoved: player.seek(value)
             }
-            Text { text: Theme.fmtTime(player.duration); color: Theme.textDim; font.pixelSize: 11; Layout.preferredWidth: 38 }
+            Text { text: Theme.fmtTime(player.duration); color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); Layout.preferredWidth: 38 }
         }
     }
 

@@ -31,12 +31,13 @@ Item {
             Column {
                 anchors { left: cover.right; leftMargin: 26; right: parent.right; bottom: cover.bottom }
                 spacing: 8
-                Text { text: "ALBUM"; color: Theme.textDim; font.pixelSize: 12; font.weight: Font.DemiBold }
+                Text { text: "ALBUM"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12); font.weight: Font.DemiBold }
                 Text {
                     width: parent.width
                     text: page.info.album || ""
                     color: Theme.text
-                    font.pixelSize: 36
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize(36)
                     font.weight: Font.Bold
                     elide: Text.ElideRight
                 }
@@ -45,7 +46,8 @@ Item {
                     Text {
                         text: page.info.album_artist || ""
                         color: Theme.text
-                        font.pixelSize: 15
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize(15)
                         font.weight: Font.DemiBold
                         MouseArea {
                             anchors.fill: parent
@@ -56,7 +58,8 @@ Item {
                     Text {
                         text: "• " + (page.info.year > 0 ? page.info.year + " • " : "") + page.info.n + " songs • " + page.info.durText
                         color: Theme.textDim
-                        font.pixelSize: 14
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize(14)
                     }
                 }
                 Row {

@@ -9,7 +9,7 @@ Item {
     height: 40
     Rectangle {
         anchors.fill: parent
-        radius: 8
+        radius: Theme.radiusSmall
         color: item.selected ? Theme.surfaceHi : (ma.containsMouse ? Theme.surface : "transparent")
     }
     Rectangle {
@@ -22,7 +22,8 @@ Item {
         anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
         text: item.text
         color: item.selected || ma.containsMouse ? Theme.text : Theme.textDim
-        font.pixelSize: 14
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(14)
         font.weight: item.selected ? Font.DemiBold : Font.Normal
     }
     MouseArea {

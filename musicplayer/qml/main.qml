@@ -20,7 +20,7 @@ ApplicationWindow {
     palette.button: Theme.surface
     palette.buttonText: Theme.text
     palette.highlight: Theme.accent
-    palette.highlightedText: "#0b0b10"
+    palette.highlightedText: Theme.onAccent
     palette.placeholderText: Theme.textDim
 
     property string section: "home"
@@ -100,11 +100,11 @@ ApplicationWindow {
                         spacing: 10
                         height: 52
                         Rectangle {
-                            width: 30; height: 30; radius: 8; anchors.verticalCenter: parent.verticalCenter
+                            width: 30; height: 30; radius: Theme.radiusSmall; anchors.verticalCenter: parent.verticalCenter
                             color: Theme.accent
-                            Icon { anchors.centerIn: parent; width: 16; height: 16; name: "play"; color: "#0b0b10" }
+                            Icon { anchors.centerIn: parent; width: 16; height: 16; name: "play"; color: Theme.onAccent }
                         }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Music Player"; color: Theme.text; font.pixelSize: 16; font.weight: Font.Bold }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Music Player"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.Bold }
                     }
                     Repeater {
                         model: [
@@ -126,7 +126,8 @@ ApplicationWindow {
                     visible: library.scanning
                     text: library.status
                     color: Theme.accent
-                    font.pixelSize: 12
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize(12)
                 }
             }
 
@@ -154,12 +155,13 @@ ApplicationWindow {
                         placeholderText: "Search artists, albums, songs   ( / )"
                         placeholderTextColor: Theme.textDim
                         color: Theme.text
-                        font.pixelSize: 14
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize(14)
                         leftPadding: 42
                         rightPadding: 14
                         selectByMouse: true
                         background: Rectangle {
-                            radius: 20
+                            radius: Theme.radiusLarge
                             color: Theme.surface
                             border.width: 1
                             border.color: searchField.activeFocus ? Theme.accent : Theme.border

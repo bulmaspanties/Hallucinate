@@ -1,0 +1,17 @@
+{
+  "name": "Nord",
+  "colors": {
+    "bg": "#2e3440",
+    "panel": "#3b4252",
+    "surface": "#434c5e",
+    "surfaceHi": "#4c566a",
+    "border": "#616e88",
+    "text": "#eceff4",
+    "textDim": "#d8dee9",
+    "accent": "#88c0d0",
+    "error": "#bf616a",
+    "onAccent": "#2e3440"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

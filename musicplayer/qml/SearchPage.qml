@@ -26,20 +26,22 @@ Item {
                 visible: page.query.length === 0
                 text: "Search your library"
                 color: Theme.textDim
-                font.pixelSize: 18
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(18)
             }
             Text {
                 visible: page.query.length > 0 && library.searchTracks.count === 0
                          && library.searchAlbums.count === 0 && library.searchArtists.count === 0
                 text: "No results for “" + page.query + "”"
                 color: Theme.textDim
-                font.pixelSize: 18
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(18)
             }
 
             Text {
                 visible: library.searchArtists.count > 0
                 text: "Artists"
-                color: Theme.text; font.pixelSize: 20; font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
             }
             ListView {
                 visible: library.searchArtists.count > 0
@@ -58,7 +60,7 @@ Item {
             Text {
                 visible: library.searchAlbums.count > 0
                 text: "Albums"
-                color: Theme.text; font.pixelSize: 20; font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
             }
             ListView {
                 visible: library.searchAlbums.count > 0
@@ -78,7 +80,7 @@ Item {
             Text {
                 visible: library.searchTracks.count > 0
                 text: "Songs"
-                color: Theme.text; font.pixelSize: 20; font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
             }
             Repeater {
                 model: library.searchTracks

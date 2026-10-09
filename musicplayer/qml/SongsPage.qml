@@ -11,14 +11,16 @@ Item {
         x: 28; y: 20
         text: "Songs"
         color: Theme.text
-        font.pixelSize: 30
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(30)
         font.weight: Font.Bold
     }
     Text {
         anchors { left: title.right; leftMargin: 14; baseline: title.baseline }
         text: library.trackCount + " tracks"
         color: Theme.textDim
-        font.pixelSize: 14
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(14)
     }
     ListView {
         id: list

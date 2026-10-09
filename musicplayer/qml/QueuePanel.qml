@@ -10,8 +10,8 @@ Rectangle {
         id: head
         x: 18; y: 16
         spacing: 12
-        Text { text: "Queue"; color: Theme.text; font.pixelSize: 18; font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
-        Text { text: player.queueModel.count + " tracks"; color: Theme.textDim; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
+        Text { text: "Queue"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(18); font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
+        Text { text: player.queueModel.count + " tracks"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12); anchors.verticalCenter: parent.verticalCenter }
     }
     PillButton {
         anchors { right: parent.right; rightMargin: 14; verticalCenter: head.verticalCenter }
@@ -38,19 +38,19 @@ Rectangle {
         delegate: Rectangle {
             width: ListView.view.width - 10
             height: 54
-            radius: 8
+            radius: Theme.radiusSmall
             color: hh.hovered ? Theme.surface : "transparent"
             HoverHandler { id: hh }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: player.playIndex(index) }
-            Cover { id: art; x: 6; anchors.verticalCenter: parent.verticalCenter; width: 38; height: 38; radius: 4; source: model.artUrl }
+            Cover { id: art; x: 6; anchors.verticalCenter: parent.verticalCenter; width: 38; height: 38; radius: Theme.radiusSmall; source: model.artUrl }
             Column {
                 anchors { left: art.right; leftMargin: 10; right: rm.left; rightMargin: 4; verticalCenter: parent.verticalCenter }
                 spacing: 2
                 Text {
-                    width: parent.width; text: model.title; elide: Text.ElideRight; font.pixelSize: 13
+                    width: parent.width; text: model.title; elide: Text.ElideRight; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
                     color: index === player.currentIndex ? Theme.accent : Theme.text
                 }
-                Text { width: parent.width; text: model.artist; elide: Text.ElideRight; font.pixelSize: 11; color: Theme.textDim }
+                Text { width: parent.width; text: model.artist; elide: Text.ElideRight; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); color: Theme.textDim }
             }
             IconButton {
                 id: rm

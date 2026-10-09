@@ -10,7 +10,7 @@ search-and-browse experience. Not playlist-driven: type to find, click to play.
 - MPRIS2 controls and media keys on Linux.
 - Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
   scrobbling, secure system-keyring credentials, and a persistent offline retry queue.
-- Dark, keyboard-friendly UI.
+- Live-switchable, file-backed themes with album-art accent mode and keyboard-friendly UI.
 
 ## Install
 ### Arch Linux
@@ -47,6 +47,31 @@ Scrobbles are queued while offline and retried with backoff when connected.
 On headless Linux, install and unlock a Secret Service-compatible keyring before
 connecting. The app does not fall back to plaintext credential storage.
 
+## Themes
+Choose a theme in Settings. Built-ins are Dark, Light, Catppuccin Mocha/Latte,
+Nord, Gruvbox, Tokyo Night, and Dracula. The optional album-art accent follows
+the currently playing track; theme selection and this preference persist across
+restarts.
+
+Add custom JSON files to `$XDG_CONFIG_HOME/musicplayer/themes/` (normally
+`~/.config/musicplayer/themes/`) and select **Reload themes** in Settings.
+Every theme requires all listed colors, a radius from 0 to 32, and a font family
+with a size scale from 0.75 to 1.5:
+
+```json
+{
+  "name": "My Theme",
+  "colors": {
+    "bg": "#111118", "panel": "#171720", "surface": "#22222d",
+    "surfaceHi": "#30303d", "border": "#3c3c4b", "text": "#f5f5fa",
+    "textDim": "#a3a3b3", "accent": "#76c7c0", "error": "#ff7777",
+    "onAccent": "#101014"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}
+```
+
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·
 Q queue · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
@@ -57,10 +82,11 @@ pytest                      # core tests; the app smoke test runs offscreen
 QT_QPA_PLATFORM=offscreen musicplayer ~/Music --quit-after 3000
 ```
 Format and playback tests generate real files through `ffmpeg` (including seeking,
-queue transitions and repeat/shuffle). A synthetic APE header tests Mutagen tag
-and duration extraction only; it is not valid APE audio. For release qualification,
-complete the [manual QA checklist](docs/manual-qa.md) with representative files
-from your playback backend and device.
+queue transitions and repeat/shuffle). Theme tests cover built-in and custom
+files, preference persistence, art accents, and live QML updates. A synthetic APE
+header tests Mutagen tag and duration extraction only; it is not valid APE audio.
+For release qualification, complete the [manual QA checklist](docs/manual-qa.md)
+with representative files from your playback backend and device.
 
 ## Limitations
 - Track transitions use two pre-rolled Qt players and switch just before the current

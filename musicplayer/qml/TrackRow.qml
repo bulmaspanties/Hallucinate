@@ -16,7 +16,7 @@ Rectangle {
     signal enqueue()
 
     height: 52
-    radius: 8
+    radius: Theme.radiusSmall
     color: hh.hovered ? Theme.surface : "transparent"
 
     HoverHandler { id: hh }
@@ -35,7 +35,8 @@ Rectangle {
             visible: !hh.hovered && !row.current
             text: row.number
             color: Theme.textDim
-            font.pixelSize: 13
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(13)
         }
         Icon {
             anchors.centerIn: parent
@@ -50,7 +51,7 @@ Rectangle {
         visible: row.showArt
         x: numCol.visible ? numCol.width : 8
         anchors.verticalCenter: parent.verticalCenter
-        width: 38; height: 38; radius: 4
+        width: 38; height: 38; radius: Theme.radiusSmall
         source: row.artUrl
     }
     Column {
@@ -63,14 +64,16 @@ Rectangle {
             width: parent.width
             text: row.title
             color: row.current ? Theme.accent : Theme.text
-            font.pixelSize: 14
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(14)
             elide: Text.ElideRight
         }
         Text {
             width: parent.width
             text: row.artist
             color: Theme.textDim
-            font.pixelSize: 12
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(12)
             elide: Text.ElideRight
         }
     }
@@ -81,7 +84,8 @@ Rectangle {
         width: row.width - x - 130
         text: row.album
         color: Theme.textDim
-        font.pixelSize: 13
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(13)
         elide: Text.ElideRight
     }
     IconButton {
@@ -96,6 +100,7 @@ Rectangle {
         anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
         text: row.durText
         color: Theme.textDim
-        font.pixelSize: 13
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(13)
     }
 }

@@ -32,7 +32,7 @@ Item {
         anchors { right: art.right; bottom: art.bottom; margins: 10 }
         opacity: hh.hovered ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 140 } }
-        Icon { anchors.centerIn: parent; width: 20; height: 20; name: "play"; color: "#0b0b10" }
+        Icon { anchors.centerIn: parent; width: 20; height: 20; name: "play"; color: Theme.onAccent }
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
@@ -46,7 +46,8 @@ Item {
             width: parent.width
             text: card.title
             color: Theme.text
-            font.pixelSize: 14
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(14)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
@@ -54,7 +55,8 @@ Item {
             width: parent.width
             text: card.subtitle
             color: Theme.textDim
-            font.pixelSize: 12
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(12)
             elide: Text.ElideRight
         }
     }

@@ -19,8 +19,9 @@ Rectangle {
         id: label
         anchors.centerIn: parent
         text: btn.text
-        color: btn.primary ? "#0b0b10" : Theme.text
-        font.pixelSize: 14
+        color: btn.primary ? Theme.onAccent : Theme.text
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize(14)
         font.weight: Font.DemiBold
     }
     MouseArea {

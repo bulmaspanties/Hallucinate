@@ -24,7 +24,8 @@ Item {
             Text {
                 text: "Home"
                 color: Theme.text
-                font.pixelSize: 30
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(30)
                 font.weight: Font.Bold
             }
 
@@ -41,14 +42,16 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: library.scanning ? "Scanning your music…" : "Your library is empty"
                         color: Theme.text
-                        font.pixelSize: 20
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize(20)
                         font.weight: Font.DemiBold
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: library.scanning ? library.status : "Add a folder with your music to get started."
                         color: Theme.textDim
-                        font.pixelSize: 14
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize(14)
                     }
                     PillButton {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -75,8 +78,8 @@ Item {
                         color: Theme.surface
                         Column {
                             anchors.centerIn: parent
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.n; color: Theme.text; font.pixelSize: 22; font.weight: Font.Bold }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.l; color: Theme.textDim; font.pixelSize: 12 }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.n; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(22); font.weight: Font.Bold }
+                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.l; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
                         }
                     }
                 }
@@ -86,7 +89,8 @@ Item {
                 visible: library.recentAlbums.count > 0
                 text: "Recently added"
                 color: Theme.text
-                font.pixelSize: 20
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(20)
                 font.weight: Font.DemiBold
             }
             ListView {

@@ -1,0 +1,17 @@
+{
+  "name": "Dark",
+  "colors": {
+    "bg": "#0b0b10",
+    "panel": "#12121a",
+    "surface": "#1a1a24",
+    "surfaceHi": "#262633",
+    "border": "#2a2a38",
+    "text": "#f3f3f7",
+    "textDim": "#9b9bad",
+    "accent": "#8f7bff",
+    "error": "#ff6b6b",
+    "onAccent": "#101014"
+  },
+  "radius": 10,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

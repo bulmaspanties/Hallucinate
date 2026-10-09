@@ -14,6 +14,7 @@ from .core import paths
 from .library import Library
 from .player import Player
 from .scrobbling import LastFmScrobbler
+from .themes import ThemeManager
 
 HERE = Path(__file__).resolve().parent
 
@@ -38,6 +39,7 @@ def main(argv=None) -> int:
     library = Library(paths.db_path(), paths.art_dir())
     player = Player(session_file=paths.data_dir() / "session.json")
     scrobbler = LastFmScrobbler(player, paths.data_dir())
+    theme_manager = ThemeManager(paths.config_dir(), player)
 
     for f in args.folders:
         library.addFolder(f)
@@ -53,6 +55,7 @@ def main(argv=None) -> int:
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("player", player)
     ctx.setContextProperty("scrobbler", scrobbler)
+    ctx.setContextProperty("themeManager", theme_manager)
     engine.addImportPath(str(HERE / "qml"))
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "main.qml")))
     if not engine.rootObjects():
@@ -78,6 +81,7 @@ def main(argv=None) -> int:
     code = app.exec()
     del engine
     scrobbler.shutdown()
+    del theme_manager
     player.shutdown()
     library.shutdown()
     del scrobbler

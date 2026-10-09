@@ -21,7 +21,7 @@ musicplayer = "musicplayer.app:main"
 packages = ["musicplayer", "musicplayer.core"]
 
 [tool.setuptools.package-data]
-musicplayer = ["qml/*", "assets/*"]
+musicplayer = ["qml/*", "assets/*", "themes/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
