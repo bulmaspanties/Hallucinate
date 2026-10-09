@@ -1,6 +1,13 @@
 import os
 import struct
+import sys
+import tempfile
 import wave
+
+sys.path.insert(0, os.path.dirname(__file__))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# Keep QSettings (volume etc.) out of the real user config.
+os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="mp-test-config-")
 
 import pytest
 from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TPE2, TRCK
@@ -84,3 +91,24 @@ def scan(db, tmp_path):
 def touch_newer(path):
     st = os.stat(path)
     os.utime(path, (st.st_atime, st.st_mtime + 10))
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    pytest.importorskip("PySide6.QtMultimedia", exc_type=ImportError)
+    from PySide6.QtGui import QGuiApplication
+    app = QGuiApplication.instance() or QGuiApplication([])
+    yield app
+
+
+def wait_for(cond, timeout=8.0, step=20):
+    """Spin the Qt event loop until cond() is truthy; returns its last value."""
+    import time
+    from PySide6.QtTest import QTest
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        v = cond()
+        if v:
+            return v
+        QTest.qWait(step)
+    return cond()

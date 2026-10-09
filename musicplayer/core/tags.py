@@ -21,7 +21,7 @@ COVER_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 KEYS = {
     "title": ("TIT2", "title", "Title", "\xa9nam"),
     "artist": ("TPE1", "artist", "Artist", "\xa9ART", "Author"),
-    "album_artist": ("TPE2", "albumartist", "album artist", "Album Artist", "aART", "WM/AlbumArtist"),
+    "album_artist": ("TPE2", "albumartist", "album_artist", "album artist", "Album Artist", "aART", "WM/AlbumArtist"),
     "album": ("TALB", "album", "Album", "\xa9alb", "WM/AlbumTitle"),
     "track": ("TRCK", "tracknumber", "Track", "trkn", "WM/TrackNumber"),
     "disc": ("TPOS", "discnumber", "Disc", "disk", "WM/PartOfSet"),
@@ -111,6 +111,53 @@ def find_folder_art(directory: str) -> Optional[str]:
     return None
 
 
+_RIFF_INFO = {b"INAM": "title", b"IART": "artist", b"IPRD": "album", b"ITRK": "track",
+              b"ICRD": "year", b"IGNR": "genre", b"IPRT": "track"}
+_AIFF_TEXT = {b"NAME": "title", b"AUTH": "artist"}
+
+
+def _chunk_text(raw: bytes) -> str:
+    return raw.split(b"\0", 1)[0].decode("utf-8", "replace").strip()
+
+
+def _plain_tags(path: str, ext: str) -> dict:
+    """Fallback tags for RIFF INFO (WAV) and AIFF text chunks, which mutagen ignores."""
+    import struct
+
+    out = {}
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(12)
+            if len(head) < 12:
+                return out
+            big = head[:4] == b"FORM"
+            if head[:4] not in (b"RIFF", b"FORM"):
+                return out
+            end = min(8 + struct.unpack(">I" if big else "<I", head[4:8])[0], os.fstat(fh.fileno()).st_size)
+            while fh.tell() + 8 <= end:
+                cid, size = struct.unpack("4sI", fh.read(8)) if not big else (
+                    fh.read(4), struct.unpack(">I", fh.read(4))[0])
+                body = fh.tell()
+                if big and cid in _AIFF_TEXT:
+                    out[_AIFF_TEXT[cid]] = _chunk_text(fh.read(min(size, 4096)))
+                elif not big and cid == b"LIST":
+                    if fh.read(4) == b"INFO":
+                        stop = body + size
+                        while fh.tell() + 8 <= stop:
+                            sid, ssz = struct.unpack("<4sI", fh.read(8))
+                            data = fh.read(min(ssz, 4096))
+                            if ssz > 4096:
+                                fh.seek(ssz - 4096, 1)
+                            if sid in _RIFF_INFO and data:
+                                out.setdefault(_RIFF_INFO[sid], _chunk_text(data))
+                            if ssz & 1:
+                                fh.seek(1, 1)
+                fh.seek(body + size + (size & 1))
+    except (OSError, struct.error):
+        pass
+    return {k: v for k, v in out.items() if v}
+
+
 def read_track(path: str, art_known: Optional[Callable[[str], bool]] = None) -> Optional[dict]:
     """Return a track dict, or None if the file isn't readable audio.
 
@@ -118,20 +165,54 @@ def read_track(path: str, art_known: Optional[Callable[[str], bool]] = None) -> 
     already have art for that album.
     """
     try:
-        f = mutagen.File(path)
+        return _read_track(path, art_known)
     except Exception:
-        return None
+        return None  # corrupt or unsupported file; never let it break a scan
+
+
+def is_readable_audio(path: str) -> bool:
+    """Cheap header/info check used just before starting a track."""
+    try:
+        f = mutagen.File(path)
+        return f is not None and getattr(f, "info", None) is not None
+    except Exception:
+        return False
+
+
+def _open(path: str):
+    try:
+        return mutagen.File(path)
+    except Exception:
+        pass
+    if path.lower().endswith((".mp3", ".mp2")):
+        # Damaged ID3 header: the audio frames may still be fine.
+        from mutagen.mp3 import MP3
+        try:
+            f = MP3(path, ID3=lambda *a, **k: (_ for _ in ()).throw(Exception()))
+        except Exception:
+            f = None
+        if f is not None:
+            return f
+    return None
+
+
+def _read_track(path, art_known):
+    f = _open(path)
     if f is None or getattr(f, "info", None) is None:
         return None
     st = os.stat(path)
+    if st.st_size == 0:
+        return None
     tags = f.tags
+    ext = os.path.splitext(path)[1].lower()
+    extra = _plain_tags(path, ext) if ext in (".wav", ".wave", ".aif", ".aiff", ".aifc") and not tags else {}
     directory = os.path.dirname(path)
     stem = os.path.splitext(os.path.basename(path))[0]
 
-    title = _get(tags, "title") or stem
-    artist = _get(tags, "artist") or _get(tags, "album_artist") or "Unknown Artist"
+    title = _get(tags, "title") or extra.get("title") or stem
+    artist = _get(tags, "artist") or extra.get("artist") or _get(tags, "album_artist") or "Unknown Artist"
     album_artist = _get(tags, "album_artist")
-    album = _get(tags, "album")
+    album = _get(tags, "album") or extra.get("album", "")
     key = album_key(album_artist, album, directory)
     info = f.info
     t = {
@@ -144,14 +225,15 @@ def read_track(path: str, art_known: Optional[Callable[[str], bool]] = None) -> 
         "aa_tag": 1 if album_artist else 0,
         "album": album or "Unknown Album",
         "album_key": key,
-        "track_no": _num(_get(tags, "track")),
+        "track_no": _num(_get(tags, "track") or extra.get("track", "")),
         "disc_no": _num(_get(tags, "disc")),
-        "year": _num(re.sub(r"^\D*", "", _get(tags, "year"))),
-        "genre": _get(tags, "genre"),
+        "year": _num(re.sub(r"^\D*", "", _get(tags, "year") or extra.get("year", ""))),
+        "genre": _get(tags, "genre") or extra.get("genre", ""),
         "duration": float(getattr(info, "length", 0) or 0),
         "fmt": os.path.splitext(path)[1].lstrip(".").upper(),
-        "bitrate": int(getattr(info, "bitrate", 0) or 0),
-        "sample_rate": int(getattr(info, "sample_rate", 0) or 0),
+        "bitrate": int(getattr(info, "bitrate", 0) or 0) or (
+            int(st.st_size * 8 / info.length) if getattr(info, "length", 0) else 0),
+        "sample_rate": int(getattr(info, "sample_rate", 0) or 0) or (48000 if ext == ".opus" else 0),
         "art": None,
         "_art": None,
     }

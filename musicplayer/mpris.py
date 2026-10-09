@@ -1,5 +1,5 @@
 """MPRIS2 (org.mpris.MediaPlayer2) service so media keys and desktop widgets work."""
-from PySide6.QtCore import ClassInfo, Property, QObject, QUrl, Slot
+from PySide6.QtCore import ClassInfo, Property, QObject, QUrl, Signal, Slot
 from PySide6.QtDBus import (QDBusAbstractAdaptor, QDBusConnection, QDBusMessage, QDBusObjectPath)
 
 SERVICE = "org.mpris.MediaPlayer2.musicplayer"
@@ -24,7 +24,8 @@ class _RootAdaptor(QDBusAbstractAdaptor):
     SupportedUriSchemes = Property("QStringList", lambda self: ["file"], constant=True)
     SupportedMimeTypes = Property(
         "QStringList",
-        lambda self: ["audio/mpeg", "audio/flac", "audio/ogg", "audio/x-wav", "audio/mp4"],
+        lambda self: ["audio/mpeg", "audio/flac", "audio/ogg", "audio/opus", "audio/x-wav",
+                      "audio/mp4", "audio/x-ms-wma", "audio/x-ape", "audio/x-wavpack"],
         constant=True,
     )
 
@@ -39,6 +40,8 @@ class _RootAdaptor(QDBusAbstractAdaptor):
 
 @ClassInfo(**{"D-Bus Interface": PLAYER_IFACE})
 class _PlayerAdaptor(QDBusAbstractAdaptor):
+    Seeked = Signal("qlonglong")
+
     def __init__(self, parent, player):
         super().__init__(parent)
         self.p = player
@@ -79,11 +82,11 @@ class _PlayerAdaptor(QDBusAbstractAdaptor):
     Metadata = Property("QVariantMap", _get_meta)
     Volume = Property(float, _get_volume, _set_volume)
     Position = Property("qlonglong", _get_pos)
-    CanGoNext = Property(bool, lambda self: True)
-    CanGoPrevious = Property(bool, lambda self: True)
-    CanPlay = Property(bool, lambda self: True)
-    CanPause = Property(bool, lambda self: True)
-    CanSeek = Property(bool, lambda self: True)
+    CanGoNext = Property(bool, lambda self: self.p.canGoNext)
+    CanGoPrevious = Property(bool, lambda self: self.p.canGoPrevious)
+    CanPlay = Property(bool, lambda self: self.p.canPlay)
+    CanPause = Property(bool, lambda self: self.p.canPause)
+    CanSeek = Property(bool, lambda self: self.p.canSeek)
     CanControl = Property(bool, lambda self: True)
 
     @Slot()
@@ -155,6 +158,10 @@ class MprisService(QObject):
             player.shuffleChanged.connect(lambda: self._notify("Shuffle"))
             player.repeatChanged.connect(lambda: self._notify("LoopStatus"))
             player.volumeChanged.connect(lambda: self._notify("Volume"))
+            player.queueChanged.connect(self._notify_capabilities)
+            player.trackChanged.connect(self._notify_capabilities)
+            player.stateChanged.connect(self._notify_capabilities)
+            player.seeked.connect(lambda ms: self._pl.Seeked.emit(int(ms) * 1000))
 
     def _notify(self, name):
         getter = {
@@ -166,4 +173,15 @@ class MprisService(QObject):
         }[name]
         msg = QDBusMessage.createSignal(PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged")
         msg.setArguments([PLAYER_IFACE, {name: getter()}, []])
+        QDBusConnection.sessionBus().send(msg)
+
+    def _notify_capabilities(self, *_):
+        msg = QDBusMessage.createSignal(PATH, "org.freedesktop.DBus.Properties", "PropertiesChanged")
+        msg.setArguments([PLAYER_IFACE, {
+            "CanGoNext": self.player.canGoNext,
+            "CanGoPrevious": self.player.canGoPrevious,
+            "CanPlay": self.player.canPlay,
+            "CanPause": self.player.canPause,
+            "CanSeek": self.player.canSeek,
+        }, []])
         QDBusConnection.sessionBus().send(msg)

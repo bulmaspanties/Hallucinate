@@ -31,7 +31,13 @@ class Scanner:
         existing = self.db.paths_under(folder)
         seen = set()
         pending = 0
+        visited = set()
         for root, dirs, files in os.walk(folder, followlinks=True):
+            real = os.path.realpath(root)
+            if real in visited:  # symlink loop / duplicate view of a directory
+                dirs[:] = []
+                continue
+            visited.add(real)
             dirs[:] = sorted(d for d in dirs if not d.startswith("."))
             stats["dirs"].append(root)
             for name in sorted(files):

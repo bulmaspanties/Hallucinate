@@ -3,7 +3,7 @@ import threading
 
 from PySide6.QtCore import (Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot)
 
-from .core.db import Database
+from .core.db import Database, fold
 from .core.scanner import Scanner
 from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
 
@@ -153,7 +153,7 @@ class Library(QObject):
     @Slot(str, result="QVariantMap")
     def artistInfo(self, name):
         for a in self._db.artists():
-            if a["name"].lower() == name.lower():
+            if fold(a["name"]) == fold(name):
                 return decorate([a])[0]
         return {"name": name, "albums": 0, "tracks": 0, "artUrl": ""}
 

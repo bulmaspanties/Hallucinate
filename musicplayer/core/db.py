@@ -2,6 +2,7 @@
 import re
 import sqlite3
 import time
+import unicodedata
 from typing import Iterable, Optional
 
 SCHEMA = """
@@ -25,10 +26,12 @@ CREATE TABLE IF NOT EXISTS tracks(
   bitrate INTEGER NOT NULL DEFAULT 0,
   sample_rate INTEGER NOT NULL DEFAULT 0,
   art TEXT,
-  added REAL NOT NULL
+  added REAL NOT NULL,
+  s_title TEXT NOT NULL DEFAULT '',
+  s_album TEXT NOT NULL DEFAULT '',
+  s_aa TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_key);
-CREATE INDEX IF NOT EXISTS idx_tracks_aa ON tracks(album_artist COLLATE NOCASE);
 CREATE TABLE IF NOT EXISTS folders(path TEXT PRIMARY KEY);
 """
 
@@ -42,30 +45,54 @@ COLS = (
     "year genre duration fmt bitrate sample_rate art"
 ).split()
 
-_ORDER = "disc_no, track_no, title COLLATE NOCASE"
+SEARCH_COLS = ["s_title", "s_album", "s_aa"]
+
+_ORDER = "disc_no, track_no, s_title"
 
 
 def _like(token: str) -> str:
     return "%" + token.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
+def fold(s: str) -> str:
+    """Case- and accent-insensitive form used for searching and sorting (all scripts)."""
+    s = unicodedata.normalize("NFKD", (s or "").casefold())
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
 def _tokens(q: str) -> list:
-    return re.findall(r"\w+", q.lower())
+    return re.findall(r"\w+", fold(q))
 
 
 class Database:
     def __init__(self, path):
         self.conn = sqlite3.connect(str(path), timeout=30, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self.conn.create_function("fold", 1, fold, deterministic=True)
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.executescript(SCHEMA)
+        self._migrate()
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_stitle ON tracks(s_title)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_saa ON tracks(s_aa)")
         try:
             self.conn.execute(FTS)
             self.has_fts = True
         except sqlite3.OperationalError:
             self.has_fts = False
         self.conn.commit()
+
+    def _migrate(self):
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(tracks)")}
+        if "s_title" in cols:
+            return
+        for c in ("s_title", "s_album", "s_aa"):
+            self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} TEXT NOT NULL DEFAULT ''")
+        rows = self.conn.execute("SELECT id, title, album, album_artist FROM tracks").fetchall()
+        self.conn.executemany(
+            "UPDATE tracks SET s_title=?, s_album=?, s_aa=? WHERE id=?",
+            [(fold(r["title"]), fold(r["album"]), fold(r["album_artist"]), r["id"]) for r in rows],
+        )
 
     def close(self):
         self.conn.close()
@@ -101,15 +128,18 @@ class Database:
 
     def upsert_track(self, t: dict) -> int:
         params = {c: t.get(c) for c in COLS}
+        params["s_title"] = fold(t["title"])
+        params["s_album"] = fold(t["album"])
+        params["s_aa"] = fold(t["album_artist"])
         row = self.conn.execute("SELECT id, art FROM tracks WHERE path=?", (t["path"],)).fetchone()
         if row:
             tid = row["id"]
             params["art"] = params["art"] or row["art"]
-            sets = ", ".join(f"{c}=:{c}" for c in COLS)
+            sets = ", ".join(f"{c}=:{c}" for c in COLS + SEARCH_COLS)
             self.conn.execute(f"UPDATE tracks SET {sets} WHERE id=:id", {**params, "id": tid})
         else:
-            cols = ", ".join(COLS + ["added"])
-            vals = ", ".join(":" + c for c in COLS + ["added"])
+            cols = ", ".join(COLS + SEARCH_COLS + ["added"])
+            vals = ", ".join(":" + c for c in COLS + SEARCH_COLS + ["added"])
             cur = self.conn.execute(
                 f"INSERT INTO tracks({cols}) VALUES({vals})", {**params, "added": time.time()}
             )
@@ -149,12 +179,13 @@ class Database:
                  FROM tracks t2 WHERE t2.album_key = tracks.album_key)
                WHERE aa_tag = 0"""
         )
+        self.conn.execute("UPDATE tracks SET s_aa = fold(album_artist) WHERE aa_tag = 0 AND s_aa != fold(album_artist)")
         self.conn.commit()
 
     # --- reads ---------------------------------------------------------
     def counts(self) -> dict:
         r = self.conn.execute(
-            "SELECT COUNT(*) t, COUNT(DISTINCT album_key) a, COUNT(DISTINCT lower(album_artist)) r FROM tracks"
+            "SELECT COUNT(*) t, COUNT(DISTINCT album_key) a, COUNT(DISTINCT s_aa) r FROM tracks"
         ).fetchone()
         return {"tracks": r["t"], "albums": r["a"], "artists": r["r"]}
 
@@ -164,7 +195,7 @@ class Database:
 
     def tracks(self) -> list:
         return self._rows(
-            "SELECT * FROM tracks ORDER BY title COLLATE NOCASE, artist COLLATE NOCASE"
+            "SELECT * FROM tracks ORDER BY s_title, artist COLLATE NOCASE"
         )
 
     _ALBUM_SQL = """SELECT album_key, MIN(album) AS album, MIN(album_artist) AS album_artist,
@@ -173,15 +204,15 @@ class Database:
 
     def albums(self, where: str = "", params=()) -> list:
         return self._rows(
-            f"{self._ALBUM_SQL} {where} GROUP BY album_key ORDER BY year, album COLLATE NOCASE"
+            f"{self._ALBUM_SQL} {where} GROUP BY album_key ORDER BY year, MIN(s_album)"
             if where
-            else f"{self._ALBUM_SQL} GROUP BY album_key ORDER BY album COLLATE NOCASE",
+            else f"{self._ALBUM_SQL} GROUP BY album_key ORDER BY MIN(s_album)",
             params,
         )
 
     def recent_albums(self, limit: int = 20) -> list:
         return self._rows(
-            f"{self._ALBUM_SQL} GROUP BY album_key ORDER BY added DESC, album COLLATE NOCASE LIMIT ?",
+            f"{self._ALBUM_SQL} GROUP BY album_key ORDER BY added DESC, MIN(s_album) LIMIT ?",
             (limit,),
         )
 
@@ -196,17 +227,17 @@ class Database:
         return self._rows(
             """SELECT MIN(album_artist) AS name, COUNT(DISTINCT album_key) AS albums,
                       COUNT(*) AS tracks, MAX(art) AS art
-               FROM tracks GROUP BY lower(album_artist) ORDER BY name COLLATE NOCASE"""
+               FROM tracks GROUP BY s_aa ORDER BY MIN(s_aa)"""
         )
 
     def artist_albums(self, name: str) -> list:
-        return self.albums("WHERE lower(album_artist)=lower(?)", (name,))
+        return self.albums("WHERE s_aa=?", (fold(name),))
 
     def artist_tracks(self, name: str, limit: int = 100000) -> list:
         return self._rows(
-            "SELECT * FROM tracks WHERE lower(album_artist)=lower(?) OR lower(artist)=lower(?) "
-            "ORDER BY album COLLATE NOCASE, " + _ORDER + " LIMIT ?",
-            (name, name, limit),
+            "SELECT * FROM tracks WHERE s_aa=? OR fold(artist)=? "
+            "ORDER BY s_album, " + _ORDER + " LIMIT ?",
+            (fold(name), fold(name), limit),
         )
 
     def search(self, query: str, track_limit: int = 30, album_limit: int = 20, artist_limit: int = 12) -> dict:
@@ -218,36 +249,36 @@ class Database:
             match = " ".join(f'"{t}"*' for t in toks)
             tracks = self._rows(
                 "SELECT t.* FROM tracks_fts f JOIN tracks t ON t.id = f.rowid "
-                "WHERE tracks_fts MATCH ? ORDER BY bm25(tracks_fts), t.title COLLATE NOCASE LIMIT ?",
+                "WHERE tracks_fts MATCH ? ORDER BY bm25(tracks_fts), t.s_title LIMIT ?",
                 (match, track_limit),
             )
         else:
             clause = " AND ".join(
-                "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')" for _ in toks
+                "(s_title LIKE ? ESCAPE '\\' OR fold(artist) LIKE ? ESCAPE '\\' OR s_album LIKE ? ESCAPE '\\')" for _ in toks
             )
             params = [_like(t) for t in toks for _ in range(3)]
             tracks = self._rows(
-                f"SELECT * FROM tracks WHERE {clause} ORDER BY title COLLATE NOCASE LIMIT ?",
+                f"SELECT * FROM tracks WHERE {clause} ORDER BY s_title LIMIT ?",
                 (*params, track_limit),
             )
 
         album_clause = " AND ".join(
-            "(album LIKE ? ESCAPE '\\' OR album_artist LIKE ? ESCAPE '\\')" for _ in toks
+            "(s_album LIKE ? ESCAPE '\\' OR s_aa LIKE ? ESCAPE '\\')" for _ in toks
         )
         album_params = [_like(t) for t in toks for _ in range(2)]
         first = _like(toks[0])[1:]
         albums = self._rows(
             f"{self._ALBUM_SQL} WHERE {album_clause} GROUP BY album_key "
-            "ORDER BY (lower(MIN(album)) LIKE ? ESCAPE '\\') DESC, album COLLATE NOCASE LIMIT ?",
+            "ORDER BY (MIN(s_album) LIKE ? ESCAPE '\\') DESC, MIN(s_album) LIMIT ?",
             (*album_params, first, album_limit),
         )
 
-        artist_clause = " AND ".join("album_artist LIKE ? ESCAPE '\\'" for _ in toks)
+        artist_clause = " AND ".join("s_aa LIKE ? ESCAPE '\\'" for _ in toks)
         artists = self._rows(
             f"""SELECT MIN(album_artist) AS name, COUNT(DISTINCT album_key) AS albums,
                        COUNT(*) AS tracks, MAX(art) AS art
-                FROM tracks WHERE {artist_clause} GROUP BY lower(album_artist)
-                ORDER BY (lower(MIN(album_artist)) LIKE ? ESCAPE '\\') DESC, name COLLATE NOCASE LIMIT ?""",
+                FROM tracks WHERE {artist_clause} GROUP BY s_aa
+                ORDER BY (MIN(s_aa) LIKE ? ESCAPE '\\') DESC, MIN(s_aa) LIMIT ?""",
             ([_like(t) for t in toks] + [first, artist_limit]),
         )
         return {"tracks": tracks, "albums": albums, "artists": artists}

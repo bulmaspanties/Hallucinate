@@ -35,7 +35,7 @@ def main(argv=None) -> int:
         app.setWindowIcon(QIcon(str(icon)))
 
     library = Library(paths.db_path(), paths.art_dir())
-    player = Player()
+    player = Player(session_file=paths.data_dir() / "session.json")
 
     for f in args.folders:
         library.addFolder(f)
@@ -44,6 +44,7 @@ def main(argv=None) -> int:
         if music.is_dir():
             library.addFolder(str(music))
     QTimer.singleShot(0, library.rescan)
+    player.restoreSession()
 
     engine = QQmlApplicationEngine()
     ctx = engine.rootContext()
@@ -73,7 +74,7 @@ def main(argv=None) -> int:
 
     code = app.exec()
     del engine
-    player.stop()
+    player.shutdown()
     library.shutdown()
     del mpris
     return code
