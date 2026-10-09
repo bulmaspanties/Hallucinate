@@ -22,6 +22,9 @@ finish-args:
 modules:
   - name: hallucinate
     buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
     build-commands:
       - pip3 install --no-cache-dir --prefix=/app .
       - install -Dm644 packaging/hallucinate.desktop /app/share/applications/io.github.bulmaspanties.Hallucinate.desktop

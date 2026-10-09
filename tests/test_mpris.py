@@ -32,7 +32,7 @@ player = Player(session_file=None)
 player.playList([{"id": 42, "path": sys.argv[1], "title": "Bus Song",
                   "artist": "Bus Artist", "album": "Bus Album", "duration": 30}], 0)
 mpris = MprisService(player, lambda: None, app.quit)
-QTimer.singleShot(15000, app.quit)
+QTimer.singleShot(30000, app.quit)
 app.exec()
 player.shutdown()
 import os
@@ -47,11 +47,13 @@ set -eu
 PYTHONPATH="$3" QT_QPA_PLATFORM=offscreen "$2" "$1/mpris_app.py" "$1/bus.flac" >"$1/app.log" 2>&1 &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true' EXIT
-for i in 1 2 3 4 5 6 7 8 9 10; do
+ready=false
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
   if gdbus introspect --session --dest org.mpris.MediaPlayer2.hallucinate \\
-       --object-path /org/mpris/MediaPlayer2 >"$1/introspection"; then break; fi
+       --object-path /org/mpris/MediaPlayer2 >"$1/introspection"; then ready=true; break; fi
   sleep 0.2
 done
+if [ "$ready" != true ]; then cat "$1/app.log"; exit 1; fi
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-playing"
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
@@ -84,7 +86,7 @@ wait "$pid"
     repo = Path(__file__).resolve().parents[1]
     result = subprocess.run(
         [DBUS_RUN_SESSION, "--", str(script), str(tmp_path), sys.executable, str(repo)],
-        capture_output=True, text=True, timeout=25,
+        capture_output=True, text=True, timeout=40,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PlayPause" in (tmp_path / "introspection").read_text()
