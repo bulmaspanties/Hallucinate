@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS playlist_items(
   path TEXT NOT NULL, pos INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_pl_items ON playlist_items(playlist_id, pos);
 CREATE TABLE IF NOT EXISTS plays(path TEXT PRIMARY KEY, count INTEGER NOT NULL, last REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS play_log(
+  id INTEGER PRIMARY KEY, ts REAL NOT NULL, path TEXT, artist TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'local',
+  UNIQUE(ts, artist, title));
+CREATE INDEX IF NOT EXISTS idx_play_log_ts ON play_log(ts);
 CREATE TABLE IF NOT EXISTS lyrics(path TEXT PRIMARY KEY, synced TEXT NOT NULL DEFAULT '',
   plain TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', fetched REAL NOT NULL);
 """
@@ -183,12 +188,42 @@ class Database:
         self.conn.commit()
 
     def record_play(self, path: str, when: Optional[float] = None):
+        when = when or time.time()
+        self.conn.execute(
+            "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, source) "
+            "SELECT ?, path, artist, title, album, 'local' FROM tracks WHERE path=?", (when, path))
         self.conn.execute(
             "INSERT INTO plays(path, count, last) VALUES(?,1,?) "
             "ON CONFLICT(path) DO UPDATE SET count=count+1, last=excluded.last",
-            (path, when or time.time()),
+            (path, when),
         )
         self.conn.commit()
+
+    def import_plays(self, items: Iterable[dict], source: str) -> dict:
+        """Merge external listens ({ts, artist, title, album}); matched local tracks also bump `plays`."""
+        added = matched = 0
+        lookup = {}
+        for r in self.conn.execute("SELECT path, artist, title FROM tracks"):
+            lookup.setdefault((r["artist"].casefold(), r["title"].casefold()), r["path"])
+        for it in items:
+            artist, title = (it.get("artist") or "").strip(), (it.get("title") or "").strip()
+            ts = float(it.get("ts") or 0)
+            if not artist or not title or ts <= 0:
+                continue
+            path = lookup.get((artist.casefold(), title.casefold()))
+            cur = self.conn.execute(
+                "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, source) VALUES(?,?,?,?,?,?)",
+                (ts, path, artist, title, it.get("album") or "", source))
+            if not cur.rowcount:
+                continue
+            added += 1
+            if path:
+                matched += 1
+                self.conn.execute(
+                    "INSERT INTO plays(path, count, last) VALUES(?,1,?) "
+                    "ON CONFLICT(path) DO UPDATE SET count=count+1, last=MAX(last, excluded.last)", (path, ts))
+        self.conn.commit()
+        return {"added": added, "matched": matched}
 
     def most_played(self, limit: int = 10) -> list:
         return self._rows(

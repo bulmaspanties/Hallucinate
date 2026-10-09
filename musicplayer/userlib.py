@@ -240,5 +240,18 @@ class UserLibrary(QObject):
             return
         self._write(lambda db, p: db.record_play(p), path)
 
+    def importPlays(self, items, source, done):
+        """Merge external listens on the worker thread; `done(result)` is called from it."""
+        def work(db):
+            try:
+                res = db.import_plays(items, source)
+            except Exception:  # noqa: BLE001
+                logger.exception("History import failed")
+                res = {"added": 0, "matched": 0}
+            done(res)
+            self.refresh()
+
+        self._reader.submit(work)
+
     def shutdown(self):
         self._reader.close()

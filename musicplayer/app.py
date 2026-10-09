@@ -13,6 +13,7 @@ from . import __version__
 from .core import paths
 from .discord import DiscordPresence
 from .library import Library
+from .listenbrainz import ListenBrainzScrobbler
 from .lyricsctl import LyricsController
 from .metaedit import MetadataEditor
 from .player import Player
@@ -57,6 +58,7 @@ def main(argv=None) -> int:
     meta_editor.changed.connect(library.reload)
     lyrics = LyricsController(paths.db_path(), player)
     scrobbler = LastFmScrobbler(player, paths.data_dir())
+    listenbrainz = ListenBrainzScrobbler(player, paths.data_dir(), userlib)
     theme_manager = ThemeManager(paths.config_dir(), player)
 
     discord = DiscordPresence(player)
@@ -80,6 +82,7 @@ def main(argv=None) -> int:
     ctx.setContextProperty("metaEditor", meta_editor)
     ctx.setContextProperty("lyricsCtl", lyrics)
     ctx.setContextProperty("scrobbler", scrobbler)
+    ctx.setContextProperty("listenbrainz", listenbrainz)
     ctx.setContextProperty("shell", shell)
     ctx.setContextProperty("discord", discord)
     ctx.setContextProperty("themeManager", theme_manager)
@@ -114,13 +117,14 @@ def main(argv=None) -> int:
     discord.shutdown()
     shell.shutdown()
     scrobbler.shutdown()
+    listenbrainz.shutdown()
     del theme_manager
     player.shutdown()
     lyrics.shutdown()
     meta_editor.shutdown()
     user_lib.shutdown()
     library.shutdown()
-    del scrobbler
+    del scrobbler, listenbrainz
     del mpris
     return code
 
