@@ -13,8 +13,8 @@ import pytest
 from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TPE2, TRCK
 from mutagen.wave import WAVE
 
-from musicplayer.core.db import Database
-from musicplayer.core.scanner import Scanner
+from hallucinate.core.db import Database
+from hallucinate.core.scanner import Scanner
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 

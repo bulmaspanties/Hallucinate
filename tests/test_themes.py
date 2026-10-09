@@ -7,15 +7,15 @@ from PySide6.QtGui import QColor, QIcon, QImage
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
-from musicplayer.discord import DiscordPresence
-from musicplayer.library import Library
-from musicplayer.lyricsctl import LyricsController
-from musicplayer.metaedit import MetadataEditor
-from musicplayer.player import Player
-from musicplayer.scrobbling import LastFmScrobbler
-from musicplayer.shell import DesktopShell
-from musicplayer.themes import BUILTIN_THEME_DIR, ThemeManager
-from musicplayer.userlib import UserLibrary
+from hallucinate.discord import DiscordPresence
+from hallucinate.library import Library
+from hallucinate.lyricsctl import LyricsController
+from hallucinate.metaedit import MetadataEditor
+from hallucinate.player import Player
+from hallucinate.scrobbling import LastFmScrobbler
+from hallucinate.shell import DesktopShell
+from hallucinate.themes import BUILTIN_THEME_DIR, ThemeManager
+from hallucinate.userlib import UserLibrary
 
 
 class FakePlayer(QObject):
@@ -50,7 +50,7 @@ def test_builtin_themes_are_complete_and_switch_live(manager_factory):
     manager = manager_factory()
     assert manager.availableThemes == [
         "Catppuccin Latte", "Catppuccin Mocha", "Dark", "Dracula", "Gruvbox",
-        "Light", "Nord", "Tokyo Night",
+        "Hallucinate", "Light", "Nord", "Tokyo Night",
     ]
     original = manager.bg
     assert manager.selectTheme("Nord")
@@ -58,7 +58,8 @@ def test_builtin_themes_are_complete_and_switch_live(manager_factory):
     assert manager.bg != original
     assert manager.accent == QColor("#88c0d0")
     assert manager.selectTheme("Dark")
-    assert manager.bg == original
+    assert manager.bg != original
+    assert manager.bg == QColor("#0b0b10")
     for theme_file in BUILTIN_THEME_DIR.glob("*.json"):
         data = json.loads(theme_file.read_text(encoding="utf-8"))
         assert ThemeManager._validate(data)[1]
@@ -93,7 +94,7 @@ def test_custom_themes_reload_and_invalid_files_are_ignored(manager_factory, tmp
     assert manager.accent == QColor("#b455dd")
     (custom_dir / "plum.json").unlink()
     manager.reloadThemes()
-    assert manager.currentTheme == "Dark"
+    assert manager.currentTheme == "Hallucinate"
     assert "User Plum" not in manager.availableThemes
 
 
@@ -119,7 +120,8 @@ def test_album_art_accent_tracks_current_cover(manager_factory, tmp_path):
 
 
 def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeypatch):
-    from musicplayer import scrobbling
+    from hallucinate import scrobbling
+    from hallucinate.listenbrainz import ListenBrainzScrobbler
 
     monkeypatch.setattr(scrobbling.keyring, "get_password", lambda *_: None)
     monkeypatch.setattr(scrobbling.keyring, "set_password", lambda *_: None)
@@ -142,6 +144,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     context.setContextProperty("library", library)
     user_lib = UserLibrary(tmp_path / "library.db", player)
     context.setContextProperty("userLib", user_lib)
+    listenbrainz = ListenBrainzScrobbler(player, tmp_path / "data", user_lib)
+    context.setContextProperty("listenbrainz", listenbrainz)
     meta_editor = MetadataEditor(tmp_path / "library.db", tmp_path / "art")
     lyrics = LyricsController(tmp_path / "library.db", player)
     context.setContextProperty("metaEditor", meta_editor)
@@ -153,7 +157,7 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     context.setContextProperty("player", player)
     context.setContextProperty("scrobbler", scrobbler)
     context.setContextProperty("themeManager", manager)
-    qml_dir = Path(__file__).parents[1] / "musicplayer" / "qml"
+    qml_dir = Path(__file__).parents[1] / "hallucinate" / "qml"
     engine.addImportPath(str(qml_dir))
     qml_warnings = []
     engine.warnings.connect(lambda warnings: qml_warnings.extend(str(warning) for warning in warnings))
@@ -168,7 +172,9 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     assert picker_text is not None
 
     assert manager.selectTheme("Font Test")
-    qapp.processEvents()
+    from PySide6.QtTest import QTest
+
+    QTest.qWait(300)
     assert window.property("color") == manager.bg
     assert picker.property("currentText") == "Font Test"
     assert picker.property("currentIndex") == manager.availableThemes.index("Font Test")
@@ -188,6 +194,7 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     del picker_text, picker, window, engine
     qapp.processEvents()
     scrobbler.shutdown()
+    listenbrainz.shutdown()
     player.shutdown()
     lyrics.shutdown()
     meta_editor.shutdown()

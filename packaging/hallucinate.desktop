@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Hallucinate
+GenericName=Music Player
+Comment=Hallucinate music library and player with instant search
+Exec=hallucinate %F
+Icon=hallucinate
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+MimeType=audio/mpeg;audio/flac;audio/x-flac;audio/ogg;audio/opus;audio/x-wav;audio/mp4;audio/aac;audio/x-ms-wma;audio/x-ape;
+StartupWMClass=hallucinate

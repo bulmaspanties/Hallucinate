@@ -1,6 +1,10 @@
-# Music Player
+<p align="center">
+  <img src="assets/logo/hallucinate-logo.png" width="420" alt="Hallucinate — melting vinyl portal logo">
+</p>
 
-[![CI](https://github.com/bulmaspanties/music-player/actions/workflows/ci.yml/badge.svg)](https://github.com/bulmaspanties/music-player/actions/workflows/ci.yml)
+<h1 align="center">Hallucinate</h1>
+
+[![CI](https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml/badge.svg)](https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![Platform: Linux first](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
@@ -37,27 +41,27 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 
 ## Install
 ### AUR — **not yet published to AUR**
-PKGBUILDs for `musicplayer` and `musicplayer-git` are ready in `packaging/aur/` but have not been submitted yet. Until then, build locally:
+PKGBUILDs for `hallucinate` and `hallucinate-git` are ready in `packaging/aur/` but have not been submitted yet. Until then, build locally:
 ```sh
-cd packaging/aur/musicplayer-git && makepkg -si
+cd packaging/aur/hallucinate-git && makepkg -si
 ```
 Maintainer notes: [packaging/aur/README.md](packaging/aur/README.md).
 
 ### Windows
-Download `musicplayer-*-windows-x64-setup.exe` (installer) or `musicplayer-*-windows-x64.zip` (portable; run `MusicPlayer\MusicPlayer.exe`) from [Releases](https://github.com/bulmaspanties/music-player/releases). Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn. MPRIS is Linux-only; Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\musicplayer`.
+Download `hallucinate-*-windows-x64-setup.exe` (installer) or `hallucinate-*-windows-x64.zip` (portable; run `Hallucinate\Hallucinate.exe`) from [Releases](https://github.com/bulmaspanties/Hallucinate/releases). Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn. MPRIS is Linux-only; Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\hallucinate`.
 
 ### AppImage (any x86_64 Linux)
-Download `musicplayer-*-x86_64.AppImage` from the [Releases](https://github.com/bulmaspanties/music-player/releases) page:
+Download `hallucinate-*-x86_64.AppImage` from the [Releases](https://github.com/bulmaspanties/Hallucinate/releases) page:
 ```sh
-chmod +x musicplayer-*.AppImage && ./musicplayer-*.AppImage
+chmod +x hallucinate-*.AppImage && ./hallucinate-*.AppImage
 ```
 Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself with `packaging/appimage/build.sh`.
 
 ### Arch Linux
 ```sh
 sudo pacman -S pyside6 python-mutagen python-keyring python-numpy qt6-multimedia-ffmpeg
-git clone https://github.com/bulmaspanties/music-player.git && cd music-player
-cd packaging/aur/musicplayer && makepkg -si      # or run from source (below)
+git clone https://github.com/bulmaspanties/Hallucinate.git && cd Hallucinate
+cd packaging/aur/hallucinate && makepkg -si      # or run from source (below)
 ```
 ### pip (any OS)
 ```sh
@@ -70,12 +74,14 @@ so pip installs the PySide6 wheel.
 
 ## Run
 ```sh
-musicplayer                 # uses ~/Music on first run
-musicplayer ~/Music /mnt/flac   # add folders
-python -m musicplayer ~/Music
+hallucinate                 # uses ~/Music on first run
+hallucinate ~/Music /mnt/flac   # add folders
+python -m hallucinate ~/Music
 ```
-Folders can also be managed in Settings. Data lives in `~/.local/share/musicplayer`
-(override with `MUSICPLAYER_DATA`).
+Folders can also be managed in Settings. Data lives in `~/.local/share/hallucinate`
+(override with `HALLUCINATE_DATA`). On first launch, existing Music Player
+library, settings, cache, themes, playlists, playback preferences, and Last.fm
+keyring credentials are migrated without replacing data already at the new path.
 
 ## Performance
 
@@ -97,19 +103,19 @@ connecting. The app does not fall back to plaintext credential storage.
 Optional "Listening to" activity (title, artist, album, progress, cover via Cover Art Archive). Talks to Discord's local IPC directly (no extra dependency), runs off the GUI thread, and reconnects automatically if Discord is closed or started later. Works with native, Flatpak and Snap Discord on Linux, and on Windows.
 
 1. Create an application at <https://discord.com/developers/applications> (its name is what shows as the activity title).
-2. Under *Rich Presence → Art Assets* upload an icon named `musicplayer` (used when there is no cover or cover is hidden).
-3. In Settings → Discord Rich Presence, paste the Application ID (or set `MUSICPLAYER_DISCORD_APP_ID`) and enable it.
+2. Under *Rich Presence → Art Assets* upload an icon named `hallucinate` (used when there is no cover or cover is hidden).
+3. In Settings → Discord Rich Presence, paste the Application ID (or set `HALLUCINATE_DISCORD_APP_ID`) and enable it.
 
 Options: hide when paused, hide cover, privacy mode (shows only "Listening to music"). Nothing is sent unless enabled; no application ID is bundled.
 
 ## Themes
-Choose a theme in Settings. Built-ins are Dark, Light, Catppuccin Mocha/Latte,
+Choose a theme in Settings. Built-ins are Hallucinate, Dark, Light, Catppuccin Mocha/Latte,
 Nord, Gruvbox, Tokyo Night, and Dracula. The optional album-art accent follows
 the currently playing track; theme selection and this preference persist across
 restarts.
 
-Add custom JSON files to `$XDG_CONFIG_HOME/musicplayer/themes/` (normally
-`~/.config/musicplayer/themes/`) and select **Reload themes** in Settings.
+Add custom JSON files to `$XDG_CONFIG_HOME/hallucinate/themes/` (normally
+`~/.config/hallucinate/themes/`) and select **Reload themes** in Settings.
 Every theme requires all listed colors, a radius from 0 to 32, and a font family
 with a size scale from 0.75 to 1.5:
 
@@ -127,6 +133,17 @@ with a size scale from 0.75 to 1.5:
 }
 ```
 
+## Branding and icons
+The full supplied logo is `assets/logo/hallucinate-logo.png`; the square app
+mark and platform sizes are generated by `python scripts/make_icons.py`
+(install with `pip install '.[icons]'`). Replace that source artwork and rerun the script; adjust
+`MARK_BOX` there if the mark moves. The square crop retains the original black
+background and is used for the app, tray, Discord fallback, and installers.
+The original full logo is used above and as the social-preview source
+(`assets/logo/social-preview.png`). To set it on GitHub, use the repository's
+**Settings → General → Social preview** controls. The Windows installer uses
+the generated setup wizard image.
+
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·
 Q queue · L lyrics · Ctrl+M mini player · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
@@ -134,7 +151,7 @@ Q queue · L lyrics · Ctrl+M mini player · `/`, Ctrl+F or Ctrl+K search · Alt
 ## Tests
 ```sh
 pytest                      # core tests; the app smoke test runs offscreen
-QT_QPA_PLATFORM=offscreen musicplayer ~/Music --quit-after 3000
+QT_QPA_PLATFORM=offscreen hallucinate ~/Music --quit-after 3000
 ```
 Format and playback tests generate real files through `ffmpeg` (including seeking,
 queue transitions and repeat/shuffle). Theme tests cover built-in and custom

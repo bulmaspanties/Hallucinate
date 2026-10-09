@@ -4,7 +4,7 @@ from conftest import make_mp3, wait_for
 
 def test_background_scan_and_directory_watcher(qapp, tmp_path):
     pytest.importorskip("PySide6.QtCore", exc_type=ImportError)
-    from musicplayer.library import Library
+    from hallucinate.library import Library
 
     root = tmp_path / "watched"
     root.mkdir()

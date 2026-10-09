@@ -8,12 +8,12 @@ from audio import FFMPEG, encode
 from conftest import PNG, make_mp3, wait_for
 from PySide6.QtCore import QObject, Signal
 
-from musicplayer.core import artfetch, lyrics, tagedit
-from musicplayer.core.db import Database
-from musicplayer.core.scanner import Scanner
-from musicplayer.core.tags import read_track
-from musicplayer.lyricsctl import LyricsController
-from musicplayer.metaedit import MetadataEditor
+from hallucinate.core import artfetch, lyrics, tagedit
+from hallucinate.core.db import Database
+from hallucinate.core.scanner import Scanner
+from hallucinate.core.tags import read_track
+from hallucinate.lyricsctl import LyricsController
+from hallucinate.metaedit import MetadataEditor
 
 needs_ffmpeg = pytest.mark.skipif(not FFMPEG, reason="ffmpeg not available")
 FIELDS = {"title": "Nouveau Titre é", "artist": "Artiste", "album": "Album Ü", "album_artist": "AA",

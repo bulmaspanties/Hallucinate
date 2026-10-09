@@ -5,7 +5,7 @@ import time
 import pytest
 from conftest import make_mp3
 
-from musicplayer.core.db import Database
+from hallucinate.core.db import Database
 
 
 def mk(path, title, artist="Art", album="Alb", aa=None, track=None):
@@ -113,8 +113,8 @@ def test_unreadable_file_and_dir(db, scan, tmp_path):
 
 
 def test_file_removed_during_scan_is_ignored(db, tmp_path, monkeypatch):
-    from musicplayer.core import tags
-    from musicplayer.core.scanner import Scanner
+    from hallucinate.core import tags
+    from hallucinate.core.scanner import Scanner
     root = tmp_path / "l"
     a = mk(root / "a.mp3", "A")
     b = mk(root / "b.mp3", "B")
@@ -131,7 +131,7 @@ def test_file_removed_during_scan_is_ignored(db, tmp_path, monkeypatch):
 
 
 def test_stop_request_halts_scan(db, tmp_path):
-    from musicplayer.core.scanner import Scanner
+    from hallucinate.core.scanner import Scanner
     root = tmp_path / "l"
     for i in range(5):
         mk(root / f"{i}.mp3", f"T{i}")

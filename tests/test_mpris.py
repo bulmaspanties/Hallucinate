@@ -24,8 +24,8 @@ def test_mpris_methods_properties_and_media_keys(tmp_path):
 import sys
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication
-from musicplayer.mpris import MprisService
-from musicplayer.player import Player
+from hallucinate.mpris import MprisService
+from hallucinate.player import Player
 
 app = QGuiApplication([])
 player = Player(session_file=None)
@@ -48,33 +48,33 @@ PYTHONPATH="$3" QT_QPA_PLATFORM=offscreen "$2" "$1/mpris_app.py" "$1/bus.flac" >
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true' EXIT
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if gdbus introspect --session --dest org.mpris.MediaPlayer2.musicplayer \\
+  if gdbus introspect --session --dest org.mpris.MediaPlayer2.hallucinate \\
        --object-path /org/mpris/MediaPlayer2 >"$1/introspection"; then break; fi
   sleep 0.2
 done
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-playing"
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata >"$1/metadata"
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Player.PlayPause
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-paused"
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Player.Play
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player LoopStatus '<"Playlist">'
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Set org.mpris.MediaPlayer2.Player Shuffle '<true>'
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player LoopStatus >"$1/loop"
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Shuffle >"$1/shuffle"
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Player.Seek 500000
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Player.Next
-gdbus call --session --dest org.mpris.MediaPlayer2.musicplayer --object-path /org/mpris/MediaPlayer2 \\
+gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Quit
 wait "$pid"
 """,

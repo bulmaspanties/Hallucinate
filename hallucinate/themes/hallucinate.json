@@ -1,0 +1,17 @@
+{
+  "name": "Hallucinate",
+  "colors": {
+    "bg": "#07060c",
+    "panel": "#0e0b16",
+    "surface": "#171225",
+    "surfaceHi": "#251d3b",
+    "border": "#2c2342",
+    "text": "#f1ecfb",
+    "textDim": "#a399bd",
+    "accent": "#c79cf5",
+    "error": "#ff6b8b",
+    "onAccent": "#120a1f"
+  },
+  "radius": 12,
+  "fonts": { "family": "Sans Serif", "scale": 1.0 }
+}

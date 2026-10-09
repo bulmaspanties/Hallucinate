@@ -8,9 +8,14 @@ pytest.importorskip("PySide6.QtQml", exc_type=ImportError)
 
 
 def test_app_launches_offscreen(tmp_path, music):
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen", MUSICPLAYER_DATA=str(tmp_path / "data"))
+    env = dict(
+        os.environ,
+        QT_QPA_PLATFORM="offscreen",
+        HALLUCINATE_DATA=str(tmp_path / "data"),
+        HALLUCINATE_DISABLE_LEGACY_MIGRATION="1",
+    )
     r = subprocess.run(
-        [sys.executable, "-m", "musicplayer", str(music), "--quit-after", "2500"],
+        [sys.executable, "-m", "hallucinate", str(music), "--quit-after", "2500"],
         env=env, capture_output=True, text=True, timeout=60,
     )
     if "ImportError" in r.stderr and "PySide6" in r.stderr:
@@ -19,3 +24,14 @@ def test_app_launches_offscreen(tmp_path, music):
     errors = [l for l in r.stderr.splitlines()
               if ".qml" in l and "Error decoding" not in l]
     assert not errors, r.stderr
+
+
+def test_legacy_module_name_remains_a_working_cli_shim():
+    result = subprocess.run(
+        [sys.executable, "-m", "musicplayer", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip()

@@ -7,7 +7,7 @@ import pytest
 from conftest import wait_for
 from PySide6.QtCore import QObject, Signal
 
-import musicplayer.scrobbling as scrobbling
+import hallucinate.scrobbling as scrobbling
 
 
 class FakePlayer(QObject):
@@ -55,8 +55,8 @@ def memory_keyring(monkeypatch):
 
 @pytest.fixture
 def make_scrobbler(qapp, tmp_path, memory_keyring, monkeypatch):
-    monkeypatch.delenv("MUSICPLAYER_LASTFM_API_KEY", raising=False)
-    monkeypatch.delenv("MUSICPLAYER_LASTFM_API_SECRET", raising=False)
+    monkeypatch.delenv("HALLUCINATE_LASTFM_API_KEY", raising=False)
+    monkeypatch.delenv("HALLUCINATE_LASTFM_API_SECRET", raising=False)
     player = FakePlayer()
     instances = []
 
@@ -133,7 +133,7 @@ def test_lastfm_scrobble_threshold(duration, expected):
 
 
 def test_auth_flow_stores_session_only_in_keyring(make_scrobbler, monkeypatch):
-    import musicplayer.scrobbling as module
+    import hallucinate.scrobbling as module
 
     _player, make = make_scrobbler
     calls = []

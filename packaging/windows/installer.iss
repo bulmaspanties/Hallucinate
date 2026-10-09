@@ -5,16 +5,17 @@
 
 [Setup]
 AppId={{6C1B7C1E-4F3A-4D5B-9E52-5B8A1E0D7A11}
-AppName=Music Player
+AppName=Hallucinate
 AppVersion={#AppVersion}
-AppPublisher=Music Player contributors
-AppPublisherURL=https://github.com/bulmaspanties/music-player
-DefaultDirName={autopf}\Music Player
-DefaultGroupName=Music Player
+AppPublisher=Hallucinate contributors
+AppPublisherURL=https://github.com/bulmaspanties/Hallucinate
+DefaultDirName={autopf}\Hallucinate
+DefaultGroupName=Hallucinate
 OutputDir=..\..\dist
-OutputBaseFilename=musicplayer-{#AppVersion}-windows-x64-setup
-SetupIconFile=..\..\musicplayer\assets\musicplayer.ico
-UninstallDisplayIcon={app}\MusicPlayer.exe
+OutputBaseFilename=hallucinate-{#AppVersion}-windows-x64-setup
+SetupIconFile=..\..\hallucinate\assets\hallucinate.ico
+WizardImageFile=..\..\hallucinate\assets\setup-wizard.bmp
+UninstallDisplayIcon={app}\Hallucinate.exe
 LicenseFile=..\..\LICENSE
 Compression=lzma2
 SolidCompression=yes
@@ -22,14 +23,14 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequiredOverridesAllowed=dialog
 
 [Files]
-Source: "..\..\dist\MusicPlayer\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\..\dist\Hallucinate\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{group}\Music Player"; Filename: "{app}\MusicPlayer.exe"
-Name: "{autodesktop}\Music Player"; Filename: "{app}\MusicPlayer.exe"; Tasks: desktopicon
+Name: "{group}\Hallucinate"; Filename: "{app}\Hallucinate.exe"
+Name: "{autodesktop}\Hallucinate"; Filename: "{app}\Hallucinate.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Run]
-Filename: "{app}\MusicPlayer.exe"; Description: "Launch Music Player"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Hallucinate.exe"; Description: "Launch Hallucinate"; Flags: nowait postinstall skipifsilent

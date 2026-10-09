@@ -1,7 +1,7 @@
 from PySide6.QtGui import QIcon
 
-from musicplayer.player import Player
-from musicplayer.shell import DesktopShell
+from hallucinate.player import Player
+from hallucinate.shell import DesktopShell
 
 
 class FakeWindow:

@@ -18,7 +18,7 @@ def make_player(qapp, tmp_path):
     made = []
 
     def make(session=True):
-        from musicplayer.player import Player
+        from hallucinate.player import Player
         p = Player(session_file=(tmp_path / "session.json") if session else None)
         made.append(p)
         return p
@@ -296,7 +296,7 @@ def test_played_signal_after_half(make_player, tmp_path):
 
 
 def test_replaygain_factor():
-    from musicplayer.player import replaygain_factor
+    from hallucinate.player import replaygain_factor
     t = {"rg_track": -6.0, "rg_album": -3.0, "rg_peak": 0.5}
     assert replaygain_factor(t, "off") == 1.0
     assert replaygain_factor(None, "track") == 1.0

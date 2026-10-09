@@ -8,7 +8,7 @@ import threading
 import pytest
 from conftest import wait_for
 
-from musicplayer import discord as dc
+from hallucinate import discord as dc
 
 TRACK = {"title": "Song", "artist": "Band", "album": "Disc", "duration": 200}
 PREFS = {"hidePaused": True, "hideCover": False, "privacy": False}
@@ -91,7 +91,7 @@ def test_worker_connects_updates_and_reconnects(tmp_path):
     statuses = []
     w = dc._Worker(statuses.append, [path], reconnect=0.2)
     w.start()
-    act = {"type": 2, "details": "Song", "state": "Band", "assets": {"large_image": "musicplayer"}}
+    act = {"type": 2, "details": "Song", "state": "Band", "assets": {"large_image": "hallucinate"}}
     w.submit(("set", act, "123", None))  # Discord not running yet
     assert wait_for(lambda: "waiting" in statuses)
     srv = FakeDiscord(path)

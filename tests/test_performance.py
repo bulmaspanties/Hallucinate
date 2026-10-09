@@ -11,7 +11,7 @@ pytest.importorskip("PySide6.QtCore", exc_type=ImportError)
 from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtGui import QColor, QImage  # noqa: E402
 
-from musicplayer.models import TRACK_KEYS, DictModel, compute_ops  # noqa: E402
+from hallucinate.models import TRACK_KEYS, DictModel, compute_ops  # noqa: E402
 
 # The goal is "never block >~50 ms"; CI machines are noisy, so the assertion has headroom.
 MAX_GAP_MS = 120
@@ -81,8 +81,8 @@ def test_update_items_falls_back_when_stale(qapp):
 
 @pytest.fixture
 def big_library(qapp, tmp_path):
-    from musicplayer.core.db import Database
-    from musicplayer.library import Library
+    from hallucinate.core.db import Database
+    from hallucinate.library import Library
 
     db_path = tmp_path / "big.db"
     d = Database(db_path)
@@ -97,7 +97,7 @@ def big_library(qapp, tmp_path):
 
 
 def test_50k_reload_search_play_never_block_gui(big_library, tmp_path):
-    from musicplayer.player import Player
+    from hallucinate.player import Player
 
     lib = big_library
     player = Player(session_file=tmp_path / "session.json")
@@ -129,7 +129,7 @@ def _run_latency(lib, player):
 
 
 def test_session_save_is_bounded(qapp, tmp_path):
-    from musicplayer.player import SESSION_MAX_TRACKS, Player
+    from hallucinate.player import SESSION_MAX_TRACKS, Player
 
     player = Player(session_file=tmp_path / "s.json")
     tracks = [{"id": i, "path": f"/nope/{i}.mp3", "title": f"t{i}"} for i in range(5000)]
@@ -142,7 +142,7 @@ def test_session_save_is_bounded(qapp, tmp_path):
 
 
 def test_art_provider_buckets_and_caches(qapp, tmp_path):
-    from musicplayer.thumbs import ArtProvider, bucket
+    from hallucinate.thumbs import ArtProvider, bucket
 
     assert [bucket(n) for n in (10, 64, 65, 300, 9999)] == [64, 64, 128, 512, 512]
     src = tmp_path / "we ird #name%.png"

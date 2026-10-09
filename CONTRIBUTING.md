@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Music Player!
+Thanks for helping improve Hallucinate!
 
 ## Development setup
 ```sh
@@ -19,10 +19,10 @@ QT_QPA_PLATFORM=offscreen pytest -q
 - Run through relevant parts of [docs/manual-qa.md](docs/manual-qa.md) for playback,
   MPRIS, Last.fm or theme changes.
 - Never commit credentials. Last.fm keys/secrets live in the system keyring or
-  `MUSICPLAYER_LASTFM_API_KEY` / `MUSICPLAYER_LASTFM_API_SECRET`.
+  `HALLUCINATE_LASTFM_API_KEY` / `HALLUCINATE_LASTFM_API_SECRET`.
 
 ## Themes
-New built-in themes are JSON files in `musicplayer/themes/` (see the README theming guide).
+New built-in themes are JSON files in `hallucinate/themes/` (see the README theming guide).
 
 ## Conduct
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).

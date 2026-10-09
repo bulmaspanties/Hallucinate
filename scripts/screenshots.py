@@ -70,19 +70,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--scale", type=float, default=1.0)
-    ap.add_argument("--themes", default="Dark,Light,Catppuccin Mocha,Nord")
+    ap.add_argument("--themes", default="Hallucinate,Dark,Light,Catppuccin Mocha,Nord")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="mp-shots-"))
-    os.environ["MUSICPLAYER_DATA"] = str(work / "data")
+    os.environ["HALLUCINATE_DATA"] = str(work / "data")
+    os.environ["HALLUCINATE_DISABLE_LEGACY_MIGRATION"] = "1"
     os.environ["XDG_CONFIG_HOME"] = str(work / "config")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     os.environ["QT_SCALE_FACTOR"] = str(args.scale)
     build_library(work / "Music")
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    import musicplayer.app as appmod
+    import hallucinate.app as appmod
 
     managers = []
     orig_tm = appmod.ThemeManager
@@ -103,7 +104,7 @@ def main():
             return super().exec()
 
         def run_shots(self):
-            win = next(w for w in self.topLevelWindows() if w.title().startswith("Music Player") or w.title())
+            win = next(w for w in self.topLevelWindows() if w.title().startswith("Hallucinate") or w.title())
             win.resize(1280, 800)
             steps = [("home", "dark-home"), ("albums", "dark-albums"), ("songs", "dark-songs"), ("settings", "dark-settings")]
             todo = []

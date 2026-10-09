@@ -26,5 +26,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Output of running `musicplayer` from a terminal. Remove any personal data.
+      description: Output of running `hallucinate` from a terminal. Remove any personal data.
       render: shell

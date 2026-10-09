@@ -1,0 +1,36 @@
+# Maintainer: bulmaspanties <https://github.com/bulmaspanties>
+pkgname=hallucinate-git
+_pkgname=hallucinate
+pkgver=0.1.0.r0.g3848ef5
+pkgrel=1
+pkgdesc="Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML) - git version"
+arch=('any')
+url="https://github.com/bulmaspanties/Hallucinate"
+license=('MIT')
+depends=('python' 'pyside6' 'python-mutagen' 'python-keyring' 'python-numpy' 'qt6-multimedia-ffmpeg' 'qt6-declarative')
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+optdepends=('gnome-keyring: store Last.fm credentials in the system keyring'
+            'kwallet: store Last.fm credentials in the system keyring')
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd Hallucinate
+  git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' \
+    || printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cd Hallucinate
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd Hallucinate
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 packaging/hallucinate.desktop "$pkgdir/usr/share/applications/hallucinate.desktop"
+  for s in 16 24 32 48 64 128 256 512; do install -Dm644 "packaging/icons/hicolor/${s}x${s}/apps/hallucinate.png" "$pkgdir/usr/share/icons/hicolor/${s}x${s}/apps/hallucinate.png"; done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$_pkgname/LICENSE"
+}

@@ -1,5 +1,6 @@
-import sys
+"""Compatibility entry point; use `hallucinate` for new installations."""
 
-from .app import main
+from hallucinate.app import main
 
-sys.exit(main())
+if __name__ == "__main__":
+    raise SystemExit(main())

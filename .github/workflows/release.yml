@@ -18,25 +18,25 @@ jobs:
           python-version: "3.12"
       - name: Build AppImage
         run: |
-          OUT="musicplayer-${GITHUB_REF_NAME#v}-x86_64.AppImage" packaging/appimage/build.sh
+          OUT="hallucinate-${GITHUB_REF_NAME#v}-x86_64.AppImage" packaging/appimage/build.sh
       - name: Smoke test (offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
           sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3 libpulse0 libxcb-cursor0
-          timeout 20 ./musicplayer-*-x86_64.AppImage --appimage-extract-and-run || [ $? -eq 124 ]
+          timeout 20 ./hallucinate-*-x86_64.AppImage --appimage-extract-and-run || [ $? -eq 124 ]
       - uses: actions/upload-artifact@v4
         with:
           name: AppImage
-          path: musicplayer-*.AppImage
+          path: hallucinate-*.AppImage
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sha256sum musicplayer-*.AppImage > SHA256SUMS
+          sha256sum hallucinate-*.AppImage > SHA256SUMS
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" musicplayer-*.AppImage SHA256SUMS --clobber
+          gh release upload "$GITHUB_REF_NAME" hallucinate-*.AppImage SHA256SUMS --clobber
 
   windows:
     runs-on: windows-latest
@@ -56,7 +56,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           APPDATA: ${{ runner.temp }}\appdata
         run: |
-          $p = Start-Process dist\MusicPlayer\MusicPlayer.exe -ArgumentList '--quit-after','4000' -PassThru
+          $p = Start-Process dist\Hallucinate\Hallucinate.exe -ArgumentList '--quit-after','4000' -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'exe did not exit' }
           if ($p.ExitCode -ne 0) { throw "exe exited with $($p.ExitCode)" }
       - uses: actions/upload-artifact@v4

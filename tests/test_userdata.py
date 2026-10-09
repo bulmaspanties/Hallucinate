@@ -2,8 +2,8 @@ from conftest import make_mp3, wait_for
 from mutagen.id3 import ID3, TXXX
 from mutagen.oggopus import OggOpus  # noqa: F401
 
-from musicplayer.core.tags import read_replaygain
-from musicplayer.userlib import UserLibrary
+from hallucinate.core.tags import read_replaygain
+from hallucinate.userlib import UserLibrary
 
 
 def paths(db):

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from musicplayer import eq
+from hallucinate import eq
 
 RATE = 44100
 
