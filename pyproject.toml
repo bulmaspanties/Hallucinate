@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 dependencies = ["PySide6>=6.8", "mutagen>=1.46", "keyring>=24", "numpy>=1.24"]
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
+test = ["pytest>=9.1.1"]
 icons = ["Pillow>=9"]
 
 [project.gui-scripts]
