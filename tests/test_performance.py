@@ -40,6 +40,8 @@ class Heartbeat:
 
     def __exit__(self, *exc):
         self.timer.stop()
+        self.timer.timeout.disconnect(self._tick)
+        self.timer.deleteLater()
 
 
 def test_compute_ops_roundtrip_and_limits():
@@ -100,6 +102,14 @@ def test_50k_reload_search_play_never_block_gui(big_library, tmp_path):
     lib = big_library
     player = Player(session_file=tmp_path / "session.json")
     lib.setPlayer(player)
+    try:
+        _run_latency(lib, player)
+    finally:
+        lib.setPlayer(None)
+        player.deleteLater()
+
+
+def _run_latency(lib, player):
     with Heartbeat() as hb:
         assert wait_for(lambda: lib.ready and lib.trackCount == 50_000, timeout=30)
         load_worst = hb.worst
