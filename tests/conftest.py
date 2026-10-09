@@ -115,3 +115,19 @@ def wait_for(cond, timeout=8.0, step=20):
         QCoreApplication.processEvents()
         time.sleep(step / 1000)
     return cond()
+
+
+def pytest_unconfigure(config):
+    # PySide6 on Python 3.11 can abort during interpreter finalization (GC of Qt-owned objects) after
+    # all tests passed; exit directly with the real status once reporting is done.
+    import sys
+
+    status = getattr(config, "_exit_status", None)
+    if status is not None and sys.version_info[:2] == (3, 11):
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(int(status))
+
+
+def pytest_sessionfinish(session, exitstatus):
+    session.config._exit_status = int(exitstatus)
