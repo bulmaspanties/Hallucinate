@@ -46,7 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_pl_items ON playlist_items(playlist_id, pos);
 CREATE TABLE IF NOT EXISTS plays(path TEXT PRIMARY KEY, count INTEGER NOT NULL, last REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS play_log(
   id INTEGER PRIMARY KEY, ts REAL NOT NULL, path TEXT, artist TEXT NOT NULL DEFAULT '',
-  title TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'local',
+  title TEXT NOT NULL DEFAULT '', album TEXT NOT NULL DEFAULT '', duration REAL NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'local',
   UNIQUE(ts, artist, title));
 CREATE INDEX IF NOT EXISTS idx_play_log_ts ON play_log(ts);
 CREATE TABLE IF NOT EXISTS lyrics(path TEXT PRIMARY KEY, synced TEXT NOT NULL DEFAULT '',
@@ -109,15 +110,22 @@ class Database:
             # Zero mtime makes the next scan re-read every file so ReplayGain tags get picked up.
             self.conn.execute("UPDATE tracks SET mtime=0")
         missing = [c for c in SEARCH_COLS if c not in cols]
-        if not missing:
-            return
-        for c in missing:
-            self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} TEXT NOT NULL DEFAULT ''")
-        rows = self.conn.execute("SELECT id, title, artist, album, album_artist FROM tracks").fetchall()
-        self.conn.executemany(
-            "UPDATE tracks SET s_title=?, s_album=?, s_aa=?, s_artist=? WHERE id=?",
-            [(fold(r["title"]), fold(r["album"]), fold(r["album_artist"]), fold(r["artist"]), r["id"]) for r in rows],
-        )
+        if missing:
+            for c in missing:
+                self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} TEXT NOT NULL DEFAULT ''")
+            rows = self.conn.execute("SELECT id, title, artist, album, album_artist FROM tracks").fetchall()
+            self.conn.executemany(
+                "UPDATE tracks SET s_title=?, s_album=?, s_aa=?, s_artist=? WHERE id=?",
+                [(fold(r["title"]), fold(r["album"]), fold(r["album_artist"]), fold(r["artist"]), r["id"]) for r in rows],
+            )
+        log_cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(play_log)")}
+        if "duration" not in log_cols:
+            self.conn.execute("ALTER TABLE play_log ADD COLUMN duration REAL NOT NULL DEFAULT 0")
+            self.conn.execute(
+                """UPDATE play_log SET duration=COALESCE(
+                     (SELECT duration FROM tracks WHERE tracks.path=play_log.path), 0)
+                   WHERE duration=0 AND path IS NOT NULL"""
+            )
 
     def close(self):
         self.conn.close()
@@ -190,8 +198,8 @@ class Database:
     def record_play(self, path: str, when: Optional[float] = None):
         when = when or time.time()
         self.conn.execute(
-            "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, source) "
-            "SELECT ?, path, artist, title, album, 'local' FROM tracks WHERE path=?", (when, path))
+            "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, duration, source) "
+            "SELECT ?, path, artist, title, album, duration, 'local' FROM tracks WHERE path=?", (when, path))
         self.conn.execute(
             "INSERT INTO plays(path, count, last) VALUES(?,1,?) "
             "ON CONFLICT(path) DO UPDATE SET count=count+1, last=excluded.last",
@@ -203,8 +211,8 @@ class Database:
         """Merge external listens ({ts, artist, title, album}); matched local tracks also bump `plays`."""
         added = matched = 0
         lookup = {}
-        for r in self.conn.execute("SELECT path, artist, title FROM tracks"):
-            lookup.setdefault((fold(r["artist"]), fold(r["title"])), r["path"])
+        for r in self.conn.execute("SELECT path, artist, title, duration FROM tracks"):
+            lookup.setdefault((fold(r["artist"]), fold(r["title"])), (r["path"], r["duration"]))
         for it in items:
             artist, title = (it.get("artist") or "").strip(), (it.get("title") or "").strip()
             try:
@@ -213,10 +221,16 @@ class Database:
                 continue
             if not artist or not title or ts <= 0:
                 continue
-            path = lookup.get((fold(artist), fold(title)))
+            match = lookup.get((fold(artist), fold(title)))
+            path = match[0] if match else None
+            try:
+                duration = match[1] if match else float(it.get("duration") or 0)
+            except (TypeError, ValueError):
+                duration = 0
             cur = self.conn.execute(
-                "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, source) VALUES(?,?,?,?,?,?)",
-                (ts, path, artist, title, it.get("album") or "", source))
+                "INSERT OR IGNORE INTO play_log(ts, path, artist, title, album, duration, source) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (ts, path, artist, title, it.get("album") or "", duration, source))
             if not cur.rowcount:
                 continue
             added += 1
@@ -227,6 +241,145 @@ class Database:
                     "ON CONFLICT(path) DO UPDATE SET count=count+1, last=MAX(last, excluded.last)", (path, ts))
         self.conn.commit()
         return {"added": added, "matched": matched}
+
+    def listening_stats(self, period_start=None, limit=10):
+        params = () if period_start is None else (period_start,)
+        where = "" if period_start is None else "WHERE l.ts >= ?"
+        if period_start is None:
+            artists = self._rows(
+                """SELECT MIN(t.album_artist) AS name, SUM(p.count) AS plays,
+                          COUNT(DISTINCT t.album_key) AS albums, COUNT(*) AS tracks, MAX(t.art) AS art
+                   FROM plays p JOIN tracks t ON t.path=p.path
+                   GROUP BY t.s_aa ORDER BY plays DESC, name COLLATE NOCASE LIMIT ?""",
+                (limit,),
+            )
+            albums = self._rows(
+                f"""{self._ALBUM_SQL.replace("FROM tracks", "FROM tracks t JOIN plays p ON p.path=t.path")}
+                    GROUP BY t.album_key ORDER BY SUM(p.count) DESC LIMIT ?""",
+                (limit,),
+            )
+            for row in albums:
+                row["plays"] = self.conn.execute(
+                    "SELECT SUM(count) FROM plays p JOIN tracks t ON t.path=p.path WHERE t.album_key=?",
+                    (row["album_key"],),
+                ).fetchone()[0]
+            tracks = self._rows(
+                """SELECT t.*, p.count AS plays FROM plays p JOIN tracks t ON t.path=p.path
+                   ORDER BY p.count DESC, p.last DESC LIMIT ?""",
+                (limit,),
+            )
+            listen_count = self.conn.execute("SELECT COALESCE(SUM(count),0) FROM plays").fetchone()[0]
+        else:
+            artists = self._rows(
+                f"""SELECT MIN(l.artist) AS name, COUNT(*) AS plays, COUNT(DISTINCT l.album) AS albums,
+                           COUNT(DISTINCT l.title) AS tracks, MAX(t.art) AS art
+                    FROM play_log l LEFT JOIN tracks t ON t.path=l.path {where}
+                    GROUP BY fold(l.artist) ORDER BY plays DESC, name COLLATE NOCASE LIMIT ?""",
+                (*params, limit),
+            )
+            albums = self._rows(
+                f"""SELECT MAX(t.album_key) AS album_key, MIN(l.album) AS album, MIN(l.artist) AS album_artist,
+                           MAX(t.year) AS year, COUNT(*) AS n, SUM(l.duration) AS duration,
+                           MAX(t.art) AS art, MAX(l.ts) AS added, COUNT(*) AS plays
+                    FROM play_log l LEFT JOIN tracks t ON t.path=l.path {where}
+                    GROUP BY fold(l.artist), fold(l.album)
+                    ORDER BY plays DESC, album COLLATE NOCASE LIMIT ?""",
+                (*params, limit),
+            )
+            tracks = self._rows(
+                f"""SELECT l.path, MIN(l.title) AS title, MIN(l.artist) AS artist, MIN(l.album) AS album,
+                           MAX(t.album_key) AS album_key, MAX(t.art) AS art, MAX(t.duration) AS duration,
+                           COUNT(*) AS plays, MAX(t.year) AS year, MAX(t.track_no) AS track_no,
+                           MAX(t.disc_no) AS disc_no, MAX(t.id) AS id
+                    FROM play_log l LEFT JOIN tracks t ON t.path=l.path {where} AND l.path IS NOT NULL
+                    GROUP BY fold(l.artist), fold(l.title)
+                    ORDER BY plays DESC, title COLLATE NOCASE LIMIT ?""",
+                (*params, limit),
+            )
+            listen_count = self.conn.execute(
+                f"SELECT COUNT(*) FROM play_log l {where}", params
+            ).fetchone()[0]
+        if period_start is None:
+            listening_seconds = self.conn.execute(
+                "SELECT COALESCE(SUM(t.duration * p.count),0) "
+                "FROM plays p JOIN tracks t ON t.path=p.path"
+            ).fetchone()[0]
+        else:
+            listening_seconds = self.conn.execute(
+                f"SELECT COALESCE(SUM(l.duration),0) FROM play_log l {where}", params
+            ).fetchone()[0]
+        return {
+            "artists": artists,
+            "albums": albums,
+            "tracks": tracks,
+            "listens": listen_count,
+            "listeningSeconds": listening_seconds,
+        }
+
+    def home_mix(self, limit=40):
+        rows = self._rows(
+            """WITH scored AS (
+                 SELECT t.*, COALESCE(p.count,0) AS plays, p.last AS last,
+                        CASE WHEN l.path IS NULL THEN 0 ELSE 1 END AS liked,
+                        ROW_NUMBER() OVER (
+                          PARTITION BY fold(CASE WHEN t.album_artist != '' THEN t.album_artist ELSE t.artist END)
+                          ORDER BY COALESCE(p.count,0) DESC,
+                                   CASE WHEN l.path IS NULL THEN 0 ELSE 1 END DESC,
+                                   p.last DESC, t.s_title
+                        ) AS artist_rank
+                 FROM tracks t
+                 LEFT JOIN plays p ON p.path=t.path
+                 LEFT JOIN likes l ON l.path=t.path
+                 WHERE p.path IS NOT NULL OR l.path IS NOT NULL
+               )
+               SELECT * FROM scored
+               ORDER BY artist_rank, plays DESC, liked DESC, last DESC, s_title
+               LIMIT ?""",
+            (limit,),
+        )
+        return rows
+
+    def filter_values(self):
+        return {
+            "genres": [r["genre"] for r in self.conn.execute(
+                "SELECT DISTINCT genre FROM tracks WHERE genre != '' ORDER BY genre COLLATE NOCASE"
+            )],
+            "years": [r["year"] for r in self.conn.execute(
+                "SELECT DISTINCT year FROM tracks WHERE year > 0 ORDER BY year DESC"
+            )],
+            "formats": [r["fmt"] for r in self.conn.execute(
+                "SELECT DISTINCT fmt FROM tracks WHERE fmt != '' ORDER BY fmt COLLATE NOCASE"
+            )],
+        }
+
+    def filtered_tracks(self, genre="", year=0, fmt=""):
+        clauses, params = [], []
+        if genre:
+            clauses.append("genre = ?")
+            params.append(genre)
+        if year:
+            clauses.append("year = ?")
+            params.append(year)
+        if fmt:
+            clauses.append("fmt = ?")
+            params.append(fmt)
+        where = "WHERE " + " AND ".join(clauses) if clauses else ""
+        return self._rows(f"SELECT * FROM tracks {where} ORDER BY s_title, s_artist", params)
+
+    def duplicate_tracks(self, limit=1000):
+        return self._rows(
+            """WITH duplicate_groups AS (
+                 SELECT s_title, s_artist, ROUND(duration) AS duration_key, COUNT(*) AS duplicate_count
+                 FROM tracks
+                 WHERE s_title != '' AND s_artist != '' AND duration > 0
+                 GROUP BY s_title, s_artist, ROUND(duration)
+                 HAVING COUNT(*) > 1
+               )
+               SELECT t.*, d.duplicate_count FROM duplicate_groups d JOIN tracks t
+                 ON t.s_title=d.s_title AND t.s_artist=d.s_artist AND ROUND(t.duration)=d.duration_key
+               ORDER BY d.duplicate_count DESC, t.s_artist, t.s_title, t.path LIMIT ?""",
+            (limit,),
+        )
 
     def most_played(self, limit: int = 10) -> list:
         return self._rows(

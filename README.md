@@ -31,7 +31,9 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 - MPRIS2 controls and media keys on Linux.
 - Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
   scrobbling, secure system-keyring credentials, and a persistent offline retry queue.
-- Liked Songs and user playlists (create, rename, delete, add from any track's "…" menu); Home shows Recently played and Most played.
+- Liked Songs and user playlists (create, rename, delete, add from any track's "…" menu); Home shows Recently played, Most played, and a listening-based personal mix.
+- A Stats page with top artists/albums/tracks and listening time for all time, the last 7 days, 30 days, or 12 months. Listening time is estimated from known track durations.
+- Filter the library by genre, year, and format; find probable duplicate tracks by normalized title, artist, and duration. Manage multiple library folders in Settings.
 - ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback, and a 10-band equalizer with presets (needs numpy).
 - Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE) and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
 - Lyrics panel with synced highlighting: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; can be disabled).
@@ -180,9 +182,9 @@ FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 (metadata; decoding depends on your Qt FFmpeg build).
 
 ## Roadmap
+- Flatpak packaging, macOS build feasibility, and signed Windows builds
+- Visualizer and PipeWire/exclusive-output investigation
 - Real-device verification of APE playback and desktop media keys
-- ListenBrainz scrobbling
-- Packaging: AUR submission, Flatpak, code-signed Windows builds, macOS
 - A project website
 
 ## Contributing

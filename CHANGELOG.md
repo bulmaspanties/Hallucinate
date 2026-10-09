@@ -9,9 +9,8 @@ All notable changes to this project are documented here. Format based on
 - Queue: drag-to-reorder (grip handle, Alt+Up/Down), speed selector (0.5–2×) and sleep timer (minutes or end of track, with fade-out) from the player bar's ⋯ menu.
 - Hallucinate branding, supplied logo and generated platform icons, Hallucinate color theme, `hallucinate` package/CLI, and first-run migration of the previous app's data, settings, cache and Last.fm credentials.
 - ListenBrainz token/keyring connection, now-playing and offline listen submissions, plus deduplicated listening-history imports from ListenBrainz and Last.fm.
-
-### Added
 - Discord Rich Presence (raw IPC, threaded, auto-reconnect; Flatpak/Snap/Windows paths; hide-when-paused, hide-cover and privacy options).
+- Statistics for listening periods, top artists/albums/tracks, and estimated listening time; a listening-based personal Home mix; genre/year/format filters; and probable duplicate detection.
 - Tests no longer touch the developer's real QSettings.
 
 ## [0.2.0] - 2026-10-09

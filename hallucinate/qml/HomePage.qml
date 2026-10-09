@@ -171,6 +171,35 @@ Item {
                     }
                 }
             }
+            Text {
+                visible: userLib.homeMix.count > 0
+                text: "Your mix"
+                color: Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(20)
+                font.weight: Font.DemiBold
+            }
+            Column {
+                visible: userLib.homeMix.count > 0
+                width: parent.width
+                Repeater {
+                    model: userLib.homeMix
+                    TrackRow {
+                        width: parent.width
+                        path: model.path
+                        rowIndex: index
+                        number: index + 1
+                        title: model.title
+                        artist: model.artist
+                        album: model.album
+                        durText: model.durText
+                        artUrl: model.artUrl
+                        current: player.hasTrack && player.current.id === model.id
+                        onActivated: userLib.playHomeMix(index)
+                        onEnqueue: player.enqueue(userLib.homeMix.get(index))
+                    }
+                }
+            }
         }
     }
 }

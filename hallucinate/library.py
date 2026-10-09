@@ -12,6 +12,7 @@ from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel, compute_ops
 logger = logging.getLogger(__name__)
 
 MAX_WATCHED_DIRS = 2000
+DUPLICATE_KEYS = [*TRACK_KEYS, "duplicateCount"]
 
 
 def fmt_duration(seconds) -> str:
@@ -65,7 +66,11 @@ class Library(QObject):
     scanIssuesChanged = Signal()
     _loaded = Signal(object)
     _searched = Signal(object)
+    _filtered = Signal(object)
+    _duplicates_loaded = Signal(object)
     foldersChanged = Signal()
+    filtersChanged = Signal()
+    duplicatesChanged = Signal()
     scanningChanged = Signal()
     statusChanged = Signal()
     scanProgress = Signal(int)
@@ -84,6 +89,8 @@ class Library(QObject):
             "sTracks": DictModel(TRACK_KEYS, self),
             "sAlbums": DictModel(ALBUM_KEYS, self),
             "sArtists": DictModel(ARTIST_KEYS, self),
+            "filteredTracks": DictModel(TRACK_KEYS, self, "id"),
+            "duplicates": DictModel(DUPLICATE_KEYS, self, "id"),
         }
         self._detail = {}
         self._counts = {"tracks": 0, "albums": 0, "artists": 0}
@@ -97,12 +104,19 @@ class Library(QObject):
         self._missing = []
         self._player = None
         self._artist_index = {}
+        self._filter_values = {"genres": [], "years": [], "formats": []}
+        self._filters = ("", 0, "")
+        self._filter_gen = 0
+        self._duplicate_gen = 0
+        self._duplicates_loading = False
         self._load_gen = 0
         self._search_gen = 0
         self._bulk = _Reader(self._db_path, "lib-bulk")
         self._quick = _Reader(self._db_path, "lib-search")
         self._loaded.connect(self._apply_load)
         self._searched.connect(self._apply_search)
+        self._filtered.connect(self._apply_filtered)
+        self._duplicates_loaded.connect(self._apply_duplicates)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_dir_changed)
         self._debounce = QTimer(self)
@@ -124,6 +138,28 @@ class Library(QObject):
     searchTracks = _model_prop("sTracks")
     searchAlbums = _model_prop("sAlbums")
     searchArtists = _model_prop("sArtists")
+    filteredTracks = _model_prop("filteredTracks")
+    duplicates = _model_prop("duplicates")
+
+    @Property(bool, notify=filtersChanged)
+    def filtersActive(self):
+        return any(self._filters)
+
+    @Property("QVariantList", notify=filtersChanged)
+    def genres(self):
+        return list(self._filter_values["genres"])
+
+    @Property("QVariantList", notify=filtersChanged)
+    def years(self):
+        return list(self._filter_values["years"])
+
+    @Property("QVariantList", notify=filtersChanged)
+    def formats(self):
+        return list(self._filter_values["formats"])
+
+    @Property(bool, notify=duplicatesChanged)
+    def duplicatesLoading(self):
+        return self._duplicates_loading
 
     @Property("QVariantList", notify=foldersChanged)
     def folders(self):
@@ -191,6 +227,7 @@ class Library(QObject):
             "artists": decorate(db.artists()),
             "songs": decorate(db.tracks()),
             "counts": db.counts(),
+            "filterValues": db.filter_values(),
         }
         data["ops"] = {}
         for name, snap in snapshots.items():
@@ -228,13 +265,17 @@ class Library(QObject):
             m[name].update_items(data[name], ops, revision)
         m["recent"].set_items(data["recent"])
         self._counts = data["counts"]
+        self._filter_values = data["filterValues"]
         self._artist_index = {fold(a["name"]): a for a in data["artists"]}
         self._detail.clear()
         if not self._ready:
             self._ready = True
             self.readyChanged.emit()
         self.changed.emit()
+        self.filtersChanged.emit()
         self.reloaded.emit()
+        if any(self._filters):
+            self.filterTracks(*self._filters)
 
     # --- queries used by QML ----------------------------------------------
     @Slot(str)
@@ -322,6 +363,78 @@ class Library(QObject):
     @Slot(int)
     def playSearchTracks(self, index):
         self._play(self._models["sTracks"].items(), index)
+
+    @Slot(str, int, str)
+    def filterTracks(self, genre="", year=0, fmt=""):
+        filters = (genre.strip(), int(year or 0), fmt.strip())
+        self._filters = filters
+        self.filtersChanged.emit()
+        self._filter_gen += 1
+        gen = self._filter_gen
+        if not any(self._filters):
+            return
+        snapshot = self._models["filteredTracks"].snapshot_keys()
+
+        def work(db):
+            try:
+                rows = decorate(db.filtered_tracks(*filters))
+                ops = compute_ops(snapshot[1], [row["id"] for row in rows])
+                self._filtered.emit((gen, rows, ops, snapshot[0], ""))
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Library filter query failed")
+                self._filtered.emit((gen, [], None, None, str(exc)))
+
+        self._quick.submit(work)
+
+    @Slot(object)
+    def _apply_filtered(self, payload):
+        gen, rows, ops, revision, error = payload
+        if gen != self._filter_gen:
+            return
+        if error:
+            self._set_status("Filter failed: " + error)
+            return
+        self._models["filteredTracks"].update_items(rows, ops, revision)
+
+    @Slot(int)
+    def playFilteredSongs(self, index):
+        self._play(self._models["filteredTracks"].items(), index)
+
+    @Slot(int)
+    def playDuplicate(self, index):
+        self._play(self._models["duplicates"].items(), index)
+
+    @Slot()
+    def findDuplicates(self):
+        self._duplicate_gen += 1
+        gen = self._duplicate_gen
+        self._duplicates_loading = True
+        self.duplicatesChanged.emit()
+        snapshot = self._models["duplicates"].snapshot_keys()
+
+        def work(db):
+            try:
+                rows = decorate(db.duplicate_tracks())
+                ops = compute_ops(snapshot[1], [row["id"] for row in rows])
+                error = ""
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Duplicate detection failed")
+                rows, ops, error = [], None, str(exc)
+            self._duplicates_loaded.emit((gen, rows, ops, snapshot[0], error))
+
+        self._quick.submit(work)
+
+    @Slot(object)
+    def _apply_duplicates(self, payload):
+        gen, rows, ops, revision, error = payload
+        if gen != self._duplicate_gen:
+            return
+        self._duplicates_loading = False
+        if not error:
+            self._models["duplicates"].update_items(rows, ops, revision)
+        if error:
+            self._set_status("Duplicate detection failed: " + error)
+        self.duplicatesChanged.emit()
 
     @Slot(str, int)
     def playAlbum(self, key, index=0):

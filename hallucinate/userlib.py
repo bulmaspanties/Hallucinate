@@ -4,22 +4,28 @@ Everything is keyed by file path so it survives rescans. Database work runs on a
 thread only applies small result sets to models."""
 import logging
 import random
+import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from .library import _Reader, decorate
-from .models import ALBUM_KEYS, TRACK_KEYS, DictModel
+from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
 
 logger = logging.getLogger(__name__)
 PLAYLIST_KEYS = ["id", "name", "n"]
+STAT_ARTIST_KEYS = [*ARTIST_KEYS, "plays"]
+STAT_ALBUM_KEYS = [*ALBUM_KEYS, "plays"]
+STAT_TRACK_KEYS = [*TRACK_KEYS, "plays"]
 
 
 class UserLibrary(QObject):
     likesChanged = Signal()
     playlistsChanged = Signal()
+    statsChanged = Signal()
     playlistOpened = Signal(int)
     _refreshed = Signal(object)
     _playlist_loaded = Signal(object)
+    _stats_loaded = Signal(object)
 
     def __init__(self, db_path, player=None, parent=None):
         super().__init__(parent)
@@ -29,18 +35,26 @@ class UserLibrary(QObject):
         self._likes_revision = 0
         self._playlist_id = -1
         self._playlist_items = []
+        self._stats_period = "all"
+        self._stats_summary = {"listens": 0, "listeningSeconds": 0}
         self._models = {
             "playlists": DictModel(PLAYLIST_KEYS, self, "id"),
             "liked": DictModel(TRACK_KEYS, self),
             "mostPlayed": DictModel(TRACK_KEYS, self),
             "recentPlayed": DictModel(ALBUM_KEYS, self),
             "playlistTracks": DictModel(TRACK_KEYS, self),
+            "homeMix": DictModel(TRACK_KEYS, self),
+            "topArtists": DictModel(STAT_ARTIST_KEYS, self),
+            "topAlbums": DictModel(STAT_ALBUM_KEYS, self),
+            "topTracks": DictModel(STAT_TRACK_KEYS, self),
         }
         self._refreshed.connect(self._apply_refresh)
         self._playlist_loaded.connect(self._apply_playlist)
+        self._stats_loaded.connect(self._apply_stats)
         if player is not None:
             player.played.connect(self.recordPlay)
         self.refresh()
+        self.refreshStats()
 
     def _model_prop(name):  # noqa: N805
         return Property(QObject, lambda self: self._models[name], constant=True)
@@ -50,6 +64,18 @@ class UserLibrary(QObject):
     mostPlayed = _model_prop("mostPlayed")
     recentPlayed = _model_prop("recentPlayed")
     playlistTracks = _model_prop("playlistTracks")
+    homeMix = _model_prop("homeMix")
+    topArtists = _model_prop("topArtists")
+    topAlbums = _model_prop("topAlbums")
+    topTracks = _model_prop("topTracks")
+
+    @Property(str, notify=statsChanged)
+    def statsPeriod(self):
+        return self._stats_period
+
+    @Property("QVariantMap", notify=statsChanged)
+    def statsSummary(self):
+        return dict(self._stats_summary)
 
     @Property(int, notify=likesChanged)
     def likesRevision(self):
@@ -73,6 +99,7 @@ class UserLibrary(QObject):
                     "liked": decorate(db.liked_tracks()),
                     "mostPlayed": decorate(db.most_played(10)),
                     "recentPlayed": decorate(db.recently_played_albums(12)),
+                    "homeMix": decorate(db.home_mix(40)),
                 }
             except Exception:  # noqa: BLE001
                 logger.exception("User library refresh failed")
@@ -89,9 +116,66 @@ class UserLibrary(QObject):
         m["liked"].set_items(data["liked"])
         m["mostPlayed"].set_items(data["mostPlayed"])
         m["recentPlayed"].set_items(data["recentPlayed"])
+        m["homeMix"].set_items(data["homeMix"])
         self._likes_revision += 1
         self.likesChanged.emit()
         self.playlistsChanged.emit()
+
+    @Slot(str)
+    def setStatsPeriod(self, period):
+        if period not in ("all", "7d", "30d", "365d"):
+            return
+        if period == self._stats_period:
+            return
+        self._stats_period = period
+        self.statsChanged.emit()
+        self.refreshStats()
+
+    @Slot()
+    def refreshStats(self):
+        period = self._stats_period
+        starts = {"all": None, "7d": 7, "30d": 30, "365d": 365}
+        days = starts[period]
+        period_start = None if days is None else time.time() - days * 86400
+
+        def work(db):
+            try:
+                result = db.listening_stats(period_start)
+                payload = (
+                    period,
+                    result,
+                    decorate(result["artists"]),
+                    decorate(result["albums"]),
+                    decorate(result["tracks"]),
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("Listening statistics query failed")
+                return
+            self._stats_loaded.emit(payload)
+
+        self._reader.submit(work)
+
+    @Slot(object)
+    def _apply_stats(self, payload):
+        period, result, artists, albums, tracks = payload
+        if period != self._stats_period:
+            return
+        self._stats_summary = {
+            "listens": int(result["listens"]),
+            "listeningSeconds": int(result["listeningSeconds"]),
+        }
+        self._models["topArtists"].set_items(artists)
+        self._models["topAlbums"].set_items(albums)
+        self._models["topTracks"].set_items(tracks)
+        self.statsChanged.emit()
+
+    @Slot(int)
+    def playHomeMix(self, index):
+        self._play(self._models["homeMix"].items(), index)
+
+    @Slot(int)
+    def playTopTrack(self, index):
+        self._play(self._models["topTracks"].items(), index)
 
     def _write(self, fn, *args, refresh=True, reload_playlist=False):
         def work(db):
@@ -239,6 +323,7 @@ class UserLibrary(QObject):
         if not path:
             return
         self._write(lambda db, p: db.record_play(p), path)
+        self.refreshStats()
 
     def importPlays(self, items, source, done):
         """Merge external listens on the worker thread; call `done(result, error)` when finished."""

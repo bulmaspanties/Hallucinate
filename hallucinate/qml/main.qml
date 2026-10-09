@@ -32,6 +32,7 @@ ApplicationWindow {
         case "albums": return albumsPage
         case "artists": return artistsPage
         case "songs": return songsPage
+        case "stats": return statsPage
         case "settings": return settingsPage
         case "liked": return likedPage
         default: return homePage
@@ -61,6 +62,7 @@ ApplicationWindow {
     Component { id: albumsPage; AlbumsPage {} }
     Component { id: artistsPage; ArtistsPage {} }
     Component { id: songsPage; SongsPage {} }
+    Component { id: statsPage; StatsPage {} }
     Component { id: settingsPage; SettingsPage {} }
     Component { id: likedPage; PlaylistPage { liked: true } }
     Component { id: playlistPage; PlaylistPage {} }
@@ -146,7 +148,8 @@ ApplicationWindow {
                         model: [
                             { id: "home", t: "Home" }, { id: "albums", t: "Albums" },
                             { id: "artists", t: "Artists" }, { id: "songs", t: "Songs" },
-                            { id: "liked", t: "Liked Songs" }, { id: "settings", t: "Settings" }
+                            { id: "liked", t: "Liked Songs" }, { id: "stats", t: "Stats" },
+                            { id: "settings", t: "Settings" }
                         ]
                         NavButton {
                             required property var modelData
@@ -159,7 +162,7 @@ ApplicationWindow {
                 }
                 Item {
                     id: plSection
-                    anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 336; bottom: scanBar.top; bottomMargin: 6; leftMargin: 12; rightMargin: 12 }
+                    anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 376; bottom: scanBar.top; bottomMargin: 6; leftMargin: 12; rightMargin: 12 }
                     clip: true
                     Item {
                         id: plHeader
