@@ -9,7 +9,7 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![Platform: Linux first](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
 
-A fast, modern desktop music player (PySide6 + QML) for Linux (Arch-first, other
+A fast, modern desktop music player (PySide6 + QML) for Linux (other
 OSes secondary) with a Spotify-style search-and-browse experience. Not
 playlist-driven: type to find, click to play.
 
