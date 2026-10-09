@@ -93,6 +93,15 @@ Scrobbles are queued while offline and retried with backoff when connected.
 On headless Linux, install and unlock a Secret Service-compatible keyring before
 connecting. The app does not fall back to plaintext credential storage.
 
+## Discord Rich Presence
+Optional "Listening to" activity (title, artist, album, progress, cover via Cover Art Archive). Talks to Discord's local IPC directly (no extra dependency), runs off the GUI thread, and reconnects automatically if Discord is closed or started later. Works with native, Flatpak and Snap Discord on Linux, and on Windows.
+
+1. Create an application at <https://discord.com/developers/applications> (its name is what shows as the activity title).
+2. Under *Rich Presence → Art Assets* upload an icon named `musicplayer` (used when there is no cover or cover is hidden).
+3. In Settings → Discord Rich Presence, paste the Application ID (or set `MUSICPLAYER_DISCORD_APP_ID`) and enable it.
+
+Options: hide when paused, hide cover, privacy mode (shows only "Listening to music"). Nothing is sent unless enabled; no application ID is bundled.
+
 ## Themes
 Choose a theme in Settings. Built-ins are Dark, Light, Catppuccin Mocha/Latte,
 Nord, Gruvbox, Tokyo Night, and Dracula. The optional album-art accent follows

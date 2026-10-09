@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QIcon, QImage
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+from musicplayer.discord import DiscordPresence
 from musicplayer.library import Library
 from musicplayer.lyricsctl import LyricsController
 from musicplayer.metaedit import MetadataEditor
@@ -147,6 +148,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     context.setContextProperty("lyricsCtl", lyrics)
     shell = DesktopShell(qapp, player, QIcon())
     context.setContextProperty("shell", shell)
+    discord = DiscordPresence(player)
+    context.setContextProperty("discord", discord)
     context.setContextProperty("player", player)
     context.setContextProperty("scrobbler", scrobbler)
     context.setContextProperty("themeManager", manager)

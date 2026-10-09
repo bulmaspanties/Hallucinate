@@ -218,6 +218,30 @@ Item {
         FolderPicker { id: picker }
 
         Rectangle { width: parent.width; height: 1; color: Theme.border }
+        Rectangle { width: parent.width; height: 1; color: Theme.border }
+        Text { text: "Discord Rich Presence"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: "Show what you're listening to on your Discord profile. Create an application at discord.com/developers, paste its Application ID below and upload your icon as an art asset named “musicplayer”. Status: " + discord.status
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12)
+        }
+        StyledCheck { text: "Enable Discord Rich Presence"; checked: discord.enabled; onToggled: discord.setEnabled(checked) }
+        TextField {
+            width: 320
+            placeholderText: "Discord application ID"
+            text: discord.appId
+            selectByMouse: true
+            color: Theme.text
+            placeholderTextColor: Theme.textDim
+            font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14)
+            background: Rectangle { radius: Theme.radiusSmall; color: Theme.surface; border.color: parent.activeFocus ? Theme.accent : Theme.border }
+            onEditingFinished: discord.setAppId(text)
+        }
+        StyledCheck { text: "Hide when paused"; checked: discord.hidePaused; onToggled: discord.setPref("hidePaused", checked) }
+        StyledCheck { text: "Hide cover art"; checked: discord.hideCover; onToggled: discord.setPref("hideCover", checked) }
+        StyledCheck { text: "Privacy mode (don't share track details)"; checked: discord.privacy; onToggled: discord.setPref("privacy", checked) }
+
         Text { text: "Last.fm"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
         Text {
             width: parent.width

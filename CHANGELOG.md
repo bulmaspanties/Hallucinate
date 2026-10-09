@@ -5,6 +5,10 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+- Discord Rich Presence (raw IPC, threaded, auto-reconnect; Flatpak/Snap/Windows paths; hide-when-paused, hide-cover and privacy options).
+- Tests no longer touch the developer's real QSettings.
+
 ## [0.2.0] - 2026-10-09
 
 ### Changed (performance)

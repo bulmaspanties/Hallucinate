@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication
 
 from . import __version__
 from .core import paths
+from .discord import DiscordPresence
 from .library import Library
 from .lyricsctl import LyricsController
 from .metaedit import MetadataEditor
@@ -58,6 +59,7 @@ def main(argv=None) -> int:
     scrobbler = LastFmScrobbler(player, paths.data_dir())
     theme_manager = ThemeManager(paths.config_dir(), player)
 
+    discord = DiscordPresence(player)
     shell = DesktopShell(app, player, app.windowIcon())
 
     for f in args.folders:
@@ -79,6 +81,7 @@ def main(argv=None) -> int:
     ctx.setContextProperty("lyricsCtl", lyrics)
     ctx.setContextProperty("scrobbler", scrobbler)
     ctx.setContextProperty("shell", shell)
+    ctx.setContextProperty("discord", discord)
     ctx.setContextProperty("themeManager", theme_manager)
     engine.addImportPath(str(HERE / "qml"))
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "main.qml")))
@@ -108,6 +111,7 @@ def main(argv=None) -> int:
 
     code = app.exec()
     del engine
+    discord.shutdown()
     shell.shutdown()
     scrobbler.shutdown()
     del theme_manager

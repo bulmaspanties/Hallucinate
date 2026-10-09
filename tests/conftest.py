@@ -131,3 +131,15 @@ def pytest_unconfigure(config):
 
 def pytest_sessionfinish(session, exitstatus):
     session.config._exit_status = int(exitstatus)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolated_qsettings(tmp_path_factory):
+    """Never let tests read or clear the developer's real QSettings."""
+    from PySide6.QtCore import QSettings
+
+    root = str(tmp_path_factory.mktemp("qsettings"))
+    for scope in (QSettings.Scope.UserScope, QSettings.Scope.SystemScope):
+        QSettings.setPath(QSettings.Format.NativeFormat, scope, root)
+        QSettings.setPath(QSettings.Format.IniFormat, scope, root)
+    yield
