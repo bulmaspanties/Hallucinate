@@ -35,6 +35,8 @@ mpris = MprisService(player, lambda: None, app.quit)
 QTimer.singleShot(15000, app.quit)
 app.exec()
 player.shutdown()
+import os
+os._exit(0)  # skip interpreter finalization (PySide6 GC crash on 3.11)
 """,
         encoding="utf-8",
     )
