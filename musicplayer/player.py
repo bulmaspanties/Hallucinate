@@ -47,6 +47,7 @@ class Player(QObject):
     queueChanged = Signal()
     errorChanged = Signal()
     seeked = Signal(int)
+    played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
 
     def __init__(self, parent=None, session_file=None):
         super().__init__(parent)
@@ -90,6 +91,9 @@ class Player(QObject):
         self.shuffleChanged.connect(self._save_timer.start)
         self.repeatChanged.connect(self._save_timer.start)
         self._last_saved_pos = 0
+        self._listened = 0
+        self._last_pos = 0
+        self._play_counted = False
         self._transitioning = False
         self._ended = False
 
@@ -481,6 +485,9 @@ class Player(QObject):
         self._restore_pos = 0
         self._transitioning = False
         self._ended = False
+        self._listened = 0
+        self._last_pos = 0
+        self._play_counted = False
 
         sb = self._standby
         if autoplay and sb.index == i and sb.path == path and sb.player.source().isValid():
@@ -527,6 +534,7 @@ class Player(QObject):
         self._maybe_preload()
         pos = self._player.position()
         dur = self._player.duration()
+        self._count_listening(pos, dur)
         if (not self._transitioning and self.playing and dur > 0 and
                 dur - pos <= TRANSITION_MS):
             self._transitioning = True
@@ -534,6 +542,17 @@ class Player(QObject):
         if self.playing and abs(pos - self._last_saved_pos) > 5000:
             self._last_saved_pos = pos
             self.saveSession()
+
+    def _count_listening(self, pos, dur):
+        """Count real listening time (ignoring seeks) and emit `played` once per loaded track."""
+        step = pos - self._last_pos
+        self._last_pos = pos
+        if self._play_counted or not self.playing or not 0 < step < 2000:
+            return
+        self._listened += step
+        if self._listened >= min(30_000, max(dur, 1) / 2) and self.hasTrack:
+            self._play_counted = True
+            self.played.emit(dict(self.current))
 
     def _advance_before_end(self):
         if not self.hasTrack or not self._transitioning:

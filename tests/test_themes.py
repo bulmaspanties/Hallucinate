@@ -11,6 +11,7 @@ from musicplayer.library import Library
 from musicplayer.player import Player
 from musicplayer.scrobbling import LastFmScrobbler
 from musicplayer.themes import BUILTIN_THEME_DIR, ThemeManager
+from musicplayer.userlib import UserLibrary
 
 
 class FakePlayer(QObject):
@@ -135,6 +136,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     engine = QQmlApplicationEngine()
     context = engine.rootContext()
     context.setContextProperty("library", library)
+    user_lib = UserLibrary(tmp_path / "library.db", player)
+    context.setContextProperty("userLib", user_lib)
     context.setContextProperty("player", player)
     context.setContextProperty("scrobbler", scrobbler)
     context.setContextProperty("themeManager", manager)
@@ -174,5 +177,6 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     scrobbler.shutdown()
     player.shutdown()
+    user_lib.shutdown()
     library.shutdown()
     qapp.setFont(old_font)

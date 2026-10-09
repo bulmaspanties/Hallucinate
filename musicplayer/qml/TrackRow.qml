@@ -13,6 +13,10 @@ Rectangle {
     property bool showArt: true
     property bool showAlbum: true
     signal activated()
+    property string path: ""
+    property string context: ""
+    property int rowIndex: -1
+    readonly property bool liked: path.length > 0 && userLib.likesRevision >= 0 && userLib.isLiked(path)
     signal enqueue()
 
     height: 52
@@ -58,7 +62,7 @@ Rectangle {
         id: titles
         x: (row.showArt ? art.x + art.width : (numCol.visible ? numCol.width : 8)) + 12
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(80, (row.showAlbum ? (row.width - x - 200) * 0.55 : row.width - x - 130))
+        width: Math.max(80, (row.showAlbum ? (row.width - x - 260) * 0.55 : row.width - x - 190))
         spacing: 2
         Text {
             width: parent.width
@@ -81,7 +85,7 @@ Rectangle {
         visible: row.showAlbum && row.width > 700
         anchors.verticalCenter: parent.verticalCenter
         x: titles.x + titles.width + 16
-        width: row.width - x - 130
+        width: row.width - x - 190
         text: row.album
         color: Theme.textDim
         font.family: Theme.fontFamily
@@ -89,8 +93,25 @@ Rectangle {
         elide: Text.ElideRight
     }
     IconButton {
+        id: moreBtn
+        anchors { right: dur.left; rightMargin: 2; verticalCenter: parent.verticalCenter }
+        icon: "more"; size: 14
+        visible: row.path.length > 0
+        opacity: hh.hovered ? 1 : 0
+        onClicked: Nav.trackMenu(row.path, row.title, row.context, row.rowIndex)
+    }
+    IconButton {
+        id: heartBtn
+        anchors { right: moreBtn.visible ? moreBtn.left : dur.left; rightMargin: 0; verticalCenter: parent.verticalCenter }
+        icon: "heart"; size: 14
+        active: row.liked
+        visible: row.path.length > 0
+        opacity: (hh.hovered || row.liked) ? 1 : 0
+        onClicked: userLib.toggleLike(row.path)
+    }
+    IconButton {
         id: addBtn
-        anchors { right: dur.left; rightMargin: 4; verticalCenter: parent.verticalCenter }
+        anchors { right: heartBtn.visible ? heartBtn.left : dur.left; rightMargin: 0; verticalCenter: parent.verticalCenter }
         icon: "plus"; size: 14
         opacity: hh.hovered ? 1 : 0
         onClicked: row.enqueue()

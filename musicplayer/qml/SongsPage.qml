@@ -32,6 +32,8 @@ Item {
         cacheBuffer: 400
         ScrollBar.vertical: ScrollBar {}
         delegate: TrackRow {
+            path: model.path
+            rowIndex: index
             width: ListView.view.width - 12
             title: model.title
             artist: model.artist

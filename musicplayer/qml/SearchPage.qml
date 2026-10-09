@@ -85,6 +85,8 @@ Item {
             Repeater {
                 model: library.searchTracks
                 TrackRow {
+            path: model.path
+            rowIndex: index
                     width: col.width
                     title: model.title
                     artist: model.artist

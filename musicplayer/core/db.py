@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS tracks(
   bitrate INTEGER NOT NULL DEFAULT 0,
   sample_rate INTEGER NOT NULL DEFAULT 0,
   art TEXT,
+  rg_track REAL,
+  rg_album REAL,
+  rg_peak REAL,
   added REAL NOT NULL,
   s_title TEXT NOT NULL DEFAULT '',
   s_album TEXT NOT NULL DEFAULT '',
@@ -34,6 +37,15 @@ CREATE TABLE IF NOT EXISTS tracks(
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_key);
 CREATE TABLE IF NOT EXISTS folders(path TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS likes(path TEXT PRIMARY KEY, liked_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS playlists(id INTEGER PRIMARY KEY, name TEXT NOT NULL, created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS playlist_items(
+  id INTEGER PRIMARY KEY, playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+  path TEXT NOT NULL, pos INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_pl_items ON playlist_items(playlist_id, pos);
+CREATE TABLE IF NOT EXISTS plays(path TEXT PRIMARY KEY, count INTEGER NOT NULL, last REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS lyrics(path TEXT PRIMARY KEY, synced TEXT NOT NULL DEFAULT '',
+  plain TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', fetched REAL NOT NULL);
 """
 
 FTS = (
@@ -43,7 +55,7 @@ FTS = (
 
 COLS = (
     "path mtime size title artist album_artist aa_tag album album_key track_no disc_no "
-    "year genre duration fmt bitrate sample_rate art"
+    "year genre duration fmt bitrate sample_rate art rg_track rg_album rg_peak"
 ).split()
 
 SEARCH_COLS = ["s_title", "s_album", "s_aa", "s_artist"]
@@ -86,6 +98,11 @@ class Database:
 
     def _migrate(self):
         cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(tracks)")}
+        if "rg_track" not in cols:
+            for c in ("rg_track", "rg_album", "rg_peak"):
+                self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} REAL")
+            # Zero mtime makes the next scan re-read every file so ReplayGain tags get picked up.
+            self.conn.execute("UPDATE tracks SET mtime=0")
         missing = [c for c in SEARCH_COLS if c not in cols]
         if not missing:
             return
@@ -99,6 +116,109 @@ class Database:
 
     def close(self):
         self.conn.close()
+
+    # --- user data: likes, playlists, play counts, lyrics cache ----------
+    def liked_paths(self) -> set:
+        return {r["path"] for r in self.conn.execute("SELECT path FROM likes")}
+
+    def set_liked(self, path: str, liked: bool):
+        if liked:
+            self.conn.execute("INSERT OR IGNORE INTO likes(path, liked_at) VALUES(?,?)", (path, time.time()))
+        else:
+            self.conn.execute("DELETE FROM likes WHERE path=?", (path,))
+        self.conn.commit()
+
+    def liked_tracks(self) -> list:
+        return self._rows(
+            "SELECT t.* FROM likes l JOIN tracks t ON t.path=l.path ORDER BY l.liked_at DESC, t.id DESC"
+        )
+
+    def playlists(self) -> list:
+        return self._rows(
+            "SELECT p.id, p.name, COUNT(t.id) AS n FROM playlists p "
+            "LEFT JOIN playlist_items i ON i.playlist_id=p.id LEFT JOIN tracks t ON t.path=i.path "
+            "GROUP BY p.id ORDER BY p.name COLLATE NOCASE"
+        )
+
+    def create_playlist(self, name: str) -> int:
+        cur = self.conn.execute("INSERT INTO playlists(name, created) VALUES(?,?)", (name.strip() or "New playlist", time.time()))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def rename_playlist(self, pid: int, name: str):
+        self.conn.execute("UPDATE playlists SET name=? WHERE id=?", (name.strip() or "Playlist", pid))
+        self.conn.commit()
+
+    def delete_playlist(self, pid: int):
+        self.conn.execute("DELETE FROM playlist_items WHERE playlist_id=?", (pid,))
+        self.conn.execute("DELETE FROM playlists WHERE id=?", (pid,))
+        self.conn.commit()
+
+    def playlist_add(self, pid: int, paths: list):
+        pos = self.conn.execute("SELECT COALESCE(MAX(pos), -1) + 1 FROM playlist_items WHERE playlist_id=?", (pid,)).fetchone()[0]
+        self.conn.executemany(
+            "INSERT INTO playlist_items(playlist_id, path, pos) VALUES(?,?,?)",
+            [(pid, p, pos + n) for n, p in enumerate(paths)],
+        )
+        self.conn.commit()
+
+    def playlist_tracks(self, pid: int) -> list:
+        return self._rows(
+            "SELECT t.*, i.id AS item_id FROM playlist_items i JOIN tracks t ON t.path=i.path "
+            "WHERE i.playlist_id=? ORDER BY i.pos, i.id",
+            (pid,),
+        )
+
+    def playlist_remove_item(self, item_id: int):
+        self.conn.execute("DELETE FROM playlist_items WHERE id=?", (item_id,))
+        self.conn.commit()
+
+    def playlist_move(self, pid: int, src: int, dst: int):
+        ids = [r["id"] for r in self.conn.execute(
+            "SELECT i.id FROM playlist_items i JOIN tracks t ON t.path=i.path WHERE i.playlist_id=? ORDER BY i.pos, i.id", (pid,))]
+        if not (0 <= src < len(ids) and 0 <= dst < len(ids)):
+            return
+        ids.insert(dst, ids.pop(src))
+        self.conn.executemany("UPDATE playlist_items SET pos=? WHERE id=?", [(n, i) for n, i in enumerate(ids)])
+        self.conn.commit()
+
+    def record_play(self, path: str, when: Optional[float] = None):
+        self.conn.execute(
+            "INSERT INTO plays(path, count, last) VALUES(?,1,?) "
+            "ON CONFLICT(path) DO UPDATE SET count=count+1, last=excluded.last",
+            (path, when or time.time()),
+        )
+        self.conn.commit()
+
+    def most_played(self, limit: int = 10) -> list:
+        return self._rows(
+            "SELECT t.*, p.count AS plays FROM plays p JOIN tracks t ON t.path=p.path "
+            "ORDER BY p.count DESC, p.last DESC LIMIT ?",
+            (limit,),
+        )
+
+    def recently_played_albums(self, limit: int = 12) -> list:
+        keys = [r["album_key"] for r in self.conn.execute(
+            "SELECT t.album_key FROM plays p JOIN tracks t ON t.path=p.path "
+            "GROUP BY t.album_key ORDER BY MAX(p.last) DESC LIMIT ?", (limit,))]
+        by_key = {a["album_key"]: a for a in self._rows(
+            f"{self._ALBUM_SQL} WHERE album_key IN ({','.join('?' * len(keys))}) GROUP BY album_key", keys)} if keys else {}
+        return [by_key[k] for k in keys if k in by_key]
+
+    def get_lyrics(self, path: str) -> Optional[dict]:
+        rows = self._rows("SELECT * FROM lyrics WHERE path=?", (path,))
+        return rows[0] if rows else None
+
+    def set_lyrics(self, path: str, synced: str, plain: str, source: str):
+        self.conn.execute(
+            "INSERT OR REPLACE INTO lyrics(path, synced, plain, source, fetched) VALUES(?,?,?,?,?)",
+            (path, synced or "", plain or "", source, time.time()),
+        )
+        self.conn.commit()
+
+    def track_by_path(self, path: str) -> Optional[dict]:
+        rows = self._rows("SELECT * FROM tracks WHERE path=?", (path,))
+        return rows[0] if rows else None
 
     def commit(self):
         self.conn.commit()

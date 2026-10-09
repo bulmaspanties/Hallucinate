@@ -15,6 +15,7 @@ from .player import Player
 from .scrobbling import LastFmScrobbler
 from .themes import ThemeManager
 from .thumbs import ArtProvider
+from .userlib import UserLibrary
 
 HERE = Path(__file__).resolve().parent
 
@@ -45,6 +46,8 @@ def main(argv=None) -> int:
     library = Library(paths.db_path(), paths.art_dir())
     player = Player(session_file=paths.data_dir() / "session.json")
     library.setPlayer(player)
+    user_lib = UserLibrary(paths.db_path(), player)
+    library.reloaded.connect(user_lib.refresh)
     scrobbler = LastFmScrobbler(player, paths.data_dir())
     theme_manager = ThemeManager(paths.config_dir(), player)
 
@@ -62,6 +65,7 @@ def main(argv=None) -> int:
     ctx = engine.rootContext()
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("player", player)
+    ctx.setContextProperty("userLib", user_lib)
     ctx.setContextProperty("scrobbler", scrobbler)
     ctx.setContextProperty("themeManager", theme_manager)
     engine.addImportPath(str(HERE / "qml"))
@@ -94,6 +98,7 @@ def main(argv=None) -> int:
     scrobbler.shutdown()
     del theme_manager
     player.shutdown()
+    user_lib.shutdown()
     library.shutdown()
     del scrobbler
     del mpris

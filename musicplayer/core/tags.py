@@ -62,6 +62,44 @@ def _get(tags, field: str) -> str:
     return ""
 
 
+def _rg_value(text: str) -> Optional[float]:
+    m = re.search(r"[-+]?\d+(?:\.\d+)?", text or "")
+    return float(m.group()) if m else None
+
+
+def _rg_lookup(tags, name: str) -> Optional[float]:
+    """ReplayGain value from ID3 TXXX, Vorbis/APE, or MP4 freeform atoms (case-insensitive)."""
+    if tags is None:
+        return None
+    wanted = name.lower()
+    try:
+        items = list(tags.items()) if hasattr(tags, "items") else []
+    except Exception:
+        return None
+    for key, value in items:
+        k = str(key).lower()
+        if k == wanted or k == "txxx:" + wanted or k.endswith(":" + wanted):
+            strs = _strs(value)
+            if strs:
+                v = _rg_value(strs[0])
+                if v is not None:
+                    return v
+    return None
+
+
+def read_replaygain(tags) -> tuple:
+    """(track gain dB, album gain dB, track peak) relative to the ReplayGain 2.0 -18 LUFS reference."""
+    track = _rg_lookup(tags, "replaygain_track_gain")
+    album = _rg_lookup(tags, "replaygain_album_gain")
+    peak = _rg_lookup(tags, "replaygain_track_peak")
+    if track is None and album is None:
+        # Opus stores Q7.8 gain relative to -23 LUFS; convert to the -18 LUFS reference.
+        r128_t, r128_a = _rg_lookup(tags, "r128_track_gain"), _rg_lookup(tags, "r128_album_gain")
+        track = r128_t / 256 + 5 if r128_t is not None else None
+        album = r128_a / 256 + 5 if r128_a is not None else None
+    return track, album, peak
+
+
 def _num(s: str) -> int:
     m = re.match(r"\s*(\d+)", s or "")
     return int(m.group(1)) if m else 0
@@ -237,6 +275,7 @@ def _read_track(path, art_known):
         "art": None,
         "_art": None,
     }
+    t["rg_track"], t["rg_album"], t["rg_peak"] = read_replaygain(tags)
     if art_known is None or not art_known(key):
         t["_art"] = extract_embedded_art(f)
     return t

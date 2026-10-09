@@ -281,3 +281,15 @@ def test_session_file_is_valid_json(make_player, clips, tmp_path):
     p.saveSession()
     data = json.loads((tmp_path / "session.json").read_text())
     assert data["index"] == 0 and len(data["queue"]) == 2
+
+
+def test_played_signal_after_half(make_player, tmp_path):
+    p = make_player()
+    f = encode(tmp_path / "x.wav", "wav", seconds=2.0)
+    got = []
+    p.played.connect(got.append)
+    p.playList([track(f, 1, 2.0)], 0)
+    assert wait_for(lambda: got, timeout=8)
+    assert got[0]["path"] == str(f)
+    time.sleep(0.5)
+    assert len(got) == 1

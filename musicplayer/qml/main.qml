@@ -32,6 +32,7 @@ ApplicationWindow {
         case "artists": return artistsPage
         case "songs": return songsPage
         case "settings": return settingsPage
+        case "liked": return likedPage
         default: return homePage
         }
     }
@@ -41,6 +42,13 @@ ApplicationWindow {
         stack.push(pageFor(name))
         if (searchField.text.length > 0) searchField.text = ""
     }
+    function openPlaylist(id, name) {
+        section = "pl" + id
+        stack.clear()
+        stack.push(playlistPage, { playlistId: id, playlistName: name })
+        if (searchField.text.length > 0) searchField.text = ""
+    }
+    function newPlaylist() { createDlg.open() }
     function openAlbum(key) { stack.push(albumDetail, { albumKey: key }) }
     function openArtist(name) { stack.push(artistDetail, { artistName: name }) }
     function showSearch() {
@@ -53,6 +61,8 @@ ApplicationWindow {
     Component { id: artistsPage; ArtistsPage {} }
     Component { id: songsPage; SongsPage {} }
     Component { id: settingsPage; SettingsPage {} }
+    Component { id: likedPage; PlaylistPage { liked: true } }
+    Component { id: playlistPage; PlaylistPage {} }
     Component { id: searchPage; SearchPage {} }
     Component { id: albumDetail; AlbumDetailPage {} }
     Component { id: artistDetail; ArtistDetailPage {} }
@@ -62,6 +72,14 @@ ApplicationWindow {
         function onOpenAlbum(key) { window.openAlbum(key) }
         function onOpenArtist(name) { window.openArtist(name) }
         function onOpenSettings() { window.go("settings") }
+        function onOpenLiked() { window.go("liked") }
+        function onGoHome() { window.go("home") }
+        function onOpenPlaylist(id) {
+            var name = ""
+            for (var i = 0; i < userLib.playlists.count; i++) if (userLib.playlists.get(i).id === id) name = userLib.playlists.get(i).name
+            window.openPlaylist(id, name)
+        }
+        function onTrackMenu(path, title, context, index) { trackMenu.show(path, title, context, index) }
         function onBack() { if (stack.depth > 1) stack.pop() }
     }
 
@@ -77,6 +95,19 @@ ApplicationWindow {
                 window.go(window.section)
             }
         }
+    }
+
+    TrackMenu { id: trackMenu }
+    Dialog {
+        id: createDlg
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: "New playlist"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: { createField.text = ""; createField.forceActiveFocus() }
+        onAccepted: if (createField.text.trim().length) window.openPlaylist(userLib.createPlaylist(createField.text.trim()), createField.text.trim())
+        TextField { id: createField; width: 280; placeholderText: "Playlist name"; selectByMouse: true; onAccepted: createDlg.accept() }
     }
 
     ColumnLayout {
@@ -110,7 +141,7 @@ ApplicationWindow {
                         model: [
                             { id: "home", t: "Home" }, { id: "albums", t: "Albums" },
                             { id: "artists", t: "Artists" }, { id: "songs", t: "Songs" },
-                            { id: "settings", t: "Settings" }
+                            { id: "liked", t: "Liked Songs" }, { id: "settings", t: "Settings" }
                         ]
                         NavButton {
                             required property var modelData
@@ -121,7 +152,32 @@ ApplicationWindow {
                         }
                     }
                 }
+                Item {
+                    id: plSection
+                    anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 336; bottom: scanBar.top; bottomMargin: 6; leftMargin: 12; rightMargin: 12 }
+                    clip: true
+                    Item {
+                        id: plHeader
+                        width: parent.width; height: 34
+                        Text { anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter } text: "PLAYLISTS"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); font.weight: Font.DemiBold }
+                        IconButton { anchors { right: parent.right; verticalCenter: parent.verticalCenter } icon: "plus"; size: 14; onClicked: window.newPlaylist() }
+                    }
+                    ListView {
+                        anchors { top: plHeader.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: userLib.playlists
+                        delegate: NavButton {
+                            width: ListView.view.width
+                            height: 36
+                            text: model.name
+                            selected: window.section === "pl" + model.id && stack.depth <= 1
+                            onClicked: window.openPlaylist(model.id, model.name)
+                        }
+                    }
+                }
                 ScanBar {
+                    id: scanBar
                     anchors { left: parent.left; right: parent.right; leftMargin: 18; rightMargin: 18; bottom: parent.bottom; bottomMargin: 14 }
                     compact: true
                 }

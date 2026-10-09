@@ -116,6 +116,61 @@ Item {
                     artUrl: model.artUrl
                 }
             }
+
+            Text {
+                visible: userLib.recentPlayed.count > 0
+                text: "Recently played"
+                color: Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(20)
+                font.weight: Font.DemiBold
+            }
+            ListView {
+                visible: userLib.recentPlayed.count > 0
+                width: parent.width
+                height: 240
+                orientation: ListView.Horizontal
+                spacing: 18
+                clip: true
+                model: userLib.recentPlayed
+                boundsBehavior: Flickable.StopAtBounds
+                delegate: AlbumCard {
+                    albumKey: model.album_key
+                    title: model.album
+                    subtitle: model.album_artist
+                    artUrl: model.artUrl
+                }
+            }
+
+            Text {
+                visible: userLib.mostPlayed.count > 0
+                text: "Most played"
+                color: Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize(20)
+                font.weight: Font.DemiBold
+            }
+            Column {
+                visible: userLib.mostPlayed.count > 0
+                width: parent.width
+                Repeater {
+                    model: userLib.mostPlayed
+                    TrackRow {
+                        width: parent.width
+                        path: model.path
+                        rowIndex: index
+                        number: index + 1
+                        title: model.title
+                        artist: model.artist
+                        album: model.album
+                        durText: model.durText
+                        artUrl: model.artUrl
+                        current: player.hasTrack && player.current.id === model.id
+                        onActivated: userLib.playMostPlayed(index)
+                        onEnqueue: player.enqueue(userLib.mostPlayed.get(index))
+                    }
+                }
+            }
         }
     }
 }

@@ -23,6 +23,7 @@ Item {
         anchors.centerIn: parent
         width: btn.size; height: btn.size
         name: btn.icon
+        filled: btn.icon === "heart" && btn.active
         color: btn.active ? Theme.accent : (ma.containsMouse ? Theme.text : Theme.textDim)
     }
     MouseArea {

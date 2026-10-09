@@ -74,6 +74,8 @@ Item {
             Repeater {
                 model: page.tracksModel
                 TrackRow {
+            path: model.path
+            rowIndex: index
                     width: col.width
                     title: model.title
                     artist: model.artist
