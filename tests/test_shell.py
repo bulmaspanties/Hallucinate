@@ -64,3 +64,26 @@ def test_close_to_tray_hides_window(qapp, tmp_path, monkeypatch):
     assert shell.handleClose() is True and not win.visible
     assert shell.closeToTray
     player.shutdown()
+
+
+def test_desktop_notifications_are_opt_in_and_skip_initial_track(
+    qapp, tmp_path, monkeypatch
+):
+    shell, _, player = make_shell(qapp, tmp_path, monkeypatch)
+    shown = []
+    monkeypatch.setattr(shell, "_send_notification", lambda title, artist: shown.append((title, artist)))
+    shell._player = type(
+        "Playback",
+        (),
+        {"hasTrack": True, "current": {"title": "New song", "artist": "New artist"}},
+    )()
+
+    shell._on_track_changed()
+    assert shown == []
+    shell.setDesktopNotifications(True)
+    shell._on_track_changed()
+    assert shown == [("New song", "New artist")]
+    shell.setDesktopNotifications(False)
+    shell._on_track_changed()
+    assert len(shown) == 1
+    player.shutdown()

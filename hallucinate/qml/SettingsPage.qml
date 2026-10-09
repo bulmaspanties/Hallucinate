@@ -111,6 +111,12 @@ Item {
             checked: shell.closeToTray
             onToggled: shell.setCloseToTray(checked)
         }
+        StyledCheck {
+            visible: Qt.platform.os === "linux" || shell.trayAvailable
+            text: "Show desktop notifications when tracks change"
+            checked: shell.desktopNotifications
+            onToggled: shell.setDesktopNotifications(checked)
+        }
         PillButton { text: "Open mini player"; onClicked: shell.toggleMini() }
 
         Text { text: "Playback"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }

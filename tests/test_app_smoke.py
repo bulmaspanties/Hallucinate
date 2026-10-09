@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from uuid import uuid4
 
 import pytest
 
@@ -13,6 +14,7 @@ def test_app_launches_offscreen(tmp_path, music):
         QT_QPA_PLATFORM="offscreen",
         HALLUCINATE_DATA=str(tmp_path / "data"),
         HALLUCINATE_DISABLE_LEGACY_MIGRATION="1",
+        HALLUCINATE_CONTROL_SOCKET="hallucinate-smoke-" + uuid4().hex,
     )
     r = subprocess.run(
         [sys.executable, "-m", "hallucinate", str(music), "--quit-after", "2500"],

@@ -11,6 +11,7 @@ All notable changes to this project are documented here. Format based on
 - ListenBrainz token/keyring connection, now-playing and offline listen submissions, plus deduplicated listening-history imports from ListenBrainz and Last.fm.
 - Discord Rich Presence (raw IPC, threaded, auto-reconnect; Flatpak/Snap/Windows paths; hide-when-paused, hide-cover and privacy options).
 - Statistics for listening periods, top artists/albums/tracks, and estimated listening time; a listening-based personal Home mix; genre/year/format filters; and probable duplicate detection.
+- Single-instance local IPC for `hallucinate --next`, `--prev`, `--play-pause`, `--status`, and window activation; optional track-change desktop notifications.
 - Tests no longer touch the developer's real QSettings.
 
 ## [0.2.0] - 2026-10-09

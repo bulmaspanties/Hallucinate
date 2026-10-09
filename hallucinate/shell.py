@@ -1,4 +1,6 @@
 """Desktop integration: system tray icon, close-to-tray and the mini player window."""
+import sys
+
 from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
@@ -17,12 +19,15 @@ class DesktopShell(QObject):
         self._settings = QSettings("hallucinate", "hallucinate")
         self._tray_pref = self._settings.value("shell/tray", True, bool)
         self._close_to_tray = self._settings.value("shell/closeToTray", False, bool)
+        self._desktop_notifications = self._settings.value("shell/desktopNotifications", False, bool)
         self._tray = None
         self._menu = None
         self._icon = icon
+        self._seen_track = False
         self._build_tray()
         player.stateChanged.connect(self._refresh)
         player.trackChanged.connect(self._refresh)
+        player.trackChanged.connect(self._on_track_changed)
 
     # --- tray -------------------------------------------------------------------------
     def _build_tray(self):
@@ -86,6 +91,10 @@ class DesktopShell(QObject):
     def closeToTray(self):
         return self._close_to_tray
 
+    @Property(bool, notify=settingsChanged)
+    def desktopNotifications(self):
+        return self._desktop_notifications
+
     @Property(bool, notify=miniChanged)
     def miniOpen(self):
         return self._mini
@@ -104,6 +113,44 @@ class DesktopShell(QObject):
         self._close_to_tray = on
         self._settings.setValue("shell/closeToTray", on)
         self.settingsChanged.emit()
+
+    @Slot(bool)
+    def setDesktopNotifications(self, on):
+        self._desktop_notifications = on
+        self._settings.setValue("shell/desktopNotifications", on)
+        self.settingsChanged.emit()
+
+    def _on_track_changed(self):
+        if not self._seen_track:
+            self._seen_track = True
+            return
+        if not self._desktop_notifications or not self._player.hasTrack:
+            return
+        track = self._player.current
+        title, artist = track.get("title", "Unknown track"), track.get("artist", "")
+        self._send_notification(title, artist)
+
+    def _send_notification(self, title, artist):
+        if sys.platform.startswith("linux"):
+            from PySide6.QtDBus import QDBusConnection, QDBusMessage
+
+            bus = QDBusConnection.sessionBus()
+            if bus.isConnected():
+                message = QDBusMessage.createMethodCall(
+                    "org.freedesktop.Notifications",
+                    "/org/freedesktop/Notifications",
+                    "org.freedesktop.Notifications",
+                    "Notify",
+                )
+                message.setArguments([
+                    "Hallucinate", 0, "hallucinate", title, artist, [], {}, 5000,
+                ])
+                bus.asyncCall(message)
+                return
+        if self._tray is not None:
+            self._tray.showMessage(
+                title, artist, QSystemTrayIcon.MessageIcon.Information, 5000
+            )
 
     # --- windows --------------------------------------------------------------------------
     @Slot()
@@ -143,4 +190,3 @@ class DesktopShell(QObject):
     def shutdown(self):
         if self._tray is not None:
             self._tray.hide()
-

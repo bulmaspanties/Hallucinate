@@ -29,6 +29,7 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 - Formats: FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, APE, WavPack, AIFF and more (anything Qt's FFmpeg backend decodes). WAV/AIFF RIFF/FORM text tags are read; missing tags fall back to the filename and unknown values.
 - Global search grouped into Artists / Albums / Songs; Home, Albums, Artists, Songs browse views; album and artist pages; editable queue; shuffle/repeat; seek; volume. Queue, current position, shuffle, repeat, and volume are restored after restart; missing queue files are discarded.
 - MPRIS2 controls and media keys on Linux.
+- CLI controls (`hallucinate --next`, `--prev`, `--play-pause`) and JSON playback status (`--status`) through per-user single-instance IPC; optional desktop notifications on track changes.
 - Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
   scrobbling, secure system-keyring credentials, and a persistent offline retry queue.
 - Liked Songs and user playlists (create, rename, delete, add from any track's "…" menu); Home shows Recently played, Most played, and a listening-based personal mix.
@@ -158,6 +159,19 @@ the generated setup wizard image.
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·
 Q queue · L lyrics · Ctrl+M mini player · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
+
+## Command-line controls
+Start Hallucinate normally, then control that running instance from a terminal:
+```sh
+hallucinate --play-pause
+hallucinate --next
+hallucinate --prev
+hallucinate --status   # prints current track, state, position, duration, and queue length as JSON
+```
+The same local IPC activates the existing window when `hallucinate` is launched
+again. Control commands report an error if no instance is running.
+Track-change notifications are opt-in under Settings → Desktop; they use the
+Linux desktop notification service or the platform tray notification API.
 
 ## Tests
 ```sh
