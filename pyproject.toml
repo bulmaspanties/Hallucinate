@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "musicplayer"
-version = "0.1.1"
+version = "0.2.0"
 description = "A fast, modern desktop music player with Spotify-style search and browsing"
 readme = "README.md"
 requires-python = ">=3.10"
