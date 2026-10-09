@@ -1,7 +1,16 @@
 # Music Player
 
-A fast, modern desktop music player (PySide6 + QML) with a Spotify-style
-search-and-browse experience. Not playlist-driven: type to find, click to play.
+[![CI](https://github.com/bulmaspanties/music-player/actions/workflows/ci.yml/badge.svg)](https://github.com/bulmaspanties/music-player/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![Platform: Linux first](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+
+A fast, modern desktop music player (PySide6 + QML) for Linux (Arch-first, other
+OSes secondary) with a Spotify-style search-and-browse experience. Not
+playlist-driven: type to find, click to play.
+
+## Screenshots
+> _Screenshots coming soon._ Add images under `docs/screenshots/` and link them here.
 
 ## Features
 - Scans folders (mutagen tags + embedded/folder cover art) into SQLite with FTS5 instant search; incremental rescans (mtime/size), background scanning, file watching, and removal of moved/deleted paths.
@@ -16,7 +25,7 @@ search-and-browse experience. Not playlist-driven: type to find, click to play.
 ### Arch Linux
 ```sh
 sudo pacman -S pyside6 python-mutagen python-keyring qt6-multimedia-ffmpeg
-git clone <this repo> && cd music-player
+git clone https://github.com/bulmaspanties/music-player.git && cd music-player
 cd packaging/arch && makepkg -si      # or run from source (below)
 ```
 ### pip (any OS)
@@ -93,3 +102,22 @@ with representative files from your playback backend and device.
   track ends. To avoid backend end-of-stream stalls, the final ~250 ms may be cut
   off rather than waiting for end-of-media. Verify the transition on each target
   Qt/FFmpeg and audio-device combination.
+
+## Supported formats
+FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
+(metadata; decoding depends on your Qt FFmpeg build).
+
+## Roadmap
+- Real-device verification of APE playback and desktop media keys
+- Playlists and tag editing
+- ListenBrainz scrobbling
+- Packaging: AUR submission, Flatpak, Windows/macOS builds
+- Screenshots and a project website
+
+## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Report vulnerabilities per [SECURITY.md](SECURITY.md). Changes are tracked in
+[CHANGELOG.md](CHANGELOG.md).
+
+## License
+[MIT](LICENSE)
