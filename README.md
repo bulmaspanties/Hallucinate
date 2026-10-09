@@ -8,12 +8,14 @@ search-and-browse experience. Not playlist-driven: type to find, click to play.
 - Formats: FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, APE, WavPack, AIFF and more (anything Qt's FFmpeg backend decodes). WAV/AIFF RIFF/FORM text tags are read; missing tags fall back to the filename and unknown values.
 - Global search grouped into Artists / Albums / Songs; Home, Albums, Artists, Songs browse views; album and artist pages; editable queue; shuffle/repeat; seek; volume. Queue, current position, shuffle, repeat, and volume are restored after restart; missing queue files are discarded.
 - MPRIS2 controls and media keys on Linux.
+- Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
+  scrobbling, secure system-keyring credentials, and a persistent offline retry queue.
 - Dark, keyboard-friendly UI.
 
 ## Install
 ### Arch Linux
 ```sh
-sudo pacman -S pyside6 python-mutagen qt6-multimedia-ffmpeg
+sudo pacman -S pyside6 python-mutagen python-keyring qt6-multimedia-ffmpeg
 git clone <this repo> && cd music-player
 cd packaging/arch && makepkg -si      # or run from source (below)
 ```
@@ -34,6 +36,16 @@ python -m musicplayer ~/Music
 ```
 Folders can also be managed in Settings. Data lives in `~/.local/share/musicplayer`
 (override with `MUSICPLAYER_DATA`).
+
+## Last.fm
+In Settings, enter the API key and secret for a Last.fm API application (create
+one at [last.fm/api/account/create](https://www.last.fm/api/account/create)).
+Credentials and the resulting account session are saved only through the system
+keyring; the pending scrobble queue contains track metadata only. Connect, open
+the authorization page in your browser, and confirm authorization in Settings.
+Scrobbles are queued while offline and retried with backoff when connected.
+On headless Linux, install and unlock a Secret Service-compatible keyring before
+connecting. The app does not fall back to plaintext credential storage.
 
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·

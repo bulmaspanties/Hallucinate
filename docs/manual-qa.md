@@ -66,10 +66,30 @@ codec decodes.
 - [ ] Test the installed Arch package on a clean machine/container and verify the
   Qt FFmpeg plugin and codecs are present.
 
+## Last.fm integration
+
+- [ ] Enter API credentials in Settings, restart, and verify they remain available
+  without appearing in application config files or logs.
+- [ ] Connect through the browser authorization flow; verify the username and
+  connected state appear, then disconnect and reconnect.
+- [ ] Start, pause, resume, seek, and switch tracks; verify now-playing updates
+  only for the active track and seeking/paused time does not count toward a
+  scrobble.
+- [ ] Verify a short track scrobbles after half its duration and a long track
+  after four minutes of actual listening; verify each track is submitted once.
+- [ ] Disconnect networking during playback; verify a threshold-qualified
+  scrobble persists across restart and is retried after network access returns.
+- [ ] Disconnect the Last.fm account with queued scrobbles; verify the queue is
+  retained and delivered after reconnecting.
+- [ ] Test with an unavailable system keyring; verify the UI reports the failure
+  and credentials/session keys are never written as plaintext.
+
 ## Automated coverage
 
 The automated suite covers real FFmpeg-generated FLAC, MP3, Vorbis, Opus, AAC,
 ALAC, WAV, WMA, WavPack, and AIFF playback/seek files, common tag/fallback/corrupt
 inputs, player queue/session behavior, a D-Bus MPRIS session, and 50,000-row
-database query performance. It does not replace testing actual device media keys,
-all user-supplied codec variants, or real APE decoding on the target system.
+database query performance, plus mocked Last.fm signing, authorization, listen
+thresholds, and offline queue/retry behavior. It does not replace testing actual
+device media keys, live Last.fm authorization, all user-supplied codec variants,
+or real APE decoding on the target system.

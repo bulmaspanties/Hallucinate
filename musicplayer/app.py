@@ -13,6 +13,7 @@ from . import __version__
 from .core import paths
 from .library import Library
 from .player import Player
+from .scrobbling import LastFmScrobbler
 
 HERE = Path(__file__).resolve().parent
 
@@ -36,6 +37,7 @@ def main(argv=None) -> int:
 
     library = Library(paths.db_path(), paths.art_dir())
     player = Player(session_file=paths.data_dir() / "session.json")
+    scrobbler = LastFmScrobbler(player, paths.data_dir())
 
     for f in args.folders:
         library.addFolder(f)
@@ -50,6 +52,7 @@ def main(argv=None) -> int:
     ctx = engine.rootContext()
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("player", player)
+    ctx.setContextProperty("scrobbler", scrobbler)
     engine.addImportPath(str(HERE / "qml"))
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "main.qml")))
     if not engine.rootObjects():
@@ -74,8 +77,10 @@ def main(argv=None) -> int:
 
     code = app.exec()
     del engine
+    scrobbler.shutdown()
     player.shutdown()
     library.shutdown()
+    del scrobbler
     del mpris
     return code
 

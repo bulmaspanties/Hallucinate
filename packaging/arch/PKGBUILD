@@ -6,7 +6,7 @@ pkgdesc="Fast, modern desktop music player with Spotify-style search and browsin
 arch=('any')
 url="https://example.com/musicplayer"
 license=('MIT')
-depends=('python' 'pyside6' 'python-mutagen' 'qt6-multimedia-ffmpeg' 'qt6-declarative')
+depends=('python' 'pyside6' 'python-mutagen' 'python-keyring' 'qt6-multimedia-ffmpeg' 'qt6-declarative')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 # Builds from the local checkout (this PKGBUILD lives in packaging/arch).
 _src="$startdir/../.."
