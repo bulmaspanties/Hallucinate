@@ -35,7 +35,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha256sum hallucinate-*.AppImage > SHA256SUMS
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          fi
           gh release upload "$GITHUB_REF_NAME" hallucinate-*.AppImage SHA256SUMS --clobber
 
   windows:
@@ -71,7 +73,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          fi
           gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*-setup.exe --clobber
 
   macos:
@@ -102,5 +106,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          fi
           gh release upload "$GITHUB_REF_NAME" dist/*-macos-*.zip --clobber

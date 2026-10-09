@@ -3,18 +3,21 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-09
 
 ### Added
 - Optional 24-band audio spectrum visualizer with worker-thread FFT processing, a dedicated UI page, and clean audio-tap shutdown.
 - Flatpak manifest, native-architecture macOS release bundle workflow, and documentation of Qt/PipeWire output limitations.
-- Queue: drag-to-reorder (grip handle, Alt+Up/Down), speed selector (0.5–2×) and sleep timer (minutes or end of track, with fade-out) from the player bar's ⋯ menu.
+- Drag-reorderable playback queue, play-next/add-to-queue, sleep timer and playback speed.
+- ListenBrainz scrobbling and import of listening history from Last.fm/ListenBrainz.
+- Discord Rich Presence with progress, artwork, privacy options and automatic reconnect.
+- Listening statistics, a personal Home mix, genre/year/format filters and probable-duplicate detection.
+- CLI playback controls, single-instance activation and optional desktop track-change notifications.
 - Hallucinate branding, supplied logo and generated platform icons, Hallucinate color theme, `hallucinate` package/CLI, and first-run migration of the previous app's data, settings, cache and Last.fm credentials.
-- ListenBrainz token/keyring connection, now-playing and offline listen submissions, plus deduplicated listening-history imports from ListenBrainz and Last.fm.
-- Discord Rich Presence (raw IPC, threaded, auto-reconnect; Flatpak/Snap/Windows paths; hide-when-paused, hide-cover and privacy options).
-- Statistics for listening periods, top artists/albums/tracks, and estimated listening time; a listening-based personal Home mix; genre/year/format filters; and probable duplicate detection.
-- Single-instance local IPC for `hallucinate --next`, `--prev`, `--play-pause`, `--status`, and window activation; optional track-change desktop notifications.
 - Tests no longer touch the developer's real QSettings.
+
+### Changed
+- Require PySide6/Qt 6.8 or newer for audio-buffer processing.
 
 ## [0.2.0] - 2026-10-09
 
