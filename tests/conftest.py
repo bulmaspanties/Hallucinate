@@ -105,11 +105,13 @@ def wait_for(cond, timeout=8.0, step=20):
     """Spin the Qt event loop until cond() is truthy; returns its last value."""
     import time
 
-    from PySide6.QtTest import QTest
+    from PySide6.QtCore import QCoreApplication
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         v = cond()
         if v:
             return v
-        QTest.qWait(step)
+        # QTest.qWait keeps the GIL while it waits, starving worker threads; sleep() releases it.
+        QCoreApplication.processEvents()
+        time.sleep(step / 1000)
     return cond()

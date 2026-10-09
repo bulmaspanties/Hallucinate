@@ -63,6 +63,12 @@ python -m musicplayer ~/Music
 Folders can also be managed in Settings. Data lives in `~/.local/share/musicplayer`
 (override with `MUSICPLAYER_DATA`).
 
+## Performance
+
+Scanning, database reads/writes, search and cover decoding all run off the GUI thread; lists and grids are
+virtualized and thumbnails are cached under the data directory. `tests/test_performance.py` exercises a 50k-track
+library and asserts the UI thread is never blocked for long.
+
 ## Last.fm
 In Settings, enter the API key and secret for a Last.fm API application (create
 one at [last.fm/api/account/create](https://www.last.fm/api/account/create)).

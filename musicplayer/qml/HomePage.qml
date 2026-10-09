@@ -32,7 +32,7 @@ Item {
             Rectangle {
                 visible: library.trackCount === 0
                 width: parent.width
-                height: 180
+                height: 220
                 radius: Theme.radius + 4
                 color: Theme.surface
                 Column {
@@ -40,7 +40,9 @@ Item {
                     spacing: 12
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: library.scanning ? "Scanning your music…" : "Your library is empty"
+                        text: !library.ready ? "Loading your library…"
+                            : library.scanning ? "Scanning your music…"
+                            : library.hasFolders ? "No music found" : "Welcome! Let's find your music"
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize(20)
@@ -48,18 +50,23 @@ Item {
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: library.scanning ? library.status : "Add a folder with your music to get started."
+                        text: library.scanning ? "Songs appear here as they are found."
+                            : library.missingFolders.length > 0 ? "Folder not found or unreadable: " + library.missingFolders.join(", ")
+                            : library.hasFolders ? "Your folders contain no supported audio files. Add another folder or check Settings."
+                            : "Choose the folder that holds your music to get started."
                         color: Theme.textDim
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize(14)
                     }
+                    ScanBar { width: 320; anchors.horizontalCenter: parent.horizontalCenter }
                     PillButton {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        visible: !library.scanning
+                        visible: !library.scanning && library.ready
                         primary: true
-                        text: "Add music folder"
-                        onClicked: Nav.openSettings()
+                        text: "Choose music folder"
+                        onClicked: picker.open()
                     }
+                    FolderPicker { id: picker }
                 }
             }
 

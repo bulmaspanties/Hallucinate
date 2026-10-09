@@ -145,11 +145,26 @@ Item {
             }
             PillButton { text: "Rescan now"; onClicked: library.rescan() }
         }
+        ScanBar { width: parent.width }
         Text {
-            visible: library.scanning || library.status.length > 0
+            visible: !library.scanning && library.status.length > 0
             text: library.status
-            color: Theme.accent; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
         }
+        Text {
+            width: parent.width
+            visible: library.missingFolders.length > 0
+            wrapMode: Text.WordWrap
+            text: "Folder not found or unreadable: " + library.missingFolders.join(", ")
+            color: Theme.error; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
+        }
+        Text {
+            visible: library.unreadableFiles > 0 && !library.scanning
+            text: library.unreadableFiles + " files could not be read and were skipped."
+            color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
+        }
+        PillButton { text: "Choose folder…"; onClicked: picker.open() }
+        FolderPicker { id: picker }
 
         Rectangle { width: parent.width; height: 1; color: Theme.border }
         Text { text: "Last.fm"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }

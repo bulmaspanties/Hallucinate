@@ -1,11 +1,15 @@
+import logging
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot
 
 from .core.db import Database, fold
 from .core.scanner import Scanner
-from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
+from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel, compute_ops
+
+logger = logging.getLogger(__name__)
 
 MAX_WATCHED_DIRS = 2000
 
@@ -25,12 +29,46 @@ def decorate(rows):
     return rows
 
 
+class _Reader:
+    """A single worker thread with its own SQLite connection for read queries.
+
+    Keeping reads off the GUI thread is what keeps the UI responsive on very large libraries."""
+
+    def __init__(self, db_path, name):
+        self._path = db_path
+        self._db = None
+        self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=name)
+
+    def _conn(self):
+        if self._db is None:
+            self._db = Database(self._path)
+        return self._db
+
+    def submit(self, fn, *args):
+        return self._pool.submit(lambda: fn(self._conn(), *args))
+
+    def close(self):
+        done = self._pool.submit(lambda: self._db.close() if self._db else None)
+        try:
+            done.result(timeout=10)
+        except Exception:  # noqa: BLE001 - shutting down regardless
+            pass
+        self._pool.shutdown(wait=False, cancel_futures=True)
+
+
 class Library(QObject):
     changed = Signal()
+    reloaded = Signal()
+    searchFinished = Signal()
+    readyChanged = Signal()
+    scanProgressChanged = Signal()
+    scanIssuesChanged = Signal()
+    _loaded = Signal(object)
+    _searched = Signal(object)
     foldersChanged = Signal()
     scanningChanged = Signal()
     statusChanged = Signal()
-    scanProgress = Signal(str)
+    scanProgress = Signal(int)
     scanFinished = Signal(object)
 
     def __init__(self, db_path, art_dir, parent=None):
@@ -39,10 +77,10 @@ class Library(QObject):
         self._art_dir = str(art_dir)
         self._db = Database(self._db_path)
         self._models = {
-            "albums": DictModel(ALBUM_KEYS, self),
+            "albums": DictModel(ALBUM_KEYS, self, "album_key"),
             "recent": DictModel(ALBUM_KEYS, self),
-            "artists": DictModel(ARTIST_KEYS, self),
-            "songs": DictModel(TRACK_KEYS, self),
+            "artists": DictModel(ARTIST_KEYS, self, "name"),
+            "songs": DictModel(TRACK_KEYS, self, "id"),
             "sTracks": DictModel(TRACK_KEYS, self),
             "sAlbums": DictModel(ALBUM_KEYS, self),
             "sArtists": DictModel(ARTIST_KEYS, self),
@@ -52,6 +90,19 @@ class Library(QObject):
         self._scanning = False
         self._pending = False
         self._status = ""
+        self._ready = False
+        self._scan_seen = 0
+        self._scan_hint = 0
+        self._scan_errors = 0
+        self._missing = []
+        self._player = None
+        self._artist_index = {}
+        self._load_gen = 0
+        self._search_gen = 0
+        self._bulk = _Reader(self._db_path, "lib-bulk")
+        self._quick = _Reader(self._db_path, "lib-search")
+        self._loaded.connect(self._apply_load)
+        self._searched.connect(self._apply_search)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_dir_changed)
         self._debounce = QTimer(self)
@@ -59,7 +110,7 @@ class Library(QObject):
         self._debounce.setInterval(3000)
         self._debounce.timeout.connect(self.rescan)
         self.scanFinished.connect(self._on_scan_finished)
-        self.scanProgress.connect(self._set_status)
+        self.scanProgress.connect(self._on_progress)
         self.reload()
 
     # --- model properties -------------------------------------------------
@@ -98,25 +149,125 @@ class Library(QObject):
     def status(self):
         return self._status
 
+    @Property(bool, notify=readyChanged)
+    def ready(self):
+        """True once the first load from the database has been applied."""
+        return self._ready
+
+    @Property(int, notify=scanProgressChanged)
+    def scanSeen(self):
+        return self._scan_seen
+
+    @Property(int, notify=scanProgressChanged)
+    def scanHint(self):
+        """Expected number of files (from the previous scan); 0 when unknown."""
+        return self._scan_hint
+
+    @Property(float, notify=scanProgressChanged)
+    def scanFraction(self):
+        return min(1.0, self._scan_seen / self._scan_hint) if self._scan_hint > 0 else -1.0
+
+    @Property("QVariantList", notify=scanIssuesChanged)
+    def missingFolders(self):
+        return list(self._missing)
+
+    @Property(int, notify=scanIssuesChanged)
+    def unreadableFiles(self):
+        return self._scan_errors
+
+    @Property(bool, notify=foldersChanged)
+    def hasFolders(self):
+        return bool(self._db.folders())
+
+    def setPlayer(self, player):
+        self._player = player
+
     # --- loading -----------------------------------------------------------
+    @staticmethod
+    def _load_all(db, snapshots):
+        data = {
+            "albums": decorate(db.albums()),
+            "recent": decorate(db.recent_albums()),
+            "artists": decorate(db.artists()),
+            "songs": decorate(db.tracks()),
+            "counts": db.counts(),
+        }
+        data["ops"] = {}
+        for name, snap in snapshots.items():
+            if snap is None:
+                continue
+            revision, keys = snap
+            field = {"albums": "album_key", "artists": "name", "songs": "id"}[name]
+            data["ops"][name] = (revision, compute_ops(keys, [r[field] for r in data[name]]))
+        return data
+
     def reload(self):
-        db = self._db
+        """Refresh all browse models from the database without blocking the GUI thread."""
+        self._load_gen += 1
+        gen = self._load_gen
+        snapshots = {n: self._models[n].snapshot_keys() for n in ("albums", "artists", "songs")}
+
+        def work(db):
+            try:
+                data = self._load_all(db, snapshots)
+            except Exception:  # noqa: BLE001
+                logger.exception("Library load failed")
+                data = None
+            self._loaded.emit((gen, data))
+
+        self._bulk.submit(work)
+
+    @Slot(object)
+    def _apply_load(self, payload):
+        gen, data = payload
+        if data is None or gen != self._load_gen:
+            return
         m = self._models
-        m["albums"].set_items(decorate(db.albums()))
-        m["recent"].set_items(decorate(db.recent_albums()))
-        m["artists"].set_items(decorate(db.artists()))
-        m["songs"].set_items(decorate(db.tracks()))
-        self._counts = db.counts()
+        for name in ("albums", "artists", "songs"):
+            revision, ops = data["ops"].get(name, (None, None))
+            m[name].update_items(data[name], ops, revision)
+        m["recent"].set_items(data["recent"])
+        self._counts = data["counts"]
+        self._artist_index = {fold(a["name"]): a for a in data["artists"]}
         self._detail.clear()
+        if not self._ready:
+            self._ready = True
+            self.readyChanged.emit()
         self.changed.emit()
+        self.reloaded.emit()
 
     # --- queries used by QML ----------------------------------------------
     @Slot(str)
     def search(self, query):
-        r = self._db.search(query)
-        self._models["sTracks"].set_items(decorate(r["tracks"]))
-        self._models["sAlbums"].set_items(decorate(r["albums"]))
-        self._models["sArtists"].set_items(decorate(r["artists"]))
+        """Debounced by the caller; runs on a worker thread and only the latest query is applied."""
+        self._search_gen += 1
+        gen = self._search_gen
+        if not query.strip():
+            for n in ("sTracks", "sAlbums", "sArtists"):
+                self._models[n].set_items([])
+            self.searchFinished.emit()
+            return
+
+        def work(db):
+            try:
+                r = db.search(query)
+                r = {k: decorate(v) for k, v in r.items()}
+            except Exception:  # noqa: BLE001
+                logger.exception("Search failed")
+                r = {"tracks": [], "albums": [], "artists": []}
+            self._searched.emit((gen, r))
+
+        self._quick.submit(work)
+
+    @Slot(object)
+    def _apply_search(self, payload):
+        gen, r = payload
+        if gen != self._search_gen:
+            return
+        self._models["sTracks"].set_items(r["tracks"])
+        self._models["sAlbums"].set_items(r["albums"])
+        self._models["sArtists"].set_items(r["artists"])
+        self.searchFinished.emit()
 
     def _cached(self, key, keys, loader):
         if key not in self._detail:
@@ -152,14 +303,41 @@ class Library(QObject):
 
     @Slot(str, result="QVariantMap")
     def artistInfo(self, name):
-        for a in self._db.artists():
-            if fold(a["name"]) == fold(name):
-                return decorate([a])[0]
-        return {"name": name, "albums": 0, "tracks": 0, "artUrl": ""}
+        a = self._artist_index.get(fold(name))
+        return dict(a) if a else {"name": name, "albums": 0, "tracks": 0, "artUrl": ""}
 
     @Slot(result="QVariantList")
     def allTracks(self):
         return self._models["songs"].toList()
+
+    # --- playback entry points (lists stay in Python; converting 50k tracks through QML is slow) ----
+    def _play(self, tracks, index=0):
+        if self._player is not None and tracks:
+            self._player.playList(tracks, index)
+
+    @Slot(int)
+    def playSongs(self, index):
+        self._play(self._models["songs"].items(), index)
+
+    @Slot(int)
+    def playSearchTracks(self, index):
+        self._play(self._models["sTracks"].items(), index)
+
+    @Slot(str, int)
+    def playAlbum(self, key, index=0):
+        self._play(decorate(self._db.album_tracks(key)), index)
+
+    @Slot(str)
+    def enqueueAlbum(self, key):
+        if self._player is not None:
+            self._player.enqueueAll(decorate(self._db.album_tracks(key)))
+
+    @Slot(str, bool)
+    def playArtist(self, name, shuffle=False):
+        import random
+
+        tracks = decorate(self._db.artist_tracks(name))
+        self._play(tracks, random.randrange(len(tracks)) if shuffle and tracks else 0)
 
     # --- folders & scanning ------------------------------------------------
     @Slot(str)
@@ -174,8 +352,14 @@ class Library(QObject):
 
     @Slot(str)
     def removeFolder(self, path):
-        self._db.remove_folder(path)
+        self._db.forget_folder(path)
         self.foldersChanged.emit()
+
+        def purge(db):
+            db.purge_folder(path)
+
+        # Same single worker as reload(), so the refresh runs after the rows are gone.
+        self._bulk.submit(purge)
         self.reload()
 
     @Slot()
@@ -187,6 +371,9 @@ class Library(QObject):
         if not folders:
             return
         self._scanning = True
+        self._scan_seen = 0
+        self._scan_hint = self._counts["tracks"]
+        self.scanProgressChanged.emit()
         self.scanningChanged.emit()
         self._set_status("Scanning…")
         threading.Thread(target=self._scan_worker, args=(folders,), daemon=True).start()
@@ -195,9 +382,7 @@ class Library(QObject):
         try:
             db = Database(self._db_path)
             try:
-                scanner = Scanner(
-                    db, self._art_dir, progress=lambda n: self.scanProgress.emit(f"Scanning… {n} files")
-                )
+                scanner = Scanner(db, self._art_dir, progress=self.scanProgress.emit)
                 stats = scanner.scan(folders)
             finally:
                 db.close()
@@ -205,7 +390,12 @@ class Library(QObject):
             stats = {"error": str(e), "added": 0, "updated": 0, "removed": 0, "dirs": []}
         self.scanFinished.emit(stats)
 
-    @Slot(str)
+    @Slot(int)
+    def _on_progress(self, seen):
+        self._scan_seen = seen
+        self.scanProgressChanged.emit()
+        self._set_status(f"Scanning… {seen:,} files")
+
     def _set_status(self, text):
         if text != self._status:
             self._status = text
@@ -215,6 +405,9 @@ class Library(QObject):
     def _on_scan_finished(self, stats):
         self._scanning = False
         self.scanningChanged.emit()
+        self._scan_errors = stats.get("errors", 0)
+        self._missing = [f for f in self._db.folders() if not os.path.isdir(f)]
+        self.scanIssuesChanged.emit()
         if stats.get("error"):
             self._set_status("Scan failed: " + stats["error"])
         else:
@@ -235,4 +428,6 @@ class Library(QObject):
         self._debounce.start()
 
     def shutdown(self):
+        self._bulk.close()
+        self._quick.close()
         self._db.close()

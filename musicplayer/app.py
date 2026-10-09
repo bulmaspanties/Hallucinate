@@ -14,6 +14,7 @@ from .library import Library
 from .player import Player
 from .scrobbling import LastFmScrobbler
 from .themes import ThemeManager
+from .thumbs import ArtProvider
 
 HERE = Path(__file__).resolve().parent
 
@@ -39,8 +40,11 @@ def main(argv=None) -> int:
     if icon.exists():
         app.setWindowIcon(QIcon(str(icon)))
 
+    # A short GIL switch interval keeps the GUI thread responsive while worker threads parse tags.
+    sys.setswitchinterval(0.001)
     library = Library(paths.db_path(), paths.art_dir())
     player = Player(session_file=paths.data_dir() / "session.json")
+    library.setPlayer(player)
     scrobbler = LastFmScrobbler(player, paths.data_dir())
     theme_manager = ThemeManager(paths.config_dir(), player)
 
@@ -54,6 +58,7 @@ def main(argv=None) -> int:
     player.restoreSession()
 
     engine = QQmlApplicationEngine()
+    engine.addImageProvider("art", ArtProvider(paths.data_dir() / "thumbs"))
     ctx = engine.rootContext()
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("player", player)

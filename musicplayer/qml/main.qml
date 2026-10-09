@@ -121,13 +121,9 @@ ApplicationWindow {
                         }
                     }
                 }
-                Text {
-                    anchors { left: parent.left; leftMargin: 18; bottom: parent.bottom; bottomMargin: 14 }
-                    visible: library.scanning
-                    text: library.status
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize(12)
+                ScanBar {
+                    anchors { left: parent.left; right: parent.right; leftMargin: 18; rightMargin: 18; bottom: parent.bottom; bottomMargin: 14 }
+                    compact: true
                 }
             }
 

@@ -43,13 +43,12 @@ Item {
                     }
                     Row {
                         spacing: 10
-                        PillButton { primary: true; text: "Play all"; onClicked: player.playList(library.artistAllTracks(page.artistName), 0) }
+                        PillButton { primary: true; text: "Play all"; onClicked: library.playArtist(page.artistName, false) }
                         PillButton {
                             text: "Shuffle"
                             onClicked: {
                                 player.setShuffle(true)
-                                var t = library.artistAllTracks(page.artistName)
-                                player.playList(t, Math.floor(Math.random() * t.length))
+                                library.playArtist(page.artistName, true)
                             }
                         }
                     }

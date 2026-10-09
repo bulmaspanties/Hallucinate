@@ -15,6 +15,7 @@ REPEAT_OFF, REPEAT_ALL, REPEAT_ONE = 0, 1, 2
 PRELOAD_MS = 10_000  # start pre-rolling the next track this long before the end
 TRANSITION_MS = 250
 SESSION_VERSION = 1
+SESSION_MAX_TRACKS = 1000  # bounds the save cost for huge queues (e.g. "play all songs" on 50k tracks)
 logger = logging.getLogger(__name__)
 
 
@@ -300,7 +301,7 @@ class Player(QObject):
     @Slot("QVariantList", int)
     def playList(self, tracks, index=0):
         """Replace the queue with `tracks` and start playing at `index`."""
-        self._queue = [dict(t) for t in tracks]
+        self._queue = list(tracks)  # queue entries are treated as immutable
         self._history.clear()
         self._played.clear()
         self._standby.clear()
@@ -603,10 +604,15 @@ class Player(QObject):
     def saveSession(self):
         if not self._session_file:
             return
+        queue, index = self._queue, self._index
+        if len(queue) > SESSION_MAX_TRACKS:
+            start = max(0, min(index, len(queue) - 1) - SESSION_MAX_TRACKS // 5)
+            queue = queue[start:start + SESSION_MAX_TRACKS]
+            index = index - start if index >= 0 else index
         data = {
             "version": SESSION_VERSION,
-            "queue": self._queue,
-            "index": self._index,
+            "queue": queue,
+            "index": index,
             "position": self._player.position() if self.hasTrack else 0,
             "shuffle": self._shuffle,
             "repeat": self._repeat,

@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS tracks(
   added REAL NOT NULL,
   s_title TEXT NOT NULL DEFAULT '',
   s_album TEXT NOT NULL DEFAULT '',
-  s_aa TEXT NOT NULL DEFAULT ''
+  s_aa TEXT NOT NULL DEFAULT '',
+  s_artist TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_key);
 CREATE TABLE IF NOT EXISTS folders(path TEXT PRIMARY KEY);
@@ -45,7 +46,7 @@ COLS = (
     "year genre duration fmt bitrate sample_rate art"
 ).split()
 
-SEARCH_COLS = ["s_title", "s_album", "s_aa"]
+SEARCH_COLS = ["s_title", "s_album", "s_aa", "s_artist"]
 
 _ORDER = "disc_no, track_no, s_title"
 
@@ -75,6 +76,7 @@ class Database:
         self._migrate()
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_stitle ON tracks(s_title)")
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_saa ON tracks(s_aa)")
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_tracks_sartist ON tracks(s_artist)")
         try:
             self.conn.execute(FTS)
             self.has_fts = True
@@ -84,14 +86,15 @@ class Database:
 
     def _migrate(self):
         cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(tracks)")}
-        if "s_title" in cols:
+        missing = [c for c in SEARCH_COLS if c not in cols]
+        if not missing:
             return
-        for c in ("s_title", "s_album", "s_aa"):
+        for c in missing:
             self.conn.execute(f"ALTER TABLE tracks ADD COLUMN {c} TEXT NOT NULL DEFAULT ''")
-        rows = self.conn.execute("SELECT id, title, album, album_artist FROM tracks").fetchall()
+        rows = self.conn.execute("SELECT id, title, artist, album, album_artist FROM tracks").fetchall()
         self.conn.executemany(
-            "UPDATE tracks SET s_title=?, s_album=?, s_aa=? WHERE id=?",
-            [(fold(r["title"]), fold(r["album"]), fold(r["album_artist"]), r["id"]) for r in rows],
+            "UPDATE tracks SET s_title=?, s_album=?, s_aa=?, s_artist=? WHERE id=?",
+            [(fold(r["title"]), fold(r["album"]), fold(r["album_artist"]), fold(r["artist"]), r["id"]) for r in rows],
         )
 
     def close(self):
@@ -111,10 +114,17 @@ class Database:
         self.conn.execute("INSERT OR IGNORE INTO folders(path) VALUES(?)", (path,))
         self.conn.commit()
 
-    def remove_folder(self, path: str):
+    def forget_folder(self, path: str):
         self.conn.execute("DELETE FROM folders WHERE path=?", (path,))
+        self.conn.commit()
+
+    def purge_folder(self, path: str):
         self.remove_paths(self.paths_under(path))
         self.finalize()
+
+    def remove_folder(self, path: str):
+        self.forget_folder(path)
+        self.purge_folder(path)
 
     # --- writes --------------------------------------------------------
     def paths_under(self, folder: str) -> dict:
@@ -131,6 +141,7 @@ class Database:
         params["s_title"] = fold(t["title"])
         params["s_album"] = fold(t["album"])
         params["s_aa"] = fold(t["album_artist"])
+        params["s_artist"] = fold(t["artist"])
         row = self.conn.execute("SELECT id, art FROM tracks WHERE path=?", (t["path"],)).fetchone()
         if row:
             tid = row["id"]
@@ -235,7 +246,7 @@ class Database:
 
     def artist_tracks(self, name: str, limit: int = 100000) -> list:
         return self._rows(
-            "SELECT * FROM tracks WHERE s_aa=? OR fold(artist)=? "
+            "SELECT * FROM tracks WHERE s_aa=? OR s_artist=? "
             "ORDER BY s_album, " + _ORDER + " LIMIT ?",
             (fold(name), fold(name), limit),
         )
@@ -254,7 +265,7 @@ class Database:
             )
         else:
             clause = " AND ".join(
-                "(s_title LIKE ? ESCAPE '\\' OR fold(artist) LIKE ? ESCAPE '\\' OR s_album LIKE ? ESCAPE '\\')" for _ in toks
+                "(s_title LIKE ? ESCAPE '\\' OR s_artist LIKE ? ESCAPE '\\' OR s_album LIKE ? ESCAPE '\\')" for _ in toks
             )
             params = [_like(t) for t in toks for _ in range(3)]
             tracks = self._rows(

@@ -36,7 +36,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: player.playList(library.albumTracks(card.albumKey), 0)
+            onClicked: library.playAlbum(card.albumKey, 0)
         }
     }
     Column {

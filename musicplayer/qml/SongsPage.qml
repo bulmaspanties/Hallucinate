@@ -39,7 +39,7 @@ Item {
             durText: model.durText
             artUrl: model.artUrl
             current: player.hasTrack && player.current.id === model.id
-            onActivated: player.playList(library.allTracks(), index)
+            onActivated: library.playSongs(index)
             onEnqueue: player.enqueue(library.songs.get(index))
         }
     }

@@ -5,6 +5,17 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Changed (performance)
+- Library loading, search and model refreshes run on worker threads with their own SQLite connections; browse models update incrementally (row inserts/removes) instead of resetting.
+- Play-all/album/artist actions are handled in Python, so large track lists never cross into QML; saved sessions keep a bounded queue window.
+- Cover art is decoded and downscaled asynchronously by an `image://art` provider with an on-disk thumbnail cache.
+- Artist lookups use an indexed folded-artist column (automatic migration).
+- Theme switches cross-fade colors.
+- 50k-track test: GUI-thread stalls during load/search stay far below 50 ms-class budgets in CI.
+
+### Added
+- Scan progress bar, first-run "Choose music folder" flow, and loading/empty/error states (missing folders, unreadable files).
+
 ## [0.1.1] - 2026-10-09
 
 ### Added
