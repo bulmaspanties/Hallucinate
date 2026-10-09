@@ -34,6 +34,7 @@ Menu {
             onObjectRemoved: (i, o) => plMenu.removeItem(o)
         }
     }
+    MenuItem { text: "Edit tags…"; onTriggered: Nav.editTags(menu.path) }
     MenuItem {
         visible: menu.context === "playlist"
         height: visible ? implicitHeight : 0

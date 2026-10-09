@@ -73,6 +73,7 @@ Item {
                             player.playList(page.tracks.toList(), Math.floor(Math.random() * page.tracks.count))
                         }
                     }
+                    PillButton { text: "Edit"; onClicked: Nav.editAlbum(page.albumKey) }
                     PillButton { text: "Add to queue"; onClicked: player.enqueueAll(page.tracks.toList()) }
                 }
             }

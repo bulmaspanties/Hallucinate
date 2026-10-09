@@ -6,7 +6,9 @@ import "."
 Rectangle {
     id: bar
     property bool queueOpen: false
+    property bool lyricsOpen: false
     signal toggleQueue()
+    signal toggleLyrics()
     color: Theme.panel
     height: Theme.playerHeight
 
@@ -103,6 +105,7 @@ Rectangle {
     Row {
         anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
         spacing: 6
+        IconButton { icon: "note"; active: bar.lyricsOpen; tip: "Lyrics"; onClicked: bar.toggleLyrics() }
         IconButton { icon: "queue"; active: bar.queueOpen; onClicked: bar.toggleQueue() }
         Icon { anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "volume"; color: Theme.textDim }
         StyledSlider {

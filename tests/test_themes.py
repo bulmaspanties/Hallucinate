@@ -8,6 +8,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from musicplayer.library import Library
+from musicplayer.lyricsctl import LyricsController
+from musicplayer.metaedit import MetadataEditor
 from musicplayer.player import Player
 from musicplayer.scrobbling import LastFmScrobbler
 from musicplayer.themes import BUILTIN_THEME_DIR, ThemeManager
@@ -138,6 +140,10 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     context.setContextProperty("library", library)
     user_lib = UserLibrary(tmp_path / "library.db", player)
     context.setContextProperty("userLib", user_lib)
+    meta_editor = MetadataEditor(tmp_path / "library.db", tmp_path / "art")
+    lyrics = LyricsController(tmp_path / "library.db", player)
+    context.setContextProperty("metaEditor", meta_editor)
+    context.setContextProperty("lyricsCtl", lyrics)
     context.setContextProperty("player", player)
     context.setContextProperty("scrobbler", scrobbler)
     context.setContextProperty("themeManager", manager)
@@ -177,6 +183,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     scrobbler.shutdown()
     player.shutdown()
+    lyrics.shutdown()
+    meta_editor.shutdown()
     user_lib.shutdown()
     library.shutdown()
     qapp.setFont(old_font)

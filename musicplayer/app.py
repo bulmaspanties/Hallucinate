@@ -11,6 +11,8 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from . import __version__
 from .core import paths
 from .library import Library
+from .lyricsctl import LyricsController
+from .metaedit import MetadataEditor
 from .player import Player
 from .scrobbling import LastFmScrobbler
 from .themes import ThemeManager
@@ -48,6 +50,9 @@ def main(argv=None) -> int:
     library.setPlayer(player)
     user_lib = UserLibrary(paths.db_path(), player)
     library.reloaded.connect(user_lib.refresh)
+    meta_editor = MetadataEditor(paths.db_path(), paths.art_dir())
+    meta_editor.changed.connect(library.reload)
+    lyrics = LyricsController(paths.db_path(), player)
     scrobbler = LastFmScrobbler(player, paths.data_dir())
     theme_manager = ThemeManager(paths.config_dir(), player)
 
@@ -66,6 +71,8 @@ def main(argv=None) -> int:
     ctx.setContextProperty("library", library)
     ctx.setContextProperty("player", player)
     ctx.setContextProperty("userLib", user_lib)
+    ctx.setContextProperty("metaEditor", meta_editor)
+    ctx.setContextProperty("lyricsCtl", lyrics)
     ctx.setContextProperty("scrobbler", scrobbler)
     ctx.setContextProperty("themeManager", theme_manager)
     engine.addImportPath(str(HERE / "qml"))
@@ -98,6 +105,8 @@ def main(argv=None) -> int:
     scrobbler.shutdown()
     del theme_manager
     player.shutdown()
+    lyrics.shutdown()
+    meta_editor.shutdown()
     user_lib.shutdown()
     library.shutdown()
     del scrobbler

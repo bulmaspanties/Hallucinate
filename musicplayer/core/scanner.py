@@ -25,6 +25,20 @@ class Scanner:
         self.db.finalize()
         return stats
 
+    def refresh_files(self, paths) -> int:
+        """Re-read specific files (after a tag edit) and update their rows. Returns how many were updated."""
+        n = 0
+        for path in paths:
+            t = tags.read_track(path, art_known=lambda k: k in self._art)
+            if t is None:
+                continue
+            self._attach_art(t, os.path.dirname(path))
+            self.db.upsert_track(t)
+            n += 1
+        self.db.finalize()
+        self.db.commit()
+        return n
+
     def _scan_folder(self, folder: str, stats: dict):
         if not os.path.isdir(folder):
             return  # unmounted/missing: keep existing entries

@@ -14,6 +14,9 @@ All notable changes to this project are documented here. Format based on
 - 50k-track test: GUI-thread stalls during load/search stay far below 50 ms-class budgets in CI.
 
 ### Added
+- Liked Songs and playlists; Recently played / Most played on Home.
+- ReplayGain, crossfade and a 10-band FIR equalizer (numpy; audio is routed through a Qt audio tap while it is enabled).
+- Tag editor (track/album), cover set/fetch (MusicBrainz + Cover Art Archive, optional embedding), and a synced lyrics panel (embedded, `.lrc`, LRCLIB).
 - Scan progress bar, first-run "Choose music folder" flow, and loading/empty/error states (missing folders, unreadable files).
 
 ## [0.1.1] - 2026-10-09

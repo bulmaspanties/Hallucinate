@@ -25,6 +25,7 @@ ApplicationWindow {
 
     property string section: "home"
     property bool queueOpen: false
+    property bool lyricsOpen: false
 
     function pageFor(name) {
         switch (name) {
@@ -79,6 +80,8 @@ ApplicationWindow {
             for (var i = 0; i < userLib.playlists.count; i++) if (userLib.playlists.get(i).id === id) name = userLib.playlists.get(i).name
             window.openPlaylist(id, name)
         }
+        function onEditTags(path) { tagEditor.editTrack(path) }
+        function onEditAlbum(key) { tagEditor.editAlbum(key) }
         function onTrackMenu(path, title, context, index) { trackMenu.show(path, title, context, index) }
         function onBack() { if (stack.depth > 1) stack.pop() }
     }
@@ -98,6 +101,7 @@ ApplicationWindow {
     }
 
     TrackMenu { id: trackMenu }
+    TagEditor { id: tagEditor }
     Dialog {
         id: createDlg
         parent: Overlay.overlay
@@ -246,6 +250,11 @@ ApplicationWindow {
                         Layout.fillHeight: true
                         visible: window.queueOpen
                     }
+                    LyricsPanel {
+                        Layout.preferredWidth: window.lyricsOpen ? 340 : 0
+                        Layout.fillHeight: true
+                        visible: window.lyricsOpen
+                    }
                 }
             }
         }
@@ -254,7 +263,9 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.playerHeight
             queueOpen: window.queueOpen
-            onToggleQueue: window.queueOpen = !window.queueOpen
+            lyricsOpen: window.lyricsOpen
+            onToggleQueue: { window.queueOpen = !window.queueOpen; if (window.queueOpen) window.lyricsOpen = false }
+            onToggleLyrics: { window.lyricsOpen = !window.lyricsOpen; if (window.lyricsOpen) window.queueOpen = false }
         }
     }
 
@@ -269,7 +280,8 @@ ApplicationWindow {
     Shortcut { sequence: "P"; enabled: !window.typing; onActivated: player.previous() }
     Shortcut { sequence: "S"; enabled: !window.typing; onActivated: player.toggleShuffle() }
     Shortcut { sequence: "R"; enabled: !window.typing; onActivated: player.cycleRepeat() }
-    Shortcut { sequence: "Q"; enabled: !window.typing; onActivated: window.queueOpen = !window.queueOpen }
+    Shortcut { sequence: "Q"; enabled: !window.typing; onActivated: { window.queueOpen = !window.queueOpen; if (window.queueOpen) window.lyricsOpen = false } }
+    Shortcut { sequence: "L"; enabled: !window.typing; onActivated: { window.lyricsOpen = !window.lyricsOpen; if (window.lyricsOpen) window.queueOpen = false } }
     Shortcut { sequence: "Alt+Left"; onActivated: Nav.back() }
     Shortcut { sequences: ["/", "Ctrl+F", "Ctrl+K"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }
     Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }

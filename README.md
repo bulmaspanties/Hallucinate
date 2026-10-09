@@ -19,6 +19,10 @@ playlist-driven: type to find, click to play.
 - MPRIS2 controls and media keys on Linux.
 - Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
   scrobbling, secure system-keyring credentials, and a persistent offline retry queue.
+- Liked Songs and user playlists (create, rename, delete, add from any track's "…" menu); Home shows Recently played and Most played.
+- ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback, and a 10-band equalizer with presets (needs numpy).
+- Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE) and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
+- Lyrics panel with synced highlighting: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; can be disabled).
 - Live-switchable, file-backed themes with album-art accent mode and keyboard-friendly UI.
 
 ## Install
@@ -106,7 +110,7 @@ with a size scale from 0.75 to 1.5:
 
 ## Shortcuts
 Space play/pause · ←/→ seek · ↑/↓ volume · N/P next/previous · S shuffle · R repeat ·
-Q queue · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
+Q queue · L lyrics · `/`, Ctrl+F or Ctrl+K search · Alt+← back · Ctrl+Q quit.
 
 ## Tests
 ```sh
@@ -132,7 +136,6 @@ FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 
 ## Roadmap
 - Real-device verification of APE playback and desktop media keys
-- Playlists and tag editing
 - ListenBrainz scrobbling
 - Packaging: AUR submission, Flatpak, code-signed Windows builds, macOS
 - Screenshots and a project website
