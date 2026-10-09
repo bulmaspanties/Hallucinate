@@ -361,3 +361,49 @@ def test_eq_enabled_plays_and_seeks(make_player, tmp_path):
     assert p._voice.tap is None and p._voice.audio.volume() > 0
     assert wait_for(lambda: p.position > 1900)
     assert p.error == ""
+
+
+def test_speed_persists_and_applies(make_player):
+    p = make_player()
+    p.setSpeed(1.5)
+    assert p.speed == 1.5 and all(v.player.playbackRate() == 1.5 for v in p._voices)
+    p.setSpeed(9)
+    assert p.speed == 2.0
+    p.setSpeed(1.0)
+    assert p.speed == 1.0
+
+
+def test_sleep_timer_pauses_and_fades(make_player):
+    p = make_player(session=False)
+    p.setSleepMinutes(1)
+    assert p.sleepRemaining == 60
+    p._sleep_left = 8
+    p._sleep_tick()
+    assert p.sleepRemaining == 7 and 0 < p._sleep_gain < 1
+    p._sleep_left = 1
+    p._sleep_tick()
+    assert p.sleepRemaining == -1 and p._sleep_gain == 1.0 and not p._sleep_timer.isActive()
+    p.setSleepMinutes(5)
+    p.setSleepMinutes(0)
+    assert p.sleepRemaining == -1
+    p.setSleepAfterTrack(True)
+    assert p.sleepAfterTrack
+
+
+def test_sleep_after_track_pauses_on_next_track(make_player, clips):
+    p = make_player(session=False)
+    p.setSleepAfterTrack(True)
+    p.playList(clips[:3], 0)
+    assert wait_for(lambda: is_playing(p) and p.currentIndex == 0)
+    assert wait_for(lambda: not p.sleepAfterTrack, timeout=8)
+    assert p.currentIndex == 1 and wait_for(lambda: not is_playing(p))
+
+
+def test_move_item_tracks_current(make_player, clips):
+    p = make_player(session=False)
+    p.setQueue(clips[:4], 1) if hasattr(p, "setQueue") else p.playList(clips[:4], 1)
+    cur = p.currentIndex
+    p.moveItem(cur, 3)
+    assert p.currentIndex == 3
+    p.moveItem(0, 3)
+    assert p.currentIndex == 2

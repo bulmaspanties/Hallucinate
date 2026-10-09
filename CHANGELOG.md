@@ -6,6 +6,9 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
+- Queue: drag-to-reorder (grip handle, Alt+Up/Down), speed selector (0.5–2×) and sleep timer (minutes or end of track, with fade-out) from the player bar's ⋯ menu.
+
+### Added
 - Discord Rich Presence (raw IPC, threaded, auto-reconnect; Flatpak/Snap/Windows paths; hide-when-paused, hide-cover and privacy options).
 - Tests no longer touch the developer's real QSettings.
 

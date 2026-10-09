@@ -105,6 +105,12 @@ Rectangle {
     Row {
         anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
         spacing: 6
+        IconButton {
+            icon: "more"; tip: "Speed and sleep timer"
+            active: player.speed !== 1 || player.sleepRemaining >= 0 || player.sleepAfterTrack
+            onClicked: playbackMenu.popup()
+            PlaybackMenu { id: playbackMenu }
+        }
         IconButton { icon: "expand"; tip: "Mini player (Ctrl+M)"; visible: true; onClicked: shell.toggleMini() }
         IconButton { icon: "note"; active: bar.lyricsOpen; tip: "Lyrics"; onClicked: bar.toggleLyrics() }
         IconButton { icon: "queue"; active: bar.queueOpen; onClicked: bar.toggleQueue() }

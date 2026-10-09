@@ -70,6 +70,8 @@ class Player(QObject):
     errorChanged = Signal()
     seeked = Signal(int)
     audioSettingsChanged = Signal()
+    speedChanged = Signal()
+    sleepChanged = Signal()
     eqChanged = Signal()
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
 
@@ -100,6 +102,13 @@ class Player(QObject):
             self._rg_mode = "off"
         self._rg_preamp = self._float_setting("replaygain/preamp", 0.0, -15.0, 15.0)
         self._crossfade = int(self._float_setting("crossfade", 0, 0, 12))
+        self._speed = self._float_setting("speed", 1.0, 0.5, 2.0)
+        self._sleep_left = -1  # seconds until sleep; -1 when no timer is running
+        self._sleep_after_track = False
+        self._sleep_gain = 1.0
+        self._sleep_timer = QTimer(self)
+        self._sleep_timer.setInterval(1000)
+        self._sleep_timer.timeout.connect(self._sleep_tick)
         self._eq_enabled = False
         self._eq_gains = [0.0] * len(eq.BANDS)
         self._eq_preset = "Flat"
@@ -129,6 +138,7 @@ class Player(QObject):
             p.mediaStatusChanged.connect(lambda st, n=n: self._on_media_status(n, st))
             p.errorOccurred.connect(lambda err, msg, n=n: self._on_error(n, msg))
             p.playbackStateChanged.connect(lambda st, n=n: self._tap_state(n, st))
+        self._apply_speed()
         if self._eq_enabled:
             self._sync_taps()
 
@@ -191,6 +201,68 @@ class Player(QObject):
             self._crossfade = seconds
             self._settings.setValue("crossfade", seconds)
             self.audioSettingsChanged.emit()
+
+    # --- playback speed and sleep timer -----------------------------------------
+    @Property(float, notify=speedChanged)
+    def speed(self):
+        return self._speed
+
+    @Slot(float)
+    def setSpeed(self, rate):
+        rate = round(min(max(float(rate), 0.5), 2.0), 2)
+        if rate != self._speed:
+            self._speed = rate
+            self._settings.setValue("speed", rate)
+            self._apply_speed()
+            self.speedChanged.emit()
+
+    def _apply_speed(self):
+        for v in self._voices:
+            v.player.setPlaybackRate(self._speed)
+
+    @Property(int, notify=sleepChanged)
+    def sleepRemaining(self):
+        return self._sleep_left
+
+    @Property(bool, notify=sleepChanged)
+    def sleepAfterTrack(self):
+        return self._sleep_after_track
+
+    @Slot(int)
+    def setSleepMinutes(self, minutes):
+        """Pause after `minutes` (fading out over the last 15 s); 0 cancels the timer."""
+        self._sleep_after_track = False
+        self._sleep_gain = 1.0
+        self._apply_volume()
+        if minutes > 0:
+            self._sleep_left = minutes * 60
+            self._sleep_timer.start()
+        else:
+            self._sleep_left = -1
+            self._sleep_timer.stop()
+        self.sleepChanged.emit()
+
+    @Slot(bool)
+    def setSleepAfterTrack(self, on):
+        self._sleep_timer.stop()
+        self._sleep_left = -1
+        self._sleep_gain = 1.0
+        self._apply_volume()
+        self._sleep_after_track = on
+        self.sleepChanged.emit()
+
+    def _sleep_tick(self):
+        self._sleep_left -= 1
+        if self._sleep_left <= 0:
+            self._sleep_timer.stop()
+            self._sleep_left = -1
+            self.pause()
+            self._sleep_gain = 1.0
+            self._apply_volume()
+        else:
+            self._sleep_gain = min(1.0, self._sleep_left / 15)
+            self._apply_volume()
+        self.sleepChanged.emit()
 
     # --- equalizer -----------------------------------------------------------
     def _detect_preset(self):
@@ -282,7 +354,7 @@ class Player(QObject):
     def _apply_volume(self):
         for voice in self._voices:
             gain = replaygain_factor(self._voice_track(voice), self._rg_mode, self._rg_preamp)
-            level = min(1.0, self._volume ** 2 * gain * voice.fade)
+            level = min(1.0, self._volume ** 2 * gain * voice.fade * self._sleep_gain)
             if voice.tap is not None:
                 voice.audio.setVolume(0.0)  # still paces the decoder; the tap's sink plays the sound
                 voice.tap.setVolume(level)
@@ -734,6 +806,7 @@ class Player(QObject):
             if self._voice.tap is not None:
                 self._voice.tap.reset()
             self._player.setSource(QUrl.fromLocalFile(path))
+            self._player.setPlaybackRate(self._speed)
             if autoplay:
                 self._player.play()
             if sb.index not in (-1, i):
@@ -785,7 +858,8 @@ class Player(QObject):
 
     def _try_crossfade(self, pos, dur):
         xf = self._crossfade * 1000
-        if not xf or self._fading or self._transitioning or not self.playing or self._repeat == REPEAT_ONE:
+        if (not xf or self._fading or self._transitioning or not self.playing or self._repeat == REPEAT_ONE
+                or self._sleep_after_track):
             return False
         if dur < 2 * xf or dur - pos > xf:
             return False
@@ -817,7 +891,18 @@ class Player(QObject):
             self._transitioning = False
             return
         nxt = self._compute_next(auto=True)
-        if nxt is not None:
+        if self._sleep_after_track:
+            self._sleep_after_track = False
+            self.sleepChanged.emit()
+            if nxt is not None:
+                self._player.pause()
+                self._load(nxt, autoplay=False)
+            else:
+                self._ended = True
+                self._player.pause()
+                self.stateChanged.emit()
+            self.saveSession()
+        elif nxt is not None:
             self._load(nxt, drain=True)
         else:
             self._ended = True
