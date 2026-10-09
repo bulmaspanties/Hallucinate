@@ -4,10 +4,11 @@ import math
 import os
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QSettings, QTimer, QUrl, Signal, Slot
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtCore import Property, QCoreApplication, QEvent, QObject, QSettings, QTimer, QUrl, Signal, Slot
+from PySide6.QtMultimedia import QAudioBufferOutput, QAudioFormat, QAudioOutput, QMediaPlayer
 
 from . import eq
 from .core.tags import is_readable_audio
@@ -18,6 +19,7 @@ PRELOAD_MS = 10_000  # start pre-rolling the next track this long before the end
 TRANSITION_MS = 250
 SESSION_VERSION = 1
 SESSION_MAX_TRACKS = 1000  # bounds the save cost for huge queues (e.g. "play all songs" on 50k tracks)
+VISUALIZER_BARS = 24
 logger = logging.getLogger(__name__)
 
 
@@ -28,10 +30,12 @@ class _Voice:
         self.audio = QAudioOutput(parent)
         self.player = QMediaPlayer(parent)
         self.player.setAudioOutput(self.audio)
+        self.visual_output = None
         self.index = -1  # queue index the loaded source belongs to
         self.path = ""
         self.fade = 1.0  # crossfade multiplier
         self.tap = None  # equalizer tap, present while the equalizer is on
+        self.tap_visual_connected = False
 
     def clear(self):
         self.player.stop()
@@ -74,6 +78,8 @@ class Player(QObject):
     sleepChanged = Signal()
     eqChanged = Signal()
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
+    visualizerChanged = Signal()
+    _visual_levels_ready = Signal(object)
 
     def __init__(self, parent=None, session_file=None):
         super().__init__(parent)
@@ -90,6 +96,12 @@ class Player(QObject):
         self._error = ""
         self._error_streak = 0
         self._model = DictModel(TRACK_KEYS, self)
+        self._visualizer_enabled = False
+        self._visualizer_levels = [0.0] * VISUALIZER_BARS
+        self._visualizer_generation = 0
+        self._visualizer_pending = False
+        self._visualizer_pool = None
+        self._visual_levels_ready.connect(self._apply_visualizer_levels)
 
         self._settings = QSettings("hallucinate", "hallucinate")
         try:
@@ -97,6 +109,11 @@ class Player(QObject):
             self._volume = stored_volume if math.isfinite(stored_volume) else 0.8
         except (TypeError, ValueError):
             self._volume = 0.8
+        self._visualizer_enabled = (
+            str(self._settings.value("visualizer/enabled", "false")).lower() == "true" and eq.available()
+        )
+        if self._visualizer_enabled:
+            self._visualizer_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="hallucinate-spectrum")
         self._rg_mode = str(self._settings.value("replaygain/mode", "off"))
         if self._rg_mode not in ("off", "track", "album"):
             self._rg_mode = "off"
@@ -141,6 +158,10 @@ class Player(QObject):
         self._apply_speed()
         if self._eq_enabled:
             self._sync_taps()
+        elif self._visualizer_enabled:
+            self._sync_audio_buffer_outputs()
+        self.trackChanged.connect(self._clear_visualizer)
+        self.stateChanged.connect(self._clear_visualizer)
 
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -326,19 +347,156 @@ class Player(QObject):
             self._save_eq()
 
     def _sync_taps(self):
-        for voice in self._voices:
+        for n, voice in enumerate(self._voices):
             if self._eq_enabled and voice.tap is None:
                 tap = eq.EqTap(eq.EqProcessor(), self)
                 tap.processor.set_gains(self._eq_gains)
                 voice.tap = tap
-                voice.player.setAudioBufferOutput(tap.output)
                 tap.setRunning(voice.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
             elif not self._eq_enabled and voice.tap is not None:
                 voice.player.setAudioBufferOutput(None)
-                voice.tap.close()
-                voice.tap.deleteLater()
+                tap = voice.tap
+                tap.close()
                 voice.tap = None
+                voice.tap_visual_connected = False
+                tap.deleteLater()
+                QCoreApplication.sendPostedEvents(tap, QEvent.Type.DeferredDelete)
+        self._sync_audio_buffer_outputs()
         self._apply_volume()
+
+    def _sync_audio_buffer_outputs(self):
+        for n, voice in enumerate(self._voices):
+            if voice.tap is not None:
+                if self._visualizer_enabled and not voice.tap_visual_connected:
+                    voice.tap.output.audioBufferReceived.connect(
+                        lambda buf, n=n: self._on_visualizer_buffer(n, buf)
+                    )
+                    voice.tap_visual_connected = True
+                output = voice.tap.output
+            elif self._visualizer_enabled:
+                if voice.visual_output is None:
+                    voice.visual_output = QAudioBufferOutput(voice.player)
+                    voice.visual_output.audioBufferReceived.connect(
+                        lambda buf, n=n: self._on_visualizer_buffer(n, buf)
+                    )
+                output = voice.visual_output
+            else:
+                output = None
+            voice.player.setAudioBufferOutput(output)
+
+    @Property(bool, constant=True)
+    def visualizerAvailable(self):
+        return eq.available()
+
+    @Property(bool, notify=visualizerChanged)
+    def visualizerEnabled(self):
+        return self._visualizer_enabled
+
+    @Property("QVariantList", notify=visualizerChanged)
+    def visualizerLevels(self):
+        return list(self._visualizer_levels)
+
+    @Slot(bool)
+    def setVisualizerEnabled(self, enabled):
+        enabled = bool(enabled) and eq.available()
+        if enabled == self._visualizer_enabled:
+            return
+        if enabled and self._visualizer_pool is None:
+            self._visualizer_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="hallucinate-spectrum")
+        self._visualizer_enabled = enabled
+        self._settings.setValue("visualizer/enabled", "true" if enabled else "false")
+        self._visualizer_generation += 1
+        self._visualizer_pending = False
+        self._visualizer_levels = [0.0] * VISUALIZER_BARS
+        self._sync_audio_buffer_outputs()
+        self.visualizerChanged.emit()
+
+    def _on_visualizer_buffer(self, voice_index, buffer):
+        if (
+            not self._visualizer_enabled
+            or not self.playing
+            or voice_index != self._cur
+            or self._visualizer_pending
+        ):
+            return
+        fmt = buffer.format()
+        channels = fmt.channelCount()
+        if not buffer.isValid() or channels <= 0:
+            return
+        raw = bytes(buffer.constData())
+        if not raw or self._visualizer_pool is None:
+            return
+        self._visualizer_pending = True
+        generation = self._visualizer_generation
+        future = self._visualizer_pool.submit(
+            self._spectrum_levels, raw, fmt.sampleFormat(), channels
+        )
+
+        def done(result):
+            try:
+                levels = result.result()
+                error = ""
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Visualizer buffer analysis failed: %s", exc)
+                levels, error = [], str(exc)
+            self._visual_levels_ready.emit((generation, levels, error))
+
+        future.add_done_callback(done)
+
+    @staticmethod
+    def _spectrum_levels(raw, sample_format, channels):
+        np = eq.np
+        formats = {
+            QAudioFormat.SampleFormat.UInt8: ("u1", lambda a: (a.astype(np.float32) - 128) / 128),
+            QAudioFormat.SampleFormat.Int16: ("<i2", lambda a: a.astype(np.float32) / 32768),
+            QAudioFormat.SampleFormat.Int32: ("<i4", lambda a: a.astype(np.float32) / 2147483648),
+            QAudioFormat.SampleFormat.Float: ("<f4", lambda a: a.astype(np.float32)),
+        }
+        spec = formats.get(sample_format)
+        if np is None or spec is None:
+            return [0.0] * VISUALIZER_BARS
+        samples = np.frombuffer(raw, dtype=spec[0])
+        usable = samples.size - samples.size % channels
+        if usable < channels * 256:
+            return [0.0] * VISUALIZER_BARS
+        mono = spec[1](samples[:usable]).reshape(-1, channels).mean(axis=1)
+        mono = mono[-2048:]
+        size = mono.size
+        spectrum = np.abs(np.fft.rfft(mono * np.hanning(size)))
+        edges = np.geomspace(1, len(spectrum), VISUALIZER_BARS + 1).astype(int)
+        levels = []
+        for low, high in zip(edges[:-1], edges[1:]):
+            high = max(high, low + 1)
+            band = spectrum[low:high]
+            value = float(np.sqrt(np.mean(np.square(band))) / (size / 2) * 4)
+            levels.append(min(1.0, max(0.0, value)))
+        return levels
+
+    @Slot(object)
+    def _apply_visualizer_levels(self, payload):
+        generation, levels, error = payload
+        if generation != self._visualizer_generation:
+            return
+        self._visualizer_pending = False
+        if error:
+            self._visualizer_enabled = False
+            self._visualizer_levels = [0.0] * VISUALIZER_BARS
+            self._settings.setValue("visualizer/enabled", "false")
+            self._sync_audio_buffer_outputs()
+            logger.warning("Spectrum visualizer disabled after analysis failure")
+        else:
+            self._visualizer_levels = levels
+        self.visualizerChanged.emit()
+
+    @Slot()
+    def _clear_visualizer(self):
+        if not self._visualizer_enabled or self.playing:
+            return
+        self._visualizer_generation += 1
+        self._visualizer_pending = False
+        if any(self._visualizer_levels):
+            self._visualizer_levels = [0.0] * VISUALIZER_BARS
+            self.visualizerChanged.emit()
 
     def _tap_state(self, n, state):
         tap = self._voices[n].tap
@@ -953,6 +1111,10 @@ class Player(QObject):
 
     def shutdown(self):
         self._fade_timer.stop()
+        self._visualizer_generation += 1
+        self._visualizer_enabled = False
+        if self._visualizer_pool is not None:
+            self._visualizer_pool.shutdown(wait=True, cancel_futures=True)
         self.saveSession()
         for v in self._voices:
             v.clear()

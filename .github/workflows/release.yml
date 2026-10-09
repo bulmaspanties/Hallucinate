@@ -73,3 +73,34 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
           gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*-setup.exe --clobber
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build macOS app bundle
+        run: packaging/macos/build.sh "${GITHUB_REF_NAME#v}"
+      - name: Smoke test (offscreen)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          HALLUCINATE_DISABLE_LEGACY_MIGRATION: "1"
+          HALLUCINATE_CONTROL_SOCKET: hallucinate-release-macos-smoke
+          XDG_CONFIG_HOME: ${{ runner.temp }}/hallucinate-config
+          XDG_DATA_HOME: ${{ runner.temp }}/hallucinate-data
+          XDG_CACHE_HOME: ${{ runner.temp }}/hallucinate-cache
+        run: |
+          python3 -c 'import os, subprocess; subprocess.run(["dist/Hallucinate.app/Contents/MacOS/Hallucinate", "--quit-after", "3000"], env=os.environ.copy(), timeout=45, check=True)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS
+          path: dist/*-macos-*.zip
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/*-macos-*.zip --clobber

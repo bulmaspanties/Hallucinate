@@ -1,0 +1,32 @@
+app-id: io.github.bulmaspanties.Hallucinate
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: hallucinate
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  - --own-name=org.mpris.MediaPlayer2.hallucinate
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --filesystem=xdg-music:ro
+  - --filesystem=xdg-config/hallucinate:create
+  - --filesystem=xdg-data/hallucinate:create
+  - --filesystem=xdg-cache/hallucinate:create
+  - --filesystem=xdg-run/app/com.discordapp.Discord:ro
+  - --filesystem=xdg-run/app/com.discordapp.DiscordCanary:ro
+modules:
+  - name: hallucinate
+    buildsystem: simple
+    build-commands:
+      - pip3 install --no-cache-dir --prefix=/app .
+      - install -Dm644 packaging/hallucinate.desktop /app/share/applications/io.github.bulmaspanties.Hallucinate.desktop
+      - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/hallucinate.png
+      - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/io.github.bulmaspanties.Hallucinate.png
+    sources:
+      - type: dir
+        path: ../..

@@ -181,7 +181,7 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     assert picker_text.property("font").family() == "DejaVu Sans"
     assert picker_text.property("font").pixelSize() == 17
 
-    for section in ("home", "albums", "artists", "songs", "stats", "settings"):
+    for section in ("home", "albums", "artists", "songs", "stats", "visualizer", "settings"):
         assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", section))
         qapp.processEvents()
     window.setProperty("queueOpen", True)

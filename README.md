@@ -36,6 +36,7 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 - A Stats page with top artists/albums/tracks and listening time for all time, the last 7 days, 30 days, or 12 months. Listening time is estimated from known track durations.
 - Filter the library by genre, year, and format; find probable duplicate tracks by normalized title, artist, and duration. Manage multiple library folders in Settings.
 - ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback, and a 10-band equalizer with presets (needs numpy).
+- Optional 24-band spectrum visualizer with a dedicated page; FFT analysis runs on a worker thread and the on/off preference persists.
 - Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE) and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
 - Lyrics panel with synced highlighting: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; can be disabled).
 - Mini player (always-on-top, `Ctrl+M`) and a system tray icon with play/pause/next/previous, optional close-to-tray.
@@ -60,6 +61,24 @@ chmod +x hallucinate-*.AppImage && ./hallucinate-*.AppImage
 ```
 Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself with `packaging/appimage/build.sh`.
 
+### Flatpak (manifest; not yet on Flathub)
+Build and install locally with Flatpak Builder and the Flathub runtime:
+```sh
+flatpak-builder --user --install --force-clean build-dir \
+  packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml \
+  --install-deps-from=flathub
+flatpak run io.github.bulmaspanties.Hallucinate
+```
+The sandbox grants read-only access to `~/Music`; use the folder picker portal
+to grant access to other music directories.
+
+### macOS
+The release workflow builds a self-contained `.app` zip for the runner's native
+architecture. Download `hallucinate-*-macos-*.zip` from [Releases](https://github.com/bulmaspanties/Hallucinate/releases),
+unzip it, and move `Hallucinate.app` to Applications. The build is unsigned and
+not notarized, so Gatekeeper may require explicit approval. Build locally on a
+Mac with `packaging/macos/build.sh`.
+
 ### Arch Linux
 ```sh
 sudo pacman -S pyside6 python-mutagen python-keyring python-numpy qt6-multimedia-ffmpeg
@@ -74,6 +93,8 @@ pip install -e '.[test]'
 Note: a distro `pyside6` must match the installed Qt version; if you see
 `undefined symbol` import errors, use an isolated venv (no system site packages)
 so pip installs the PySide6 wheel.
+Hallucinate requires PySide6/Qt 6.8 or newer for audio-buffer processing used
+by the equalizer and spectrum visualizer.
 
 ## Run
 ```sh
@@ -190,14 +211,17 @@ with representative files from your playback backend and device.
   track ends. To avoid backend end-of-stream stalls, the final ~250 ms may be cut
   off rather than waiting for end-of-media. Verify the transition on each target
   Qt/FFmpeg and audio-device combination.
+- Qt Multimedia uses the platform's default audio backend/device. Hallucinate has
+  no PipeWire-specific exclusive-output mode; see
+  [the audio backend notes](docs/platform-audio.md) for details.
+- macOS bundles are CI-built but unsigned and not notarized.
 
 ## Supported formats
 FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 (metadata; decoding depends on your Qt FFmpeg build).
 
 ## Roadmap
-- Flatpak packaging, macOS build feasibility, and signed Windows builds
-- Visualizer and PipeWire/exclusive-output investigation
+- Signed Windows builds
 - Real-device verification of APE playback and desktop media keys
 - A project website
 
