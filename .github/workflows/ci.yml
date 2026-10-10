@@ -96,8 +96,6 @@ jobs:
           namcap PKGBUILD ./*.pkg.tar.zst
           pacman -U --noconfirm ./*.pkg.tar.zst
       - name: Smoke test the installed package (offscreen)
-        env:
-          QT_QPA_PLATFORM: offscreen
-          HALLUCINATE_DISABLE_LEGACY_MIGRATION: "1"
-          HALLUCINATE_CONTROL_SOCKET: hallucinate-aur-smoke
-        run: sudo -E -u builder timeout 60 hallucinate --quit-after 3000
+        run: |
+          sudo -u builder -H env QT_QPA_PLATFORM=offscreen HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
+            HALLUCINATE_CONTROL_SOCKET=hallucinate-aur-smoke timeout 60 hallucinate --quit-after 3000
