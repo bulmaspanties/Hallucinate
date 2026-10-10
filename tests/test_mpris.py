@@ -66,8 +66,13 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
   sleep 0.2
 done
 if [ "$ready" != true ]; then exit 1; fi
-gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
-  --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-playing"
+# Playback starts asynchronously after the service appears; wait for it (the test asserts it got there).
+for i in $(seq 1 25); do
+  gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
+    --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-playing"
+  grep -q Playing "$1/status-playing" && break
+  sleep 0.2
+done
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player Metadata >"$1/metadata"
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
