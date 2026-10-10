@@ -11,6 +11,7 @@ import re
 import time
 
 from .db import fold
+from .rules import FROM, compile_where
 
 SESSION_GAP_S = 30 * 60  # plays this close to a seed play count as the same listening session
 RECENT_S = 6 * 3600  # tracks played this recently are held back
@@ -43,10 +44,11 @@ def _placeholders(items):
     return ",".join("?" * len(items))
 
 
-def radio_tracks(db, seeds, exclude=(), limit=10, rng=None, now=None):
+def radio_tracks(db, seeds, exclude=(), limit=10, rng=None, now=None, rules=None):
     """Up to `limit` library tracks (dicts) to follow `seeds` (paths, most recent last).
 
-    `exclude` holds paths that must not be picked (typically the whole queue)."""
+    `exclude` holds paths that must not be picked (typically the whole queue). `rules` (a smart playlist rule
+    set) restricts picks to the tracks it matches, so a smart playlist can continue as a station."""
     rng = rng or random.Random()
     now = time.time() if now is None else now
     seeds = [p for p in seeds if p]
@@ -71,6 +73,8 @@ def radio_tracks(db, seeds, exclude=(), limit=10, rng=None, now=None):
     ):
         coplay[r["path"]] = r["n"]
 
+    where, where_params = compile_where(rules, now) if rules else ("1", [])
+    base = f"SELECT t.* {FROM} WHERE {where} AND"
     pool = {}
 
     def add(rows):
@@ -80,20 +84,20 @@ def radio_tracks(db, seeds, exclude=(), limit=10, rng=None, now=None):
 
     if coplay:
         paths = list(coplay)
-        add(db._rows(f"SELECT * FROM tracks WHERE path IN ({_placeholders(paths)})", paths))
+        add(db._rows(f"{base} t.path IN ({_placeholders(paths)})", (*where_params, *paths)))
     coplay_artists = {_artist(r) for r in pool.values()} - seed_artists
     artists = list(seed_artists | coplay_artists)
     add(db._rows(
-        f"SELECT * FROM tracks WHERE s_artist IN ({_placeholders(artists)}) ORDER BY random() LIMIT ?",
-        (*artists, POOL_PER_SOURCE),
+        f"{base} t.s_artist IN ({_placeholders(artists)}) ORDER BY random() LIMIT ?",
+        (*where_params, *artists, POOL_PER_SOURCE),
     ))
     if seed_genres:
-        clauses = " OR ".join("fold(genre) LIKE ?" for _ in seed_genres)
+        clauses = " OR ".join("fold(t.genre) LIKE ?" for _ in seed_genres)
         add(db._rows(
-            f"SELECT * FROM tracks WHERE {clauses} ORDER BY random() LIMIT ?",
-            (*(f"%{g}%" for g in seed_genres), POOL_PER_SOURCE),
+            f"{base} ({clauses}) ORDER BY random() LIMIT ?",
+            (*where_params, *(f"%{g}%" for g in seed_genres), POOL_PER_SOURCE),
         ))
-    add(db._rows("SELECT * FROM tracks ORDER BY random() LIMIT ?", (POOL_PER_SOURCE,)))
+    add(db._rows(f"{base} 1 ORDER BY random() LIMIT ?", (*where_params, POOL_PER_SOURCE)))
     if not pool:
         return []
 

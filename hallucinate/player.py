@@ -202,6 +202,7 @@ class Player(QObject):
             self._eq_preset = self._detect_preset()
         self._radio = str(self._settings.value("playback/radio", "false")).lower() == "true"
         self._radio_source = None
+        self._radio_rules = None
         self._radio_pending = False
         self._radio_ready.connect(self._apply_radio)
         self._output_key = str(self._settings.value("audio/outputDevice", "") or "")
@@ -453,8 +454,9 @@ class Player(QObject):
         self._maybe_extend_radio()
 
     def setRadioSource(self, source):
-        """`source(seeds, exclude, done)` finds tracks to follow `seeds` (paths, most recent last), skipping
-        `exclude`, and calls `done(tracks)` from any thread."""
+        """`source(seeds, exclude, done, rules)` finds tracks to follow `seeds` (paths, most recent last),
+        skipping `exclude` and limited to smart playlist `rules` (or None), and calls `done(tracks)` from any
+        thread."""
         self._radio_source = source
         self._maybe_extend_radio()
 
@@ -475,7 +477,7 @@ class Player(QObject):
         anchor = seeds[-1]
         self._radio_pending = True
         self._radio_source(seeds, [t.get("path", "") for t in self._queue],
-                           lambda tracks: self._radio_ready.emit((anchor, tracks)))
+                           lambda tracks: self._radio_ready.emit((anchor, tracks)), self._radio_rules)
 
     @Slot(object)
     def _apply_radio(self, payload):
@@ -958,8 +960,11 @@ class Player(QObject):
 
     # --- queue -------------------------------------------------------------
     @Slot("QVariantList", int)
-    def playList(self, tracks, index=0):
-        """Replace the queue with `tracks` and start playing at `index`."""
+    def playList(self, tracks, index=0, radio_rules=None):
+        """Replace the queue with `tracks` and start playing at `index`.
+
+        `radio_rules` (a smart playlist rule set) keeps radio picks within the playlist's rules."""
+        self._radio_rules = radio_rules
         self._queue = list(tracks)  # queue entries are treated as immutable
         self._history.clear()
         self._played.clear()
