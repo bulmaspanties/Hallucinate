@@ -483,6 +483,7 @@ class Player(QObject):
         self._radio_pending = False
         # Drop stale results: radio was switched off, or the queue was replaced while they were being picked.
         if not self._radio or not tracks or not any(t.get("path") == anchor for t in self._queue):
+            self._maybe_extend_radio()  # e.g. the queue was replaced: ask again for the new one
             return
         start = len(self._queue)
         ended = self._ended

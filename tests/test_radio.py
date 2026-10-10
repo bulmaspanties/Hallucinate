@@ -151,6 +151,7 @@ def test_stale_radio_results_are_dropped(qapp, radio_player, radio_clips):
     source.calls[0][2](radio_clips[1:3])
     qapp.processEvents()
     assert p.queueLength == 1
+    assert len(source.calls) == 2 and source.calls[1][0] == [radio_clips[3]["path"]]  # asked again
     p.setRadio(False)
     source.calls = []
     p.playList(radio_clips[:1], 0)
