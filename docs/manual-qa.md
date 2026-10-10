@@ -144,5 +144,9 @@ target system.
 - [ ] Settings → Desktop: disabling the tray makes closing the window quit; "keep playing in the tray" hides the window instead.
 - [ ] `Ctrl+M` opens the mini player (main window hides); Esc / expand button restores it; closing the mini window restores the main window.
 - [ ] Tab moves keyboard focus through sidebar, transport buttons, rows and album cards with a visible ring; Enter/Space activates.
+- [ ] Windows media controls: play a track with cover art and check the media overlay
+  (volume keys or Win+A) and lock screen show title, artist, album and artwork. Use the
+  keyboard media keys and the overlay's play/pause, next, previous, seek bar, shuffle
+  and repeat; Hallucinate follows each, and the overlay updates when changed in the app.
 - [ ] Orca (Linux) / Narrator (Windows) announce button names (Play, Next, Queue, Lyrics…).
 - [ ] HiDPI: at 150%/200% scaling covers and text are sharp and nothing clips (also `QT_SCALE_FACTOR=2`).

@@ -26,6 +26,7 @@ def test_app_launches_offscreen(tmp_path, music):
     errors = [l for l in r.stderr.splitlines()
               if ".qml" in l and "Error decoding" not in l]
     assert not errors, r.stderr
+    assert "media controls unavailable" not in r.stderr  # Windows: SMTC must come up
 
 
 def test_legacy_module_name_remains_a_working_cli_shim():

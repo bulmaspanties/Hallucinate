@@ -37,6 +37,20 @@ jobs:
       - run: pip install -e '.[test]'
       - run: dbus-run-session -- pytest -vv
 
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      # Media controls against the real Windows API, plus an offscreen launch with them enabled.
+      - run: pytest -vv tests/test_smtc.py tests/test_app_smoke.py
+
   flatpak:
     runs-on: ubuntu-latest
     timeout-minutes: 45
