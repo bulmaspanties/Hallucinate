@@ -3,8 +3,9 @@
 `io.github.bulmaspanties.Hallucinate.yml` builds Hallucinate on the KDE 6.11 runtime with the
 [PySide BaseApp](https://github.com/flathub/io.qt.PySide.BaseApp) (PySide6 and numpy). The remaining
 Python dependencies are pinned with checksums in `python3-requirements.yaml`, so the build needs no
-network access, as Flathub requires. CI builds this manifest, launches the result offscreen, and runs
-the Flathub linter on every pull request.
+network access, as Flathub requires. On every pull request CI builds this manifest, launches the result
+offscreen, checks that MP3, AAC, ALAC, FLAC, Vorbis and Opus actually decode inside the sandbox
+(`decode_check.py`), and requires the Flathub linter to pass.
 
 ## Build locally
 ```sh
@@ -18,11 +19,16 @@ Check the result with the same linter Flathub uses:
 flatpak install --user flathub org.flatpak.Builder
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
 ```
-Linting a locally built repo (`... repo <repo-dir>`) reports `appstream-external-screenshot-url` and
-`appstream-screenshots-not-mirrored-in-ostree`; that is expected, because Flathub's build service mirrors the
-screenshots. Any other error needs fixing before submission.
-Before submitting, play an MP3 and an AAC file in the built Flatpak: codec support comes from the runtime,
-and the CI launch test does not exercise decoding.
+To lint a built repo as well, build it the way CI does, with Flathub's builder mirroring the screenshots:
+```sh
+flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub \
+  --mirror-screenshots-url=https://dl.flathub.org/media/ --repo=repo build-dir \
+  packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
+```
+Even then, `appstream-external-screenshot-url` and `appstream-remote-icon-not-mirrored` remain: only
+Flathub's publishing pipeline rewrites media URLs to `dl.flathub.org/media`. CI excepts exactly those two
+(`lint-exceptions.json`, passed with `--exceptions --user-exceptions`); any other error fails the build.
 
 ## Submitting to Flathub
 Submission happens from your own GitHub account; see the

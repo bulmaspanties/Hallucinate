@@ -419,3 +419,27 @@ def test_audio_outputs_are_created_in_cpp(make_player):
         assert not Shiboken.createdByPython(voice.audio)
         assert voice.player.audioOutput() is voice.audio
         assert voice.audio.parent() is p
+
+
+def test_transition_plays_whole_track_and_joins_without_gap(make_player, clips):
+    # Decoded buffers arrive at playback time, so they show how much of each track was played and when.
+    from PySide6.QtMultimedia import QAudioBufferOutput
+
+    p = make_player(session=False)
+    buffers = {0: [], 1: []}
+    for n, voice in enumerate(p._voices):
+        output = QAudioBufferOutput(voice.player)
+        voice.player.setAudioBufferOutput(output)
+        output.audioBufferReceived.connect(
+            lambda buf, n=n: buf.frameCount() and buffers[n].append((time.monotonic() * 1000, buf.duration() / 1000))
+        )
+    p.playList(clips[:2], 0)
+    # Spin the event loop tightly: wait_for's default 20 ms naps would delay the handoff timer and the timestamps.
+    assert wait_for(lambda: p.currentIndex == 1 and buffers[1], 6, step=1)
+    first, second = buffers[0], buffers[1]
+    played = sum(duration for _, duration in first)
+    assert played >= 1190, f"first track cut short: {played:.0f} of 1200 ms played"
+    last_at, last_duration = first[-1]
+    gap = second[0][0] - (last_at + last_duration)
+    assert -50 <= gap <= 50, f"{gap:+.0f} ms between tracks"
+    assert p.gapless_swaps == 1

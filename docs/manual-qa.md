@@ -25,8 +25,10 @@ codec decodes.
 - [ ] Seek to start, middle, and near end; pause/resume after each seek.
 - [ ] Change volume repeatedly; verify it persists after restart.
 - [ ] Play a queue through multiple transitions, including short tracks; listen for
-  cut-off or silence at transitions. The transition is intentionally initiated
-  about 250 ms before end to avoid Qt FFmpeg end-of-stream stalls.
+  cut-off or silence at transitions. Play a gapless album (a live album or DJ mix, in
+  FLAC and in MP3) and listen for clicks, gaps or doubled audio at each join. Each track
+  should play to its end; the next starts ~20 ms early (`HANDOFF_LEAD_MS`) to cover
+  its startup on the audio device.
 - [ ] Verify repeat off stops, repeat all wraps, repeat one repeats, and shuffle
   visits every queued item before starting a new cycle.
 - [ ] Add next, enqueue, reorder, remove current/other items, clear queue, then
