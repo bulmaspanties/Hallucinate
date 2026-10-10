@@ -54,8 +54,10 @@ jobs:
             --mirror-screenshots-url=https://dl.flathub.org/media/ \
             --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
-          ostree commit --repo=flatpak-repo --canonical-permissions \
-            --branch=screenshots/x86_64 flatpak-build/screenshots
+          # Newer builders move the mirrored media to <build-dir>/screenshots; older ones leave it in the app.
+          media=flatpak-build/screenshots
+          [ -d "$media" ] || media=flatpak-build/files/share/app-info/media
+          ostree commit --repo=flatpak-repo --canonical-permissions --branch=screenshots/x86_64 "$media"
       - name: Smoke test (offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
