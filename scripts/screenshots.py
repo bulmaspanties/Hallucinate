@@ -11,10 +11,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from mutagen.id3 import APIC, ID3, TALB, TIT2, TPE1, TPE2, TRCK
+from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TRCK
 from PySide6.QtCore import Q_ARG, QBuffer, QByteArray, QIODevice, QMetaObject, Qt, QTimer
 from PySide6.QtGui import QBrush, QColor, QImage, QLinearGradient, QPainter
 
+GENRES = ["Dream Pop", "Indie Folk", "Synthwave", "Ambient", "Folk", "Chamber Jazz", "Indie Folk", "Post-Rock"]
+YEARS = [2019, 2014, 1986, 2021, 2009, 1998, 2016, 2023]
 ALBUMS = [
     ("Aurora Vale", "Northern Lights", ["Echoes of Dawn", "Midnight Rain", "Glass Horizon", "Polar Drift"]),
     ("Blue Harbor", "Tidal", ["Salt & Rope", "Lantern Bay", "Low Tide", "Harbor Lights"]),
@@ -62,8 +64,23 @@ def build_library(root: Path):
             t.add(TPE2(encoding=3, text=artist))
             t.add(TALB(encoding=3, text=album))
             t.add(TRCK(encoding=3, text=f"{i}/{len(tracks)}"))
+            t.add(TCON(encoding=3, text=GENRES[n]))
+            t.add(TDRC(encoding=3, text=str(YEARS[n])))
             t.add(APIC(encoding=3, mime="image/png", type=3, desc="", data=art))
             t.save(f)
+
+
+def make_gif(out, frames, target):
+    """Theme cross-section for the README (needs Pillow; skipped without it)."""
+    try:
+        from PIL import Image
+    except ImportError:
+        print("Pillow not installed; skipping", target.name)
+        return
+    images = [Image.open(out / f).convert("RGB").resize((800, 500), Image.LANCZOS) for f in frames]
+    images[0].save(target, save_all=True, append_images=images[1:], duration=1400, loop=0, optimize=True)
+    for f in frames:  # the GIF replaces the individual theme frames
+        (out / f).unlink()
 
 
 def main():
@@ -104,28 +121,77 @@ def main():
             return super().exec()
 
         def run_shots(self):
-            win = next(w for w in self.topLevelWindows() if w.title().startswith("Hallucinate") or w.title())
+            from PySide6.QtQml import QQmlEngine
+
+            win = next(w for w in self.topLevelWindows() if w.title())
             win.resize(1280, 800)
-            steps = [("home", "dark-home"), ("albums", "dark-albums"), ("songs", "dark-songs"), ("settings", "dark-settings")]
-            todo = []
+            ctx = QQmlEngine.contextForObject(win)
+            library, player, user_lib = (ctx.contextProperty(n) for n in ("library", "player", "userLib"))
             themes = [t.strip() for t in args.themes.split(",") if t.strip()]
-            for page, name in steps:
-                todo.append(lambda p=page: QMetaObject.invokeMethod(win, "go", Q_ARG("QVariant", p)))
-                todo.append(lambda n=name: win.grabWindow().save(str(out / f"{n}{suffix}.png")))
-            todo.append(lambda: QMetaObject.invokeMethod(win, "go", Q_ARG("QVariant", "home")))
-            todo.append(lambda: win.setProperty("queueOpen", True))
-            todo.append(lambda: win.grabWindow().save(str(out / f"queue{suffix}.png")))
-            todo.append(lambda: win.setProperty("queueOpen", False))
-            for th in themes[1:]:
+            todo = []
+
+            def shot(name):
+                return lambda: win.grabWindow().save(str(out / f"{name}{suffix}.png"))
+
+            def go(page):
+                return lambda: QMetaObject.invokeMethod(win, "go", Q_ARG("QVariant", page))
+
+            def seed():
+                # A little listening history so Home, Stats and radio have something to show.
+                tracks = library.allTracks()
+                rnd = random.Random(7)
+                for t in tracks:
+                    for _ in range(rnd.choice([0, 0, 1, 2, 4])):
+                        user_lib.recordPlay({"path": t["path"]})
+                for t in rnd.sample(tracks, 8):
+                    user_lib.toggleLike(t["path"])
+                state["smart"] = user_lib.createSmartPlaylist("Late-night dreams", (
+                    '{"match": "any", "rules": [{"field": "genre", "op": "contains", "value": "dream"},'
+                    ' {"field": "genre", "op": "contains", "value": "ambient"}], "sort": "year_desc", "limit": 0}'))
+                user_lib.refresh()
+
+            def play():
+                tracks = library.allTracks()
+                player.setRadio(True)
+                player.playList(tracks[4:6], 0)
+
+            def pause():
+                player.pause()
+                player.seek(int(player.duration * 0.4))
+
+            def open_smart():
+                QMetaObject.invokeMethod(win, "openSmartPlaylist", Q_ARG("QVariant", state["smart"]),
+                                         Q_ARG("QVariant", "Late-night dreams"))
+
+            def editor(method, *values):
+                def call():
+                    from PySide6.QtCore import QObject
+                    smart_editor = win.findChild(QObject, "smartEditor")
+                    QMetaObject.invokeMethod(smart_editor, method,
+                                             *[Q_ARG("QVariant", v() if callable(v) else v) for v in values])
+                return call
+
+            state = {}
+            todo += [seed, play, pause]
+            for page in ("home", "albums", "songs", "settings"):
+                todo += [go(page), shot(page)]
+            todo += [go("home"), lambda: win.setProperty("queueOpen", True), shot("queue"),
+                     lambda: win.setProperty("queueOpen", False)]
+            todo += [open_smart, shot("smart-playlist"),
+                     editor("openEdit", lambda: state["smart"], "Late-night dreams")]
+            todo += [shot("smart-editor"), editor("reject"), go("home")]
+            for th in themes:
                 slug = th.lower().replace(" ", "-")
-                todo.append(lambda t=th: managers[0].selectTheme(t))
-                todo.append(lambda s_=slug: win.grabWindow().save(str(out / f"{s_}-home{suffix}.png")))
+                todo += [lambda t=th: managers[0].selectTheme(t), shot(f"theme-{slug}")]
             todo.append(lambda: managers[0].selectTheme(themes[0]))
+            todo.append(lambda: player.setRadio(False))
+            todo.append(lambda: make_gif(out, [f"theme-{t.lower().replace(' ', '-')}{suffix}.png" for t in themes],
+                                         out / f"themes{suffix}.gif"))
 
             def next_step():
                 if todo:
                     todo.pop(0)()
-                    QTimer.singleShot(600, next_step)
+                    QTimer.singleShot(900, next_step)
                 else:
                     self.quit()
 
