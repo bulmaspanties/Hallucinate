@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.2] - 2026-10-10
 
 ### Fixed
 - The app could freeze permanently when changing track right after seeking (a deadlock between Qt's FFmpeg audio thread and Python); audio outputs are now created on the C++ side.
@@ -13,6 +13,7 @@ All notable changes to this project are documented here. Format based on
 ### Changed
 - Flatpak manifest is Flathub-ready: KDE 6.11 runtime with the PySide BaseApp, offline build with pinned Python dependencies, AppStream metainfo, and narrower sandbox permissions (no host config/data/cache access, so locally built Flatpaks start with fresh settings).
 - AUR `hallucinate` PKGBUILD now packages 0.3.1 with a correct checksum; CI builds, lints and launches it in an Arch container.
+- Minimum versions: PySide6 6.11.2, mutagen 1.48.1, keyring 25.7.0, setuptools 84 (build) and pytest 9.1.1 (tests); CI actions updated to checkout v7, setup-python v7 and upload-artifact v6.
 
 ## [0.3.1] - 2026-10-09
 

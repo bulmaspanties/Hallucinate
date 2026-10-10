@@ -1,7 +1,7 @@
 # Python dependencies not provided by io.qt.PySide.BaseApp (which ships PySide6 and numpy).
 # Regenerate with flatpak-builder-tools' pip generator (needs org.kde.Sdk//6.11 installed):
 #   flatpak-pip-generator --runtime org.kde.Sdk//6.11 --prefer-wheels cryptography --yaml \
-#     --output python3-requirements 'mutagen>=1.46' 'keyring>=24'
+#     --output python3-requirements 'mutagen>=1.48.1' 'keyring>=25.7.0'
 # then re-add the python3-setuptools module below (the generator skips setuptools); building
 # Hallucinate itself needs setuptools>=77 and Flathub builds have no network access.
 name: python3-requirements

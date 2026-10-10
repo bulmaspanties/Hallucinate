@@ -97,8 +97,8 @@ pip install -e '.[test]'
 Note: a distro `pyside6` must match the installed Qt version; if you see
 `undefined symbol` import errors, use an isolated venv (no system site packages)
 so pip installs the PySide6 wheel.
-Hallucinate requires PySide6/Qt 6.8 or newer for audio-buffer processing used
-by the equalizer and spectrum visualizer.
+Hallucinate requires PySide6/Qt 6.11.2 or newer (6.8 added the audio-buffer processing used
+by the equalizer and spectrum visualizer).
 
 ## Run
 ```sh

@@ -9,8 +9,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install ruff
@@ -26,8 +26,8 @@ jobs:
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: System packages
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Flatpak Builder
         run: |
           sudo apt-get update
@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 30
     container: archlinux:base-devel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install build and runtime dependencies
         run: |
           pacman -Syu --noconfirm --needed git namcap python-build python-installer python-setuptools \
@@ -95,6 +95,8 @@ jobs:
           sudo -u builder makepkg --noconfirm
           namcap PKGBUILD ./*.pkg.tar.zst
           pacman -U --noconfirm ./*.pkg.tar.zst
+      - name: Build this checkout the way hallucinate-git does
+        run: sudo -u builder python -m build --wheel --no-isolation --outdir /tmp/git-build
       - name: Smoke test the installed package (offscreen)
         run: |
           sudo -u builder -H env QT_QPA_PLATFORM=offscreen HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
