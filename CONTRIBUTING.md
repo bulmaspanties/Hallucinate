@@ -24,6 +24,15 @@ QT_QPA_PLATFORM=offscreen pytest -q
 - Never commit credentials. Last.fm keys/secrets live in the system keyring or
   `HALLUCINATE_LASTFM_API_KEY` / `HALLUCINATE_LASTFM_API_SECRET`.
 
+## Releasing
+1. In a pull request, bump `version` in `pyproject.toml` and `hallucinate/__init__.py`, date the
+   `CHANGELOG.md` section, and add a `<release>` entry to
+   `packaging/flatpak/io.github.bulmaspanties.Hallucinate.metainfo.xml`. Merge it once CI is green.
+2. Actions → **Release** → **Run workflow** on `main`, entering the version (e.g. `0.3.3`). The workflow
+   checks that `main` is at that version, creates the `vX.Y.Z` tag and GitHub release, and attaches the
+   AppImage, Windows and macOS builds. (Pushing a `vX.Y.Z` tag yourself does the same.)
+3. Update the AUR and Flathub packages: see `packaging/aur/README.md` and `packaging/flatpak/README.md`.
+
 ## Themes
 New built-in themes are JSON files in `hallucinate/themes/` (see the README theming guide).
 
