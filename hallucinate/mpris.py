@@ -1,6 +1,7 @@
 """MPRIS2 (org.mpris.MediaPlayer2) service so media keys and desktop widgets work."""
 from PySide6.QtCore import ClassInfo, Property, QObject, QUrl, Signal, Slot
 from PySide6.QtDBus import QDBusAbstractAdaptor, QDBusConnection, QDBusMessage, QDBusObjectPath
+from PySide6.QtGui import QGuiApplication
 
 SERVICE = "org.mpris.MediaPlayer2.hallucinate"
 PATH = "/org/mpris/MediaPlayer2"
@@ -20,7 +21,7 @@ class _RootAdaptor(QDBusAbstractAdaptor):
     CanRaise = Property(bool, lambda self: True, constant=True)
     HasTrackList = Property(bool, lambda self: False, constant=True)
     Identity = Property(str, lambda self: "Hallucinate", constant=True)
-    DesktopEntry = Property(str, lambda self: "hallucinate", constant=True)
+    DesktopEntry = Property(str, lambda self: QGuiApplication.desktopFileName() or "hallucinate", constant=True)
     SupportedUriSchemes = Property("QStringList", lambda self: ["file"], constant=True)
     SupportedMimeTypes = Property(
         "QStringList",

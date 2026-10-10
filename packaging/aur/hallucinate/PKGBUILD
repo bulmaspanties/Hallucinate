@@ -1,6 +1,6 @@
 # Maintainer: bulmaspanties <https://github.com/bulmaspanties>
 pkgname=hallucinate
-pkgver=0.1.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc="Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML)"
 arch=('any')
@@ -11,7 +11,7 @@ makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel
 optdepends=('gnome-keyring: store Last.fm credentials in the system keyring'
             'kwallet: store Last.fm credentials in the system keyring')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('384d7190bb2f7b53868f17146472123b5a1fcf760332ba4a5b1f6b62df61fc57')
+sha256sums=('a3aa76f0b7122d8ec722a159e41748f7dfc85d5a376fe948a60f66aa88a03540')
 
 build() {
   cd "Hallucinate-$pkgver"

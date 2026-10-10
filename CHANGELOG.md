@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- The app could freeze permanently when changing track right after seeking (a deadlock between Qt's FFmpeg audio thread and Python); audio outputs are now created on the C++ side.
+- In Flatpak, the window and MPRIS desktop entry now match the installed `.desktop` file, so desktops show the right icon.
+- Intermittent CI segfaults and MPRIS test failures; tests now fail if they leave Qt objects in reference cycles.
+
+### Changed
+- Flatpak manifest is Flathub-ready: KDE 6.11 runtime with the PySide BaseApp, offline build with pinned Python dependencies, AppStream metainfo, and narrower sandbox permissions (no host config/data/cache access, so locally built Flatpaks start with fresh settings).
+- AUR `hallucinate` PKGBUILD now packages 0.3.1 with a correct checksum; CI builds, lints and launches it in an Arch container.
+
 ## [0.3.1] - 2026-10-09
 
 ### Added

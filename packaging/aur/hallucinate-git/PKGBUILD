@@ -1,7 +1,7 @@
 # Maintainer: bulmaspanties <https://github.com/bulmaspanties>
 pkgname=hallucinate-git
 _pkgname=hallucinate
-pkgver=0.1.0.r0.g3848ef5
+pkgver=0.3.1.r0.gc5f86c8
 pkgrel=1
 pkgdesc="Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML) - git version"
 arch=('any')
@@ -19,7 +19,7 @@ sha256sums=('SKIP')
 pkgver() {
   cd Hallucinate
   git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' \
-    || printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+    || printf "0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
 build() {
