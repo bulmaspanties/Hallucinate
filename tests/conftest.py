@@ -1,3 +1,4 @@
+import gc
 import os
 import struct
 import sys
@@ -131,6 +132,33 @@ def pytest_unconfigure(config):
 
 def pytest_sessionfinish(session, exitstatus):
     session.config._exit_status = int(exitstatus)
+
+
+_LEAKED_QOBJECTS = []
+
+
+@pytest.fixture(autouse=True)
+def _no_cyclic_qobjects():
+    """Fail the test that leaves a QObject in a reference cycle.
+
+    The cycle collector would otherwise destroy it later at an arbitrary point, often in the middle of an
+    unrelated test with worker threads running, which crashed CI with segfaults. Leaked objects are kept
+    alive here instead, since leaking is harmless but collecting them is not."""
+    yield
+    from PySide6.QtCore import QObject
+
+    gc.set_debug(gc.DEBUG_SAVEALL)
+    try:
+        gc.collect()
+        leaked = [o for o in gc.garbage if isinstance(o, QObject)]
+    finally:
+        gc.set_debug(0)
+        _LEAKED_QOBJECTS.extend(gc.garbage)
+        gc.garbage.clear()
+    if leaked:
+        pytest.fail(
+            "QObjects left in reference cycles: " + ", ".join(sorted({type(o).__name__ for o in leaked}))
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)

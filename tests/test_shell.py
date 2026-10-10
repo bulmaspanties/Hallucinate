@@ -1,3 +1,5 @@
+import pytest
+from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtGui import QIcon
 
 from hallucinate.player import Player
@@ -26,18 +28,36 @@ class FakeWindow:
         self.calls.append("activate")
 
 
+@pytest.fixture
 def make_shell(qapp, tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    player = Player(session_file=tmp_path / "s.json")
-    shell = DesktopShell(qapp, player, QIcon())
-    shell._settings.clear()
-    win = FakeWindow()
-    shell.setWindow(win)
-    return shell, win, player
+    """Build a shell and destroy its Qt objects when the test ends.
+
+    Patch DesktopShell methods on the class, not the instance: undoing an instance patch stores a bound
+    method in the instance dict, creating a reference cycle that the garbage collector later frees at an
+    arbitrary point (observed as segfaults in unrelated worker-thread tests)."""
+    made = []
+
+    def make():
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        player = Player(session_file=tmp_path / "s.json")
+        shell = DesktopShell(qapp, player, QIcon())
+        shell._settings.clear()
+        win = FakeWindow()
+        shell.setWindow(win)
+        made.append((shell, player))
+        return shell, win, player
+
+    yield make
+    for shell, player in made:
+        shell.shutdown()
+        player.shutdown()
+        shell.deleteLater()
+        player.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
-def test_mini_player_toggle_hides_and_restores_main(qapp, tmp_path, monkeypatch):
-    shell, win, player = make_shell(qapp, tmp_path, monkeypatch)
+def test_mini_player_toggle_hides_and_restores_main(make_shell):
+    shell, win, player = make_shell()
     shell.toggleMini()
     assert shell.miniOpen and not win.visible
     shell.toggleMini()
@@ -45,33 +65,30 @@ def test_mini_player_toggle_hides_and_restores_main(qapp, tmp_path, monkeypatch)
     shell.toggleMini()
     shell.showMain()
     assert not shell.miniOpen and win.visible
-    player.shutdown()
 
 
-def test_close_without_tray_quits(qapp, tmp_path, monkeypatch):
-    shell, win, player = make_shell(qapp, tmp_path, monkeypatch)
+def test_close_without_tray_quits(make_shell):
+    shell, win, player = make_shell()
     quits = []
     shell._app = type("A", (), {"quit": lambda self: quits.append(1), "setQuitOnLastWindowClosed": lambda *a: None})()
     shell.setCloseToTray(True)
     assert shell.handleClose() is False and quits  # no tray available offscreen -> plain quit
-    player.shutdown()
 
 
-def test_close_to_tray_hides_window(qapp, tmp_path, monkeypatch):
-    shell, win, player = make_shell(qapp, tmp_path, monkeypatch)
+def test_close_to_tray_hides_window(make_shell, monkeypatch):
+    shell, win, player = make_shell()
     shell.setCloseToTray(True)
-    monkeypatch.setattr(shell, "_tray_visible", lambda: True)
+    monkeypatch.setattr(DesktopShell, "_tray_visible", lambda self: True)
     assert shell.handleClose() is True and not win.visible
     assert shell.closeToTray
-    player.shutdown()
 
 
-def test_desktop_notifications_are_opt_in_and_skip_initial_track(
-    qapp, tmp_path, monkeypatch
-):
-    shell, _, player = make_shell(qapp, tmp_path, monkeypatch)
+def test_desktop_notifications_are_opt_in_and_skip_initial_track(make_shell, monkeypatch):
+    shell, _, player = make_shell()
     shown = []
-    monkeypatch.setattr(shell, "_send_notification", lambda title, artist: shown.append((title, artist)))
+    monkeypatch.setattr(
+        DesktopShell, "_send_notification", lambda self, title, artist: shown.append((title, artist))
+    )
     shell._player = type(
         "Playback",
         (),
@@ -86,4 +103,3 @@ def test_desktop_notifications_are_opt_in_and_skip_initial_track(
     shell.setDesktopNotifications(False)
     shell._on_track_changed()
     assert len(shown) == 1
-    player.shutdown()

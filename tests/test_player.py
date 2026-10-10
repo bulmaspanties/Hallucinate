@@ -407,3 +407,15 @@ def test_move_item_tracks_current(make_player, clips):
     assert p.currentIndex == 3
     p.moveItem(0, 3)
     assert p.currentIndex == 2
+
+
+def test_audio_outputs_are_created_in_cpp(make_player):
+    # Qt's FFmpeg renderer thread calls disconnectNotify() on the output while holding Qt's signal-slot lock;
+    # a Python-created output needs the GIL there and can deadlock against the GUI thread (seek, then next).
+    from shiboken6 import Shiboken
+
+    p = make_player(session=False)
+    for voice in p._voices:
+        assert not Shiboken.createdByPython(voice.audio)
+        assert voice.player.audioOutput() is voice.audio
+        assert voice.audio.parent() is p

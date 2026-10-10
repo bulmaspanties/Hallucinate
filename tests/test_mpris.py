@@ -21,12 +21,15 @@ def test_mpris_methods_properties_and_media_keys(tmp_path):
     app_script = tmp_path / "mpris_app.py"
     app_script.write_text(
         """
+import faulthandler
+import signal
 import sys
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication
 from hallucinate.mpris import MprisService
 from hallucinate.player import Player
 
+faulthandler.register(signal.SIGUSR1, all_threads=True)  # the test script dumps stacks if the app hangs
 app = QGuiApplication([])
 player = Player(session_file=None)
 player.playList([{"id": 42, "path": sys.argv[1], "title": "Bus Song",
@@ -44,16 +47,25 @@ os._exit(0)  # skip interpreter finalization (PySide6 GC crash on 3.11)
     script.write_text(
         """#!/bin/sh
 set -eu
-PYTHONPATH="$3" QT_QPA_PLATFORM=offscreen "$2" "$1/mpris_app.py" "$1/bus.flac" >"$1/app.log" 2>&1 &
+dir=$1
+PYTHONPATH="$3" QT_QPA_PLATFORM=offscreen "$2" -X faulthandler "$dir/mpris_app.py" "$dir/bus.flac" >"$dir/app.log" 2>&1 &
 pid=$!
-trap 'kill "$pid" 2>/dev/null || true' EXIT
+finish() {
+  status=$?
+  if kill -0 "$pid" 2>/dev/null; then
+    [ "$status" -eq 0 ] || { kill -USR1 "$pid"; sleep 1; }
+    kill "$pid" 2>/dev/null || true
+  fi
+  [ "$status" -eq 0 ] || cat "$dir/app.log" >&2
+}
+trap finish EXIT
 ready=false
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
   if gdbus introspect --session --dest org.mpris.MediaPlayer2.hallucinate \\
        --object-path /org/mpris/MediaPlayer2 >"$1/introspection"; then ready=true; break; fi
   sleep 0.2
 done
-if [ "$ready" != true ]; then cat "$1/app.log"; exit 1; fi
+if [ "$ready" != true ]; then exit 1; fi
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus >"$1/status-playing"
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
@@ -76,8 +88,11 @@ gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /or
   --method org.mpris.MediaPlayer2.Player.Seek 500000
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
   --method org.mpris.MediaPlayer2.Player.Next
+# The app may exit before its reply to Quit reaches the bus; what matters is that it exits cleanly.
 gdbus call --session --dest org.mpris.MediaPlayer2.hallucinate --object-path /org/mpris/MediaPlayer2 \\
-  --method org.mpris.MediaPlayer2.Quit
+  --method org.mpris.MediaPlayer2.Quit || true
+for i in $(seq 1 50); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+if kill -0 "$pid" 2>/dev/null; then echo "app did not quit" >&2; exit 1; fi
 wait "$pid"
 """,
         encoding="utf-8",
