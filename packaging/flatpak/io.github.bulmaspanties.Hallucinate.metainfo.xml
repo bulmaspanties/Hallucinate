@@ -20,7 +20,8 @@
       <li>Library scanning with instant full-text search across artists, albums and songs</li>
       <li>FLAC, MP3, Ogg Vorbis, Opus, AAC, ALAC, WAV, WavPack, AIFF and more</li>
       <li>Gapless playback, crossfade, ReplayGain and a 10-band equalizer</li>
-      <li>Liked songs, playlists, listening statistics and a personal mix</li>
+      <li>Liked songs, playlists, smart playlists, listening statistics and a personal mix</li>
+      <li>Radio mode that keeps playing similar songs from your library</li>
       <li>Tag editor, cover art lookup and synced lyrics</li>
       <li>Optional Last.fm and ListenBrainz scrobbling and Discord Rich Presence</li>
       <li>Media keys and desktop controls through MPRIS, a mini player and a tray icon</li>
@@ -76,6 +77,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.4.0" date="2026-10-10">
+      <description>
+        <ul>
+          <li>Radio mode: when the queue runs out, similar songs from your library keep playing</li>
+          <li>Smart playlists that update automatically from rules</li>
+          <li>Choose the audio output device; it is remembered and restored when plugged back in</li>
+          <li>Save the queue as a playlist, and drag files or folders onto the window to play them</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.3" date="2026-10-10">
       <description>
         <ul>

@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.4.0] - 2026-10-10
 
 ### Added
 - Windows media controls (System Media Transport Controls): media keys, the volume/media overlay and the lock screen show the current track with artwork and timeline, and can play/pause, stop, skip, seek, and toggle shuffle and repeat. CI tests them against the real Windows API on a Windows runner; the Windows build bundles the WinRT bindings.
