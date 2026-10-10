@@ -16,10 +16,9 @@ finish-args:
   - --own-name=org.mpris.MediaPlayer2.hallucinate
   - --talk-name=org.freedesktop.secrets # Last.fm/ListenBrainz credentials in the system keyring
   - --talk-name=org.freedesktop.Notifications # opt-in track-change notifications
-  # Discord Rich Presence IPC sockets (native and Flatpak Discord)
+  # Discord Rich Presence IPC socket. Flatpak Discord also links its socket here; mounting
+  # xdg-run/app/... instead would collide with Flatpak's own $XDG_RUNTIME_DIR/app symlink.
   - --filesystem=xdg-run/discord-ipc-0
-  - --filesystem=xdg-run/app/com.discordapp.Discord:create
-  - --filesystem=xdg-run/app/com.discordapp.DiscordCanary:create
 build-options:
   env:
     BASEAPP_REMOVE_WEBENGINE: "1" # Hallucinate doesn't use QtWebEngine; drop it from the bundle

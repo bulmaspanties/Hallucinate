@@ -39,7 +39,7 @@ Submission happens from your own GitHub account; see the
    ```
 5. Open a pull request against `new-pr` titled `Add io.github.bulmaspanties.Hallucinate`. Reviewers
    build it with `bot, build`. Expect questions about `--talk-name=org.freedesktop.Notifications` and the
-   Discord sockets, which are commented in the manifest.
+   Discord socket, which are commented in the manifest.
 6. After it is merged, Flathub creates `flathub/io.github.bulmaspanties.Hallucinate`; future releases
    are pull requests there that bump `tag`/`commit` (and `python3-requirements.yaml` when dependencies
    change).
