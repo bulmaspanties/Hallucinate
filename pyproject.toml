@@ -18,6 +18,13 @@ dependencies = [
     "mutagen>=1.48.1",
     "keyring>=25.7.0",
     "numpy>=1.24",
+    # Windows media controls (SMTC)
+    "winrt-runtime>=3.2.1; sys_platform == 'win32'",
+    "winrt-Windows.Foundation>=3.2.1; sys_platform == 'win32'",
+    "winrt-Windows.Media>=3.2.1; sys_platform == 'win32'",
+    "winrt-Windows.Media.Playback>=3.2.1; sys_platform == 'win32'",
+    "winrt-Windows.Storage>=3.2.1; sys_platform == 'win32'",
+    "winrt-Windows.Storage.Streams>=3.2.1; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

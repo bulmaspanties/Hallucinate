@@ -152,6 +152,12 @@ def main(argv=None) -> int:
         if sys.stderr is not None:
             print(f"MPRIS unavailable: {e}", file=sys.stderr)
 
+    media_controls = None
+    if sys.platform == "win32":
+        from . import smtc
+
+        media_controls = smtc.create(player)  # media overlay, lock screen and media keys; optional
+
     signal.signal(signal.SIGINT, lambda *_: app.quit())  # also valid on Windows
     if args.quit_after is not None:
         QTimer.singleShot(args.quit_after, app.quit)
@@ -168,6 +174,8 @@ def main(argv=None) -> int:
     scrobbler.shutdown()
     listenbrainz.shutdown()
     del theme_manager
+    if media_controls is not None:
+        media_controls.shutdown()
     player.shutdown()
     lyrics.shutdown()
     meta_editor.shutdown()

@@ -6,6 +6,7 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
+- Windows media controls (System Media Transport Controls): media keys, the volume/media overlay and the lock screen show the current track with artwork and timeline, and can play/pause, stop, skip, seek, and toggle shuffle and repeat. CI tests them against the real Windows API on a Windows runner; the Windows build bundles the WinRT bindings.
 - Smart playlists: live rule-based playlists (title, artist, album, album artist, genre, format, path, year, length, bitrate, play count, date added, last played, liked; match all/any; sort; limit), listed under Playlists and re-evaluated as the library, likes and plays change. The rule editor previews the description and the number of matching songs. Rules are validated and compiled to parameterized SQL.
 - Radio mode follows a smart playlist's rules when it continues one.
 - Radio mode: when the queue is about to end, similar tracks from the local library are appended so playback continues gaplessly. Tracks are scored on listening-session co-plays with the recent tracks, shared and co-played artists, genre, year, likes and play counts, with recently played tracks held back and artists varied. Toggle it with the radio button in the now-playing bar.
