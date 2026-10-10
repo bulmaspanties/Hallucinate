@@ -7,7 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PySide6.QtCore import Property, QCoreApplication, QEvent, QObject, QSettings, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QCoreApplication, QEvent, QObject, QSettings, Qt, QTimer, QUrl, Signal, Slot
 from PySide6.QtMultimedia import QAudioBufferOutput, QAudioFormat, QAudioOutput, QMediaPlayer
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
@@ -17,7 +17,10 @@ from .models import TRACK_KEYS, DictModel
 
 REPEAT_OFF, REPEAT_ALL, REPEAT_ONE = 0, 1, 2
 PRELOAD_MS = 10_000  # start pre-rolling the next track this long before the end
-TRANSITION_MS = 250
+TRANSITION_MS = 250  # seeks stop this far before the end, so the next track still gets started
+HANDOFF_WINDOW_MS = 400  # positions arrive every ~100 ms; within this window the exact handoff is scheduled
+HANDOFF_LEAD_MS = 20  # start the next track this early to cover its startup (~16 ms measured on Qt 6.11)
+FINISH_GRACE_MS = 1000  # stop a track left to finish this long after its expected end, in case it stalls
 SESSION_VERSION = 1
 SESSION_MAX_TRACKS = 1000  # bounds the save cost for huge queues (e.g. "play all songs" on 50k tracks)
 VISUALIZER_BARS = 24
@@ -65,8 +68,11 @@ class _Voice:
         self.fade = 1.0  # crossfade multiplier
         self.tap = None  # equalizer tap, present while the equalizer is on
         self.tap_visual_connected = False
+        self.finishing = False  # still playing its last moments after the next track took over
+        self.finish_by = 0.0
 
     def clear(self):
+        self.finishing = False
         self.player.stop()
         self.player.setSource(QUrl())
         self.index = -1
@@ -171,6 +177,10 @@ class Player(QObject):
         self._fading = False
         self._fade_start = 0.0
         self._fade_ms = 0
+        self._handoff_timer = QTimer(self)
+        self._handoff_timer.setSingleShot(True)
+        self._handoff_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._handoff_timer.timeout.connect(self._advance_before_end)
         self._fade_timer = QTimer(self)
         self._fade_timer.setInterval(40)
         self._fade_timer.timeout.connect(self._fade_tick)
@@ -981,6 +991,7 @@ class Player(QObject):
         self._set_error("")
         self._restore_pos = 0
         self._transitioning = False
+        self._handoff_timer.stop()
         self._ended = False
         self._listened = 0
         self._last_pos = 0
@@ -988,10 +999,11 @@ class Player(QObject):
 
         sb = self._standby
         if autoplay and sb.index == i and sb.path == path and sb.player.source().isValid():
-            # Pause before end-of-stream; Qt's FFmpeg backend can stall on EndOfMedia.
-            if not fade_ms:
+            if drain:
+                self._let_finish(self._voice)  # gapless: the old track plays out while the new one starts
+            elif not fade_ms:
                 self._voice.player.pause()
-                if self._voice.tap is not None and not drain:
+                if self._voice.tap is not None:
                     self._voice.tap.reset()
             self._cur = 1 - self._cur
             if self._voice.tap is not None:
@@ -1025,7 +1037,7 @@ class Player(QObject):
             return
         nxt = self._compute_next(auto=True)
         sb = self._standby
-        if nxt is None:
+        if nxt is None or sb.finishing:
             return
         path = self._queue[nxt]["path"]
         if sb.index == nxt and sb.path == path:
@@ -1049,9 +1061,10 @@ class Player(QObject):
         if self._try_crossfade(pos, dur):
             return
         if (not self._transitioning and self.playing and dur > 0 and
-                dur - pos <= TRANSITION_MS):
+                dur - pos <= HANDOFF_WINDOW_MS):
+            # Start the next track just before this one ends, so the two meet without a gap or a cut.
             self._transitioning = True
-            QTimer.singleShot(0, self._advance_before_end)
+            self._handoff_timer.start(max(0, dur - pos - HANDOFF_LEAD_MS))
         if self.playing and abs(pos - self._last_saved_pos) > 5000:
             self._last_saved_pos = pos
             self.saveSession()
@@ -1087,9 +1100,12 @@ class Player(QObject):
         if not self.playing:
             self._transitioning = False
             return
-        if self._player.duration() - self._player.position() > TRANSITION_MS:
-            self._transitioning = False
+        if self._player.duration() - self._player.position() > HANDOFF_WINDOW_MS:
+            self._transitioning = False  # seeked away from the end while waiting
             return
+        self._advance_at_end()
+
+    def _advance_at_end(self):
         nxt = self._compute_next(auto=True)
         if self._sleep_after_track:
             self._sleep_after_track = False
@@ -1104,12 +1120,43 @@ class Player(QObject):
             self.saveSession()
         elif nxt is not None:
             self._load(nxt, drain=True)
+        elif self._player.mediaStatus() == QMediaPlayer.MediaStatus.EndOfMedia:
+            self._finish_queue()
         else:
-            self._ended = True
-            self._player.pause()
-            self.stateChanged.emit()
-            self.saveSession()
+            # Let the last track play out; end-of-media finishes the queue, or the watchdog if it stalls.
+            remaining = max(0, self._player.duration() - self._player.position())
+            QTimer.singleShot(remaining + FINISH_GRACE_MS, self._finish_stalled_queue)
         self._transitioning = False
+
+    def _finish_queue(self):
+        if self._ended or not self.hasTrack:
+            return
+        self._ended = True
+        if self._player.mediaStatus() != QMediaPlayer.MediaStatus.EndOfMedia:
+            self._player.pause()
+        self.stateChanged.emit()
+        self.saveSession()
+
+    def _finish_stalled_queue(self):
+        # Still at the end of the last track (not seeked away or replaced): Qt never reported end-of-media.
+        near_end = self._player.duration() - self._player.position() <= HANDOFF_WINDOW_MS
+        if self.hasTrack and near_end and self._compute_next(auto=True) is None:
+            self._finish_queue()
+
+    def _let_finish(self, voice):
+        if (voice.player.mediaStatus() == QMediaPlayer.MediaStatus.EndOfMedia
+                or voice.player.playbackState() != QMediaPlayer.PlaybackState.PlayingState):
+            return  # already over (e.g. the handoff ran from end-of-media)
+        remaining = max(0, voice.player.duration() - voice.player.position())
+        voice.finishing = True
+        voice.finish_by = time.monotonic() + (remaining + FINISH_GRACE_MS) / 1000
+        QTimer.singleShot(remaining + FINISH_GRACE_MS, self._stop_finished)
+
+    def _stop_finished(self):
+        for voice in self._voices:
+            if voice.finishing and voice is not self._voice and time.monotonic() >= voice.finish_by:
+                voice.finishing = False
+                voice.player.pause()  # no-op after a normal end; stops a stalled end-of-stream
 
     def _on_duration(self, n):
         if n == self._cur:
@@ -1119,6 +1166,13 @@ class Player(QObject):
     def _on_media_status(self, n, status):
         S = QMediaPlayer.MediaStatus
         if n != self._cur:
+            if status == S.EndOfMedia:
+                self._voices[n].finishing = False
+            return
+        if status == S.EndOfMedia and not self._ended and not self._fading:
+            # Normally the next track has already taken over; this covers a handoff that never got scheduled.
+            self._transitioning = False
+            self._advance_at_end()
             return
         if status in (S.LoadedMedia, S.BufferedMedia):
             if status == S.BufferedMedia:
@@ -1153,6 +1207,7 @@ class Player(QObject):
 
     def shutdown(self):
         self._fade_timer.stop()
+        self._handoff_timer.stop()
         self._visualizer_generation += 1
         self._visualizer_enabled = False
         if self._visualizer_pool is not None:

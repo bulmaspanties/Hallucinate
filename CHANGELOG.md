@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- Gapless playback no longer cuts off the end of each track: tracks play to their last sample and the next track starts just in time to join without a gap (within a few milliseconds in tests). The last track of a queue also plays to the end.
+
+### Changed
+- CI tests Python 3.10 through 3.14, checks that audio decodes inside the Flatpak, and requires the Flathub linter to pass.
+
 ## [0.3.2] - 2026-10-10
 
 ### Fixed

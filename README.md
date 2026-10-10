@@ -35,7 +35,7 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 - Liked Songs and user playlists (create, rename, delete, add from any track's "…" menu); Home shows Recently played, Most played, and a listening-based personal mix.
 - A Stats page with top artists/albums/tracks and listening time for all time, the last 7 days, 30 days, or 12 months. Listening time is estimated from known track durations.
 - Filter the library by genre, year, and format; find probable duplicate tracks by normalized title, artist, and duration. Manage multiple library folders in Settings.
-- ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback, and a 10-band equalizer with presets (needs numpy).
+- ReplayGain (track/album, preamp, read from tags), optional crossfade (0–12 s), gapless playback that plays every track to its last sample, and a 10-band equalizer with presets (needs numpy).
 - Optional 24-band spectrum visualizer with a dedicated page; FFT analysis runs on a worker thread and the on/off preference persists.
 - Optional compact format/average-bitrate badges in track rows and the now-playing bar (Settings → Appearance); the display is off by default, shows approximate average kb/s, and leaves unavailable bitrates out rather than displaying zero.
 - Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE) and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
@@ -211,10 +211,10 @@ For release qualification, complete the [manual QA checklist](docs/manual-qa.md)
 with representative files from your playback backend and device.
 
 ## Limitations
-- Track transitions use two pre-rolled Qt players and switch just before the current
-  track ends. To avoid backend end-of-stream stalls, the final ~250 ms may be cut
-  off rather than waiting for end-of-media. Verify the transition on each target
-  Qt/FFmpeg and audio-device combination.
+- Gapless playback uses two pre-rolled Qt players: each track plays to its last sample
+  while the next one starts about 20 ms before it ends to cover its startup time. Joins
+  measure within a few milliseconds on Qt 6.11, but the exact startup time depends on
+  the audio device, so check a gapless album on each target system.
 - Qt Multimedia uses the platform's default audio backend/device. Hallucinate has
   no PipeWire-specific exclusive-output mode; see
   [the audio backend notes](docs/platform-audio.md) for details.
