@@ -26,8 +26,9 @@ flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub
   packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
 ```
-Without the mirroring, the linter reports `appstream-external-screenshot-url`, which Flathub's own build
-service takes care of.
+Even then, `appstream-external-screenshot-url` and `appstream-remote-icon-not-mirrored` remain: only
+Flathub's publishing pipeline rewrites media URLs to `dl.flathub.org/media`. CI excepts exactly those two
+(`lint-exceptions.json`, passed with `--exceptions --user-exceptions`); any other error fails the build.
 
 ## Submitting to Flathub
 Submission happens from your own GitHub account; see the

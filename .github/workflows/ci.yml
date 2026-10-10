@@ -84,7 +84,10 @@ jobs:
         run: |
           flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
             manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
-          flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo flatpak-repo
+          # Only Flathub's publishing pipeline rewrites screenshot and icon URLs to dl.flathub.org/media,
+          # so those two checks are excepted for this local repo (packaging/flatpak/lint-exceptions.json).
+          flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
+            --exceptions --user-exceptions packaging/flatpak/lint-exceptions.json repo flatpak-repo
 
   aur:
     runs-on: ubuntu-latest
