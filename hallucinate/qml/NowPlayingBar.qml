@@ -89,6 +89,13 @@ Rectangle {
                 active: player.repeat !== 0
                 onClicked: player.cycleRepeat()
             }
+            IconButton {
+                objectName: "radioButton"
+                icon: "radio"
+                active: player.radio
+                tip: player.radio ? "Radio on: similar songs keep playing after the queue" : "Radio: keep playing similar songs when the queue ends"
+                onClicked: player.setRadio(!player.radio)
+            }
         }
         RowLayout {
             width: parent.width

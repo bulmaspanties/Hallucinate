@@ -44,6 +44,13 @@ Canvas {
             line([.85,.5,.85,.7,.22,.7]); tri(w*.26,h*.54,w*.04,h*.7,w*.26,h*.86)
             if (name === "repeat1") { ctx.font = "bold " + Math.round(h*.45) + "px sans-serif"; ctx.textAlign = "center"; ctx.fillText("1", w*.5, h*.62) }
             break
+        case "radio":  // broadcast waves around a dot
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.09, 0, 2*Math.PI); ctx.fill()
+            for (var r = 1; r <= 2; r++) {
+                ctx.beginPath(); ctx.arc(w*.5, h*.5, w*(.12 + .17*r), -Math.PI/4, Math.PI/4); ctx.stroke()
+                ctx.beginPath(); ctx.arc(w*.5, h*.5, w*(.12 + .17*r), Math.PI*3/4, Math.PI*5/4); ctx.stroke()
+            }
+            break
         case "expand": line([.15,.55,.15,.15,.55,.15]); line([.85,.45,.85,.85,.45,.85]); line([.15,.15,.45,.45]); line([.85,.85,.55,.55]); break
         case "queue": line([.1,.25,.9,.25]); line([.1,.5,.9,.5]); line([.1,.75,.55,.75]); break
         case "volume":

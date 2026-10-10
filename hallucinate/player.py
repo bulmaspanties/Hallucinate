@@ -27,7 +27,9 @@ PRELOAD_MS = 10_000  # start pre-rolling the next track this long before the end
 TRANSITION_MS = 250  # seeks stop this far before the end, so the next track still gets started
 HANDOFF_WINDOW_MS = 400  # positions arrive every ~100 ms; within this window the exact handoff is scheduled
 HANDOFF_LEAD_MS = 20  # start the next track this early to cover its startup (~16 ms measured on Qt 6.11)
-FINISH_GRACE_MS = 1000  # stop a track left to finish this long after its expected end, in case it stalls
+FINISH_GRACE_MS = 1000
+RADIO_LOW_WATER = 2  # ask for more radio tracks once fewer than this many are left to play
+RADIO_SEEDS = 5  # recently played tracks the next radio batch is based on  # stop a track left to finish this long after its expected end, in case it stalls
 SESSION_VERSION = 1
 SESSION_MAX_TRACKS = 1000  # bounds the save cost for huge queues (e.g. "play all songs" on 50k tracks)
 VISUALIZER_BARS = 24
@@ -136,6 +138,8 @@ class Player(QObject):
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
     visualizerChanged = Signal()
     outputDevicesChanged = Signal()
+    radioChanged = Signal()
+    _radio_ready = Signal(object)
     _visual_levels_ready = Signal(object)
 
     def __init__(self, parent=None, session_file=None):
@@ -196,6 +200,10 @@ class Player(QObject):
             except (ValueError, TypeError):
                 pass
             self._eq_preset = self._detect_preset()
+        self._radio = str(self._settings.value("playback/radio", "false")).lower() == "true"
+        self._radio_source = None
+        self._radio_pending = False
+        self._radio_ready.connect(self._apply_radio)
         self._output_key = str(self._settings.value("audio/outputDevice", "") or "")
         self._output_name = str(self._settings.value("audio/outputDeviceName", "") or "")
         self._media_devices = QMediaDevices(self)
@@ -228,6 +236,10 @@ class Player(QObject):
         elif self._visualizer_enabled:
             self._sync_audio_buffer_outputs()
         self.trackChanged.connect(self._clear_visualizer)
+        self.trackChanged.connect(self._maybe_extend_radio)
+        self.queueChanged.connect(self._maybe_extend_radio)
+        self.repeatChanged.connect(self._maybe_extend_radio)
+        self.shuffleChanged.connect(self._maybe_extend_radio)
         self.stateChanged.connect(self._clear_visualizer)
 
         self._save_timer = QTimer(self)
@@ -424,6 +436,59 @@ class Player(QObject):
         if name in eq.PRESETS:
             self._eq_gains = [float(g) for g in eq.PRESETS[name]]
             self._save_eq()
+
+    # --- radio ----------------------------------------------------------------
+    @Property(bool, notify=radioChanged)
+    def radio(self):
+        return self._radio
+
+    @Slot(bool)
+    def setRadio(self, on):
+        on = bool(on)
+        if on == self._radio:
+            return
+        self._radio = on
+        self._settings.setValue("playback/radio", "true" if on else "false")
+        self.radioChanged.emit()
+        self._maybe_extend_radio()
+
+    def setRadioSource(self, source):
+        """`source(seeds, exclude, done)` finds tracks to follow `seeds` (paths, most recent last), skipping
+        `exclude`, and calls `done(tracks)` from any thread."""
+        self._radio_source = source
+        self._maybe_extend_radio()
+
+    def _tracks_left(self):
+        if not self.hasTrack:
+            return 0
+        if self._shuffle:
+            return sum(1 for i in range(len(self._queue)) if i not in self._played)
+        return len(self._queue) - self._index - 1
+
+    @Slot()
+    def _maybe_extend_radio(self):
+        if (not self._radio or self._radio_source is None or self._radio_pending or not self.hasTrack
+                or self._repeat != REPEAT_OFF or self._tracks_left() >= RADIO_LOW_WATER):
+            return
+        recent = [i for i in self._history if 0 <= i < len(self._queue)][-(RADIO_SEEDS - 1):] + [self._index]
+        seeds = [self._queue[i].get("path", "") for i in recent]
+        anchor = seeds[-1]
+        self._radio_pending = True
+        self._radio_source(seeds, [t.get("path", "") for t in self._queue],
+                           lambda tracks: self._radio_ready.emit((anchor, tracks)))
+
+    @Slot(object)
+    def _apply_radio(self, payload):
+        anchor, tracks = payload
+        self._radio_pending = False
+        # Drop stale results: radio was switched off, or the queue was replaced while they were being picked.
+        if not self._radio or not tracks or not any(t.get("path") == anchor for t in self._queue):
+            return
+        start = len(self._queue)
+        ended = self._ended
+        self.enqueueAll(tracks)
+        if ended:
+            self._load(start)  # the queue ran out while this batch was being picked
 
     # --- output device -------------------------------------------------------
     @Property("QVariantList", notify=outputDevicesChanged)
