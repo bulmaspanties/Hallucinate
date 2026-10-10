@@ -11,6 +11,9 @@ All notable changes to this project are documented here. Format based on
 - Save the queue as a playlist from the queue panel.
 - Drag audio files or folders onto the window to play them, or onto the queue panel to append them. Folders play in directory, disc and track order; files outside the library are read from their tags.
 
+### Fixed
+- On Python 3.10 and 3.11, PySide6 6.12.0 drops a reference to `True` on every signal emit, which eventually crashes the interpreter (CI caught it as a crash at exit). Those Pythons now stay on PySide6 6.11; Python 3.12+ is unaffected, as are the AppImage, Windows, macOS, Flatpak and AUR builds. A test guards against affected combinations.
+
 ## [0.3.3] - 2026-10-10
 
 ### Fixed
