@@ -19,13 +19,15 @@ Check the result with the same linter Flathub uses:
 flatpak install --user flathub org.flatpak.Builder
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
 ```
-To lint a built repo as well, build with `--mirror-screenshots-url=https://dl.flathub.org/media/`
-and commit the screenshots before running `... repo <repo-dir>` (as CI does):
+To lint a built repo as well, build it the way CI does, with Flathub's builder mirroring the screenshots:
 ```sh
-ostree commit --repo=<repo-dir> --canonical-permissions --branch=screenshots/x86_64 build-dir/screenshots
+flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub \
+  --mirror-screenshots-url=https://dl.flathub.org/media/ --repo=repo build-dir \
+  packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
 ```
-Otherwise the linter reports `appstream-external-screenshot-url` and
-`appstream-screenshots-not-mirrored-in-ostree`, which Flathub's own build service takes care of.
+Without the mirroring, the linter reports `appstream-external-screenshot-url`, which Flathub's own build
+service takes care of.
 
 ## Submitting to Flathub
 Submission happens from your own GitHub account; see the
