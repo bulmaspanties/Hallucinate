@@ -124,6 +124,7 @@ class EqTap(QObject):
         self.processor = processor
         self.volume = 1.0
         self.failed = False
+        self.device = None  # QAudioDevice; None plays on the system default
         self._sink = None
         self._io = None
         self._fmt = None
@@ -138,7 +139,9 @@ class EqTap(QObject):
         fmt.setSampleRate(rate)
         fmt.setChannelCount(channels)
         fmt.setSampleFormat(QAudioFormat.SampleFormat.Int16)
-        device = QMediaDevices.defaultAudioOutput()
+        device = self.device
+        if device is None or device.isNull():
+            device = QMediaDevices.defaultAudioOutput()
         if device.isNull() or not device.isFormatSupported(fmt):
             raise RuntimeError("no usable audio output device")
         self._close()
@@ -191,6 +194,15 @@ class EqTap(QObject):
             n = self._io.write(bytes(self._pending[:free]))
             if n > 0:
                 del self._pending[:n]
+
+    def setDevice(self, device, force=False):
+        """Switch output device; the sink is reopened on the next decoded buffer."""
+        if not force and self.device is not None and device is not None and self.device == device:
+            return
+        self.device = device
+        if self._sink is not None:
+            self._close()
+            self._fmt = None
 
     def setVolume(self, v):
         self.volume = v

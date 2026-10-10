@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Output device picker in Settings → Playback. The choice persists; while the chosen device is unplugged, playback uses the system default and switches back when it returns. The equalizer follows the chosen device.
+- Save the queue as a playlist from the queue panel.
+- Drag audio files or folders onto the window to play them, or onto the queue panel to append them. Folders play in directory, disc and track order; files outside the library are read from their tags.
+
 ## [0.3.3] - 2026-10-10
 
 ### Fixed

@@ -133,6 +133,26 @@ Item {
         Text { text: "Playback"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
         Row {
             spacing: 12
+            Text { anchors.verticalCenter: parent.verticalCenter; text: "Output device"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
+            StyledCombo {
+                id: deviceCombo
+                objectName: "outputDevice"
+                width: 360
+                model: player.outputDevices
+                textRole: "name"
+                currentIndex: player.outputDevices.findIndex(d => d.key === player.outputDevice)
+                onActivated: player.setOutputDevice(player.outputDevices[currentIndex].key)
+                // Activating breaks the binding above; re-sync when devices come and go.
+                Connections {
+                    target: player
+                    function onOutputDevicesChanged() {
+                        deviceCombo.currentIndex = player.outputDevices.findIndex(d => d.key === player.outputDevice)
+                    }
+                }
+            }
+        }
+        Row {
+            spacing: 12
             Text { anchors.verticalCenter: parent.verticalCenter; text: "ReplayGain"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
             StyledCombo {
                 objectName: "rgMode"

@@ -251,6 +251,17 @@ class UserLibrary(QObject):
         self.addToPlaylist(pid, path)
         return pid
 
+    @Slot(str, result=int)
+    def saveQueueAsPlaylist(self, name):
+        """Create a playlist holding the current queue in order; returns its id, or -1 if the queue is empty."""
+        paths = [t.get("path") for t in self._player.queue] if self._player is not None else []
+        paths = [p for p in paths if p]
+        if not name.strip() or not paths:
+            return -1
+        pid = self.createPlaylist(name.strip())
+        self._write(lambda db, i, ps: db.playlist_add(i, ps), pid, paths, reload_playlist=True)
+        return pid
+
     @Slot(int)
     def openPlaylist(self, pid):
         self._playlist_id = pid

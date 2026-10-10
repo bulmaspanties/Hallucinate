@@ -7,12 +7,68 @@ from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, QUrl, 
 
 from .core.db import Database, fold
 from .core.scanner import Scanner
+from .core.tags import AUDIO_EXTS, find_folder_art, read_track
 from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel, compute_ops
 
 logger = logging.getLogger(__name__)
 
 MAX_WATCHED_DIRS = 2000
 DUPLICATE_KEYS = [*TRACK_KEYS, "duplicateCount"]
+MAX_DROPPED_TRACKS = 5000
+
+
+def _audio_files(folder):
+    """Audio files under `folder`, grouped by directory in path order."""
+    found = []
+    visited = set()
+    for root, dirs, files in os.walk(folder, followlinks=True):
+        real = os.path.realpath(root)
+        if real in visited:
+            dirs[:] = []
+            continue
+        visited.add(real)
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        found.extend(
+            os.path.join(root, name) for name in sorted(files)
+            if not name.startswith(".") and os.path.splitext(name)[1].lower() in AUDIO_EXTS
+        )
+        if len(found) >= MAX_DROPPED_TRACKS:
+            break
+    return found
+
+
+def resolve_dropped(db, paths, limit=MAX_DROPPED_TRACKS):
+    """Turn dropped files and folders into playable tracks, in drop order.
+
+    Folder contents are ordered by directory, then disc and track number. Files already in the library use
+    their library entry; others are read from their tags so they can be played without being added."""
+    tracks = []
+    for path in paths:
+        if len(tracks) >= limit:
+            break
+        if os.path.isdir(path):
+            group = [t for t in (_dropped_track(db, f) for f in _audio_files(path)) if t]
+            group.sort(key=lambda t: (os.path.dirname(t["path"]), t.get("disc_no") or 0, t.get("track_no") or 0,
+                                      t["path"]))
+            tracks.extend(group)
+        elif os.path.isfile(path) and os.path.splitext(path)[1].lower() in AUDIO_EXTS:
+            t = _dropped_track(db, path)
+            if t:
+                tracks.append(t)
+    return decorate(tracks[:limit])
+
+
+def _dropped_track(db, path):
+    known = db.track_by_path(path)
+    if known:
+        return known
+    t = read_track(path, art_known=lambda _key: True)
+    if t is None:
+        return None
+    t.pop("_art", None)
+    t["id"] = -1
+    t["art"] = find_folder_art(os.path.dirname(path))
+    return t
 
 
 def fmt_duration(seconds) -> str:
@@ -68,6 +124,7 @@ class Library(QObject):
     _searched = Signal(object)
     _filtered = Signal(object)
     _duplicates_loaded = Signal(object)
+    _dropped = Signal(object)
     foldersChanged = Signal()
     filtersChanged = Signal()
     duplicatesChanged = Signal()
@@ -117,6 +174,7 @@ class Library(QObject):
         self._searched.connect(self._apply_search)
         self._filtered.connect(self._apply_filtered)
         self._duplicates_loaded.connect(self._apply_duplicates)
+        self._dropped.connect(self._apply_dropped)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_dir_changed)
         self._debounce = QTimer(self)
@@ -355,6 +413,37 @@ class Library(QObject):
     def _play(self, tracks, index=0):
         if self._player is not None and tracks:
             self._player.playList(tracks, index)
+
+    @Slot("QVariantList", bool)
+    def playDropped(self, urls, enqueue=False):
+        """Play (or append to the queue) audio files and folders dropped onto the window."""
+        paths = []
+        for u in urls:
+            url = u if isinstance(u, QUrl) else QUrl(str(u))
+            if url.isLocalFile():
+                paths.append(os.path.normpath(url.toLocalFile()))
+        if not paths:
+            return
+
+        def work(db):
+            try:
+                tracks = resolve_dropped(db, paths)
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not read dropped files")
+                tracks = []
+            self._dropped.emit((tracks, enqueue))
+
+        self._quick.submit(work)
+
+    @Slot(object)
+    def _apply_dropped(self, payload):
+        tracks, enqueue = payload
+        if self._player is None or not tracks:
+            return
+        if enqueue:
+            self._player.enqueueAll(tracks)
+        else:
+            self._player.playList(tracks, 0)
 
     @Slot(int)
     def playSongs(self, index):

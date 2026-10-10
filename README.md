@@ -28,6 +28,8 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 - Scans folders (mutagen tags + embedded/folder cover art) into SQLite with FTS5 instant search; incremental rescans (mtime/size), background scanning, file watching, and removal of moved/deleted paths.
 - Formats: FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, APE, WavPack, AIFF and more (anything Qt's FFmpeg backend decodes). WAV/AIFF RIFF/FORM text tags are read; missing tags fall back to the filename and unknown values.
 - Global search grouped into Artists / Albums / Songs; Home, Albums, Artists, Songs browse views; album and artist pages; editable queue; shuffle/repeat; seek; volume. Queue, current position, shuffle, repeat, and volume are restored after restart; missing queue files are discarded.
+- Drag audio files or folders onto the window to play them (onto the queue panel to append); files outside the library play straight from their tags. Save the queue as a playlist from the queue panel.
+- Choose the audio output device in Settings → Playback; the choice is remembered, and if that device is unplugged playback moves to the system default until it returns.
 - MPRIS2 controls and media keys on Linux.
 - CLI controls (`hallucinate --next`, `--prev`, `--play-pause`) and JSON playback status (`--status`) through per-user single-instance IPC; optional desktop notifications on track changes.
 - Optional Last.fm account linking, now-playing updates, 50%-or-four-minutes
@@ -205,7 +207,9 @@ QT_QPA_PLATFORM=offscreen hallucinate ~/Music --quit-after 3000
 ```
 Format and playback tests generate real files through `ffmpeg` (including seeking,
 queue transitions and repeat/shuffle). Theme tests cover built-in and custom
-files, preference persistence, art accents, and live QML updates. A synthetic APE
+files, preference persistence, art accents, and live QML updates. When `pulseaudio`
+and `pactl` are installed, output-device tests switch, unplug and replug devices on
+two PulseAudio null sinks (with and without the equalizer). A synthetic APE
 header tests Mutagen tag and duration extraction only; it is not valid APE audio.
 For release qualification, complete the [manual QA checklist](docs/manual-qa.md)
 with representative files from your playback backend and device.
@@ -215,8 +219,8 @@ with representative files from your playback backend and device.
   while the next one starts about 20 ms before it ends to cover its startup time. Joins
   measure within a few milliseconds on Qt 6.11, but the exact startup time depends on
   the audio device, so check a gapless album on each target system.
-- Qt Multimedia uses the platform's default audio backend/device. Hallucinate has
-  no PipeWire-specific exclusive-output mode; see
+- Qt Multimedia uses the platform's default audio backend (the output device can be
+  chosen in Settings). Hallucinate has no PipeWire-specific exclusive-output mode; see
   [the audio backend notes](docs/platform-audio.md) for details.
 - macOS bundles are CI-built but unsigned and not notarized.
 

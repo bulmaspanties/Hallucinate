@@ -1,8 +1,10 @@
 # Linux audio backend notes
 
-Hallucinate currently uses Qt Multimedia's normal audio-output path. Qt selects
-the system's default output device; when an equalizer is enabled, decoded PCM
-passes through a Qt audio sink. This works with the Linux audio stack provided
+Hallucinate currently uses Qt Multimedia's normal audio-output path. Playback
+goes to the system's default output device unless another one is chosen in
+Settings → Playback (a chosen device that is unplugged falls back to the default
+until it returns); when an equalizer is enabled, decoded PCM passes through a Qt
+audio sink on the same device. This works with the Linux audio stack provided
 by the installed Qt build, including PipeWire systems exposing their normal
 desktop audio devices.
 

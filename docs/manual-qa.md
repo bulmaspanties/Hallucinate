@@ -33,6 +33,14 @@ codec decodes.
   visits every queued item before starting a new cycle.
 - [ ] Add next, enqueue, reorder, remove current/other items, clear queue, then
   play again. Remove a file during playback and verify the UI reports/skips it.
+- [ ] Settings → Playback → Output device: switch between two devices (e.g. speakers and a
+  USB DAC or headset) during playback, with the equalizer off and on; audio moves without
+  a restart. Unplug the chosen device: playback continues on the default and the picker
+  shows it as "not connected"; plug it back in and audio returns to it. Restart and
+  verify the choice is kept.
+- [ ] Drag a folder from the file manager onto the window: it plays in album order.
+  Drag files onto the queue panel: they are appended. Drop a file outside the library.
+- [ ] Queue panel → Save: the new playlist opens with the queue's tracks in order.
 - [ ] Restart the app with a non-empty queue; verify queue, current track, position,
   shuffle, and repeat restore paused. Delete a queued file before restart and
   verify it is dropped without losing the remaining queue.
