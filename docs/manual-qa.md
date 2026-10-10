@@ -38,6 +38,10 @@ codec decodes.
   a restart. Unplug the chosen device: playback continues on the default and the picker
   shows it as "not connected"; plug it back in and audio returns to it. Restart and
   verify the choice is kept.
+- [ ] Radio: turn on the radio button, play a single song, and verify about ten similar
+  songs are appended before it ends and that playback continues without a gap. Let it
+  run through a few batches; check that artists vary and that recently heard songs are
+  not repeated. Turn repeat on and verify nothing more is added.
 - [ ] Drag a folder from the file manager onto the window: it plays in album order.
   Drag files onto the queue panel: they are appended. Drop a file outside the library.
 - [ ] Queue panel → Save: the new playlist opens with the queue's tracks in order.
