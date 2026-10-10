@@ -42,34 +42,29 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      - name: Install Flatpak Builder
+      - name: Install Flatpak and Flathub's builder
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder ostree ffmpeg
+          sudo apt-get install -y flatpak ostree ffmpeg
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.flatpak.Builder
       - name: Build Flatpak
         run: |
-          # Mirror screenshots like Flathub's build service does, so the repo passes the Flathub linter.
-          flatpak-builder --user --force-clean --install-deps-from=flathub \
+          # Build like Flathub does, mirroring screenshots so the repo passes the Flathub linter.
+          flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub \
             --mirror-screenshots-url=https://dl.flathub.org/media/ \
             --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
-          # Newer builders move the mirrored media to <build-dir>/screenshots; older ones leave it in the app.
-          media=flatpak-build/screenshots
-          [ -d "$media" ] || media=flatpak-build/files/share/app-info/media
-          ostree commit --repo=flatpak-repo --canonical-permissions --branch=screenshots/x86_64 "$media"
+          ostree commit --repo=flatpak-repo --canonical-permissions --branch=screenshots/x86_64 \
+            flatpak-build/screenshots
+          flatpak remote-add --user --no-gpg-verify --if-not-exists local-build flatpak-repo
+          flatpak install --user -y --noninteractive local-build io.github.bulmaspanties.Hallucinate
       - name: Smoke test (offscreen)
-        env:
-          QT_QPA_PLATFORM: offscreen
-          HALLUCINATE_DISABLE_LEGACY_MIGRATION: "1"
-          HALLUCINATE_CONTROL_SOCKET: hallucinate-flatpak-smoke
         run: |
-          dbus-run-session -- flatpak-builder --run flatpak-build \
-            packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml \
-            env QT_QPA_PLATFORM=offscreen \
-              HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
-              HALLUCINATE_CONTROL_SOCKET=hallucinate-flatpak-smoke \
-              hallucinate --quit-after 3000
+          dbus-run-session -- flatpak run --env=QT_QPA_PLATFORM=offscreen \
+            --env=HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
+            --env=HALLUCINATE_CONTROL_SOCKET=hallucinate-flatpak-smoke \
+            io.github.bulmaspanties.Hallucinate --quit-after 3000
       - name: Audio decodes inside the Flatpak
         run: |
           clips="$RUNNER_TEMP/clips"
@@ -82,15 +77,12 @@ jobs:
           ffmpeg "${src[@]}" -c:a libvorbis "$clips/tone.ogg"
           ffmpeg "${src[@]}" -c:a libopus "$clips/tone.opus"
           cp packaging/flatpak/decode_check.py "$clips/"
-          flatpak remote-add --user --no-gpg-verify --if-not-exists local-build flatpak-repo
-          flatpak install --user -y --noninteractive local-build io.github.bulmaspanties.Hallucinate
           dbus-run-session -- flatpak run --env=QT_QPA_PLATFORM=offscreen --filesystem="$clips":ro \
             --command=python3 io.github.bulmaspanties.Hallucinate "$clips/decode_check.py" \
             "$clips/tone.mp3" "$clips/aac.m4a" "$clips/alac.m4a" "$clips/tone.flac" \
             "$clips/tone.ogg" "$clips/tone.opus"
       - name: Flathub linter
         run: |
-          flatpak install --user -y --noninteractive flathub org.flatpak.Builder
           flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
             manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
           flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo flatpak-repo
