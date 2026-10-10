@@ -4,21 +4,58 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release this version (e.g. 0.3.3): tags main as vX.Y.Z and publishes the release. Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
+env:
+  # The tag being released: the pushed tag, or v<version> for a manual release.
+  TAG: ${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}
+
 jobs:
-  appimage:
+  tag:
+    if: inputs.version != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Check the version and create the tag and release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must look like 1.2.3"; exit 1; }
+          grep -qx "version = \"$VERSION\"" pyproject.toml || { echo "::error::pyproject.toml is not at $VERSION"; exit 1; }
+          grep -qx "__version__ = \"$VERSION\"" hallucinate/__init__.py || { echo "::error::hallucinate/__init__.py is not at $VERSION"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Hallucinate $VERSION"
+          git push origin "refs/tags/$TAG"
+          gh release create "$TAG" --verify-tag --title "Hallucinate $VERSION" --generate-notes
+
+  appimage:
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result != 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build AppImage
         run: |
-          OUT="hallucinate-${GITHUB_REF_NAME#v}-x86_64.AppImage" packaging/appimage/build.sh
+          OUT="hallucinate-${TAG#v}-x86_64.AppImage" packaging/appimage/build.sh
       - name: Smoke test (offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
@@ -35,27 +72,31 @@ jobs:
           name: AppImage
           path: hallucinate-*.AppImage
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(env.TAG, 'v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha256sum hallucinate-*.AppImage > SHA256SUMS
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$GITHUB_REF_NAME" hallucinate-*.AppImage SHA256SUMS --clobber
+          gh release upload "$TAG" hallucinate-*.AppImage SHA256SUMS --clobber
 
   windows:
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result != 'failure' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build exe, zip and installer
         shell: pwsh
         run: |
-          $v = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '' }
+          $v = if ($env:TAG -like 'v*') { $env:TAG.TrimStart('v') } else { '' }
           ./packaging/windows/build.ps1 -Version $v
       - name: Smoke test (offscreen)
         shell: pwsh
@@ -73,25 +114,29 @@ jobs:
             dist/*.zip
             dist/*-setup.exe
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(env.TAG, 'v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/*-setup.exe --clobber
+          gh release upload "$TAG" dist/*.zip dist/*-setup.exe --clobber
 
   macos:
+    needs: tag
+    if: ${{ !cancelled() && needs.tag.result != 'failure' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build macOS app bundle
-        run: packaging/macos/build.sh "${GITHUB_REF_NAME#v}"
+        run: packaging/macos/build.sh "${TAG#v}"
       - name: Smoke test (offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
@@ -107,11 +152,11 @@ jobs:
           name: macOS
           path: dist/*-macos-*.zip
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(env.TAG, 'v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --generate-notes || gh release view "$GITHUB_REF_NAME" >/dev/null
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$GITHUB_REF_NAME" dist/*-macos-*.zip --clobber
+          gh release upload "$TAG" dist/*-macos-*.zip --clobber
