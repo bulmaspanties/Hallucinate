@@ -18,6 +18,9 @@ Check the result with the same linter Flathub uses:
 flatpak install --user flathub org.flatpak.Builder
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
 ```
+Linting a locally built repo (`... repo <repo-dir>`) reports `appstream-external-screenshot-url` and
+`appstream-screenshots-not-mirrored-in-ostree`; that is expected, because Flathub's build service mirrors the
+screenshots. Any other error needs fixing before submission.
 Before submitting, play an MP3 and an AAC file in the built Flatpak: codec support comes from the runtime,
 and the CI launch test does not exercise decoding.
 
