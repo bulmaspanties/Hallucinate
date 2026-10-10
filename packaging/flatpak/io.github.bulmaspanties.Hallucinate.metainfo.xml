@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.bulmaspanties.Hallucinate</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Hallucinate</name>
+  <summary>Search and play your local music library</summary>
+  <developer id="io.github.bulmaspanties">
+    <name>bulmaspanties</name>
+  </developer>
+
+  <description>
+    <p>
+      Hallucinate is a fast desktop music player for your own files, built around instant search and
+      browsing rather than playlists: type to find an artist, album or song, then click to play.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Library scanning with instant full-text search across artists, albums and songs</li>
+      <li>FLAC, MP3, Ogg Vorbis, Opus, AAC, ALAC, WAV, WavPack, AIFF and more</li>
+      <li>Gapless playback, crossfade, ReplayGain and a 10-band equalizer</li>
+      <li>Liked songs, playlists, listening statistics and a personal mix</li>
+      <li>Tag editor, cover art lookup and synced lyrics</li>
+      <li>Optional Last.fm and ListenBrainz scrobbling and Discord Rich Presence</li>
+      <li>Media keys and desktop controls through MPRIS, a mini player and a tray icon</li>
+      <li>Live-switchable themes, including Catppuccin, Nord, Gruvbox, Tokyo Night and Dracula</li>
+    </ul>
+    <p>
+      The Flatpak can read your Music folder; use the folder picker in Settings to add music stored
+      elsewhere.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.bulmaspanties.Hallucinate.desktop</launchable>
+  <provides>
+    <binary>hallucinate</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/bulmaspanties/Hallucinate</url>
+  <url type="bugtracker">https://github.com/bulmaspanties/Hallucinate/issues</url>
+  <url type="vcs-browser">https://github.com/bulmaspanties/Hallucinate</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Home with recently played albums and a personal mix</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/home.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Album browser</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/albums.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Song list with search</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/songs.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Settings and themes</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/settings.png</image>
+    </screenshot>
+  </screenshots>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#c79cf5</color>
+    <color type="primary" scheme_preference="dark">#251d3b</color>
+  </branding>
+
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.3.1" date="2026-10-09">
+      <description>
+        <ul>
+          <li>Optional format and bitrate badges in song rows and the now-playing bar</li>
+          <li>Detected codecs are reported separately from file extensions</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-10-09">
+      <description>
+        <ul>
+          <li>Spectrum visualizer, drag-reorderable queue, sleep timer and playback speed</li>
+          <li>ListenBrainz scrobbling and listening-history import</li>
+          <li>Discord Rich Presence, listening statistics and duplicate detection</li>
+          <li>Command-line playback controls and desktop notifications</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-10-09">
+      <description>
+        <ul>
+          <li>Liked songs and playlists, ReplayGain, crossfade and an equalizer</li>
+          <li>Tag editor, cover art fetching and synced lyrics</li>
+          <li>Mini player and system tray icon</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.1" date="2026-10-09">
+      <description>
+        <ul>
+          <li>Themes and Last.fm scrobbling</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

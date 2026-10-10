@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -66,7 +67,7 @@ def main(argv=None) -> int:
     app.setApplicationName("Hallucinate")
     app.setOrganizationName("hallucinate")
     app.setApplicationDisplayName("Hallucinate")
-    app.setDesktopFileName("hallucinate")
+    app.setDesktopFileName(os.environ.get("FLATPAK_ID", "hallucinate"))  # must match the installed .desktop
     if sys.platform == "win32":
         import ctypes
 

@@ -100,6 +100,15 @@ codec decodes.
 - [ ] Add malformed or incomplete theme JSON, reload, and verify the app logs
   the skipped file while the other themes remain selectable.
 
+## Packages
+
+- [ ] Flatpak: play MP3, AAC/M4A, FLAC and Opus files (codecs come from the runtime); add a folder outside
+  `~/Music` through the folder picker; connect Last.fm or ListenBrainz with the desktop keyring; check that
+  media keys, notifications and Discord Rich Presence (native and Flatpak Discord) work; the window and
+  MPRIS controls show the Hallucinate icon.
+- [ ] AUR: install `hallucinate` and `hallucinate-git` on a clean Arch system with `makepkg -si`; launch from
+  the application menu and check playback.
+
 ## Automated coverage
 
 The automated suite covers real FFmpeg-generated FLAC, MP3, Vorbis, Opus, AAC,

@@ -46,11 +46,12 @@ _Screenshots are rendered offscreen from a synthetic library: `python scripts/sc
 
 ## Install
 ### AUR — **not yet published to AUR**
-PKGBUILDs for `hallucinate` and `hallucinate-git` are ready in `packaging/aur/` but have not been submitted yet. Until then, build locally:
+PKGBUILDs for `hallucinate` (latest release) and `hallucinate-git` (`main`) are in `packaging/aur/`; CI
+builds, lints and launches the stable package in an Arch container. Until they are submitted, build locally:
 ```sh
-cd packaging/aur/hallucinate-git && makepkg -si
+cd packaging/aur/hallucinate && makepkg -si       # or packaging/aur/hallucinate-git
 ```
-Maintainer notes: [packaging/aur/README.md](packaging/aur/README.md).
+Maintainer and submission notes: [packaging/aur/README.md](packaging/aur/README.md).
 
 ### Windows
 Download `hallucinate-*-windows-x64-setup.exe` (installer) or `hallucinate-*-windows-x64.zip` (portable; run `Hallucinate\Hallucinate.exe`) from [Releases](https://github.com/bulmaspanties/Hallucinate/releases). Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn. MPRIS is Linux-only; Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\hallucinate`.
@@ -62,8 +63,9 @@ chmod +x hallucinate-*.AppImage && ./hallucinate-*.AppImage
 ```
 Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself with `packaging/appimage/build.sh`.
 
-### Flatpak (manifest; not yet on Flathub)
-Build and install locally with Flatpak Builder and the Flathub runtime:
+### Flatpak (Flathub-ready manifest; not yet on Flathub)
+The manifest uses the KDE runtime with Flathub's PySide BaseApp and builds offline with pinned
+dependencies. Build and install locally with Flatpak Builder:
 ```sh
 flatpak-builder --user --install --force-clean build-dir \
   packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml \
@@ -71,7 +73,8 @@ flatpak-builder --user --install --force-clean build-dir \
 flatpak run io.github.bulmaspanties.Hallucinate
 ```
 The sandbox grants read-only access to `~/Music`; use the folder picker portal
-to grant access to other music directories.
+to grant access to other music directories. Flathub submission steps:
+[packaging/flatpak/README.md](packaging/flatpak/README.md).
 
 ### macOS
 The release workflow builds a self-contained `.app` zip for the runner's native

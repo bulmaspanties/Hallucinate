@@ -1,6 +1,6 @@
 pkgbase = hallucinate-git
 	pkgdesc = Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML) - git version
-	pkgver = 0.1.0.r0.g3848ef5
+	pkgver = 0.3.1.r0.gc5f86c8
 	pkgrel = 1
 	url = https://github.com/bulmaspanties/Hallucinate
 	arch = any

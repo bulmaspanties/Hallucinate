@@ -64,3 +64,38 @@ jobs:
               HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
               HALLUCINATE_CONTROL_SOCKET=hallucinate-flatpak-smoke \
               hallucinate --quit-after 3000
+      - name: Flathub linter (informational)
+        continue-on-error: true
+        run: |
+          flatpak install --user -y --noninteractive flathub org.flatpak.Builder
+          flatpak run --command=flatpak-builder-lint org.flatpak.Builder \
+            manifest packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
+          flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo flatpak-repo
+
+  aur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and runtime dependencies
+        run: |
+          pacman -Syu --noconfirm --needed git namcap python-build python-installer python-setuptools \
+            python-wheel pyside6 python-mutagen python-keyring python-numpy qt6-multimedia-ffmpeg qt6-declarative
+          useradd -m builder
+          chown -R builder .
+      - name: .SRCINFO matches PKGBUILD
+        run: |
+          for p in hallucinate hallucinate-git; do
+            (cd "packaging/aur/$p" && sudo -u builder makepkg --printsrcinfo | diff -u .SRCINFO -)
+          done
+      - name: Build, lint and install the stable package
+        working-directory: packaging/aur/hallucinate
+        run: |
+          sudo -u builder makepkg --noconfirm
+          namcap PKGBUILD ./*.pkg.tar.zst
+          pacman -U --noconfirm ./*.pkg.tar.zst
+      - name: Smoke test the installed package (offscreen)
+        run: |
+          sudo -u builder -H env QT_QPA_PLATFORM=offscreen HALLUCINATE_DISABLE_LEGACY_MIGRATION=1 \
+            HALLUCINATE_CONTROL_SOCKET=hallucinate-aur-smoke timeout 60 hallucinate --quit-after 3000

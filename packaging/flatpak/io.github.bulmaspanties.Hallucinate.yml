@@ -1,49 +1,45 @@
 app-id: io.github.bulmaspanties.Hallucinate
-runtime: org.freedesktop.Platform
-runtime-version: "25.08"
-sdk: org.freedesktop.Sdk
+runtime: org.kde.Platform
+runtime-version: "6.11"
+sdk: org.kde.Sdk
+base: io.qt.PySide.BaseApp
+base-version: "6.11"
 command: hallucinate
 finish-args:
   - --share=ipc
-  - --share=network
+  - --share=network # Last.fm, ListenBrainz, cover art and lyrics lookups
   - --socket=wayland
   - --socket=fallback-x11
   - --socket=pulseaudio
   - --device=dri
-  - --own-name=org.mpris.MediaPlayer2.hallucinate
-  - --talk-name=org.freedesktop.secrets
-  - --talk-name=org.freedesktop.Notifications
   - --filesystem=xdg-music:ro
-  - --filesystem=xdg-config/hallucinate:create
-  - --filesystem=xdg-data/hallucinate:create
-  - --filesystem=xdg-cache/hallucinate:create
-  - --filesystem=xdg-run/app/com.discordapp.Discord:ro
-  - --filesystem=xdg-run/app/com.discordapp.DiscordCanary:ro
+  - --own-name=org.mpris.MediaPlayer2.hallucinate
+  - --talk-name=org.freedesktop.secrets # Last.fm/ListenBrainz credentials in the system keyring
+  - --talk-name=org.freedesktop.Notifications # opt-in track-change notifications
+  # Discord Rich Presence IPC socket. Flatpak Discord also links its socket here; mounting
+  # xdg-run/app/... instead would collide with Flatpak's own $XDG_RUNTIME_DIR/app symlink.
+  - --filesystem=xdg-run/discord-ipc-0
+build-options:
+  env:
+    BASEAPP_REMOVE_WEBENGINE: "1" # Hallucinate doesn't use QtWebEngine; drop it from the bundle
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
 modules:
-  - name: krb5
-    subdir: src
-    config-opts:
-      - --disable-static
-      - --disable-rpath
-      - --sbindir=/app/bin
-    cleanup:
-      - /include
-      - /lib/pkgconfig
-      - /var
-    sources:
-      - type: archive
-        url: https://kerberos.org/dist/krb5/1.22/krb5-1.22.2.tar.gz
-        sha256: 3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13
+  - python3-requirements.yaml
   - name: hallucinate
     buildsystem: simple
-    build-options:
-      build-args:
-        - --share=network
     build-commands:
-      - pip3 install --no-cache-dir --prefix=/app .
-      - install -Dm644 packaging/hallucinate.desktop /app/share/applications/io.github.bulmaspanties.Hallucinate.desktop
-      - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/hallucinate.png
-      - install -Dm644 packaging/icons/hicolor/512x512/apps/hallucinate.png /app/share/icons/hicolor/512x512/apps/io.github.bulmaspanties.Hallucinate.png
+      - pip3 install --no-deps --no-build-isolation --no-index --prefix=${FLATPAK_DEST} .
+      - install -Dm644 packaging/hallucinate.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - desktop-file-edit --set-icon=${FLATPAK_ID} ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - for s in 16 24 32 48 64 128 256 512; do install -Dm644 packaging/icons/hicolor/${s}x${s}/apps/hallucinate.png
+        ${FLATPAK_DEST}/share/icons/hicolor/${s}x${s}/apps/${FLATPAK_ID}.png; done
+      - install -Dm644 packaging/flatpak/${FLATPAK_ID}.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
     sources:
+      # Flathub submission: replace with
+      #   - type: git
+      #     url: https://github.com/bulmaspanties/Hallucinate.git
+      #     tag: vX.Y.Z
+      #     commit: <full commit hash of the tag>
       - type: dir
         path: ../..

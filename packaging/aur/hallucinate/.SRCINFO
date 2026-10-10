@@ -1,6 +1,6 @@
 pkgbase = hallucinate
 	pkgdesc = Fast, modern desktop music player with Spotify-style search and browsing (PySide6/QML)
-	pkgver = 0.1.0
+	pkgver = 0.3.1
 	pkgrel = 1
 	url = https://github.com/bulmaspanties/Hallucinate
 	arch = any
@@ -18,7 +18,7 @@ pkgbase = hallucinate
 	depends = qt6-declarative
 	optdepends = gnome-keyring: store Last.fm credentials in the system keyring
 	optdepends = kwallet: store Last.fm credentials in the system keyring
-	source = hallucinate-0.1.0.tar.gz::https://github.com/bulmaspanties/Hallucinate/archive/refs/tags/v0.1.0.tar.gz
-	sha256sums = 384d7190bb2f7b53868f17146472123b5a1fcf760332ba4a5b1f6b62df61fc57
+	source = hallucinate-0.3.1.tar.gz::https://github.com/bulmaspanties/Hallucinate/archive/refs/tags/v0.3.1.tar.gz
+	sha256sums = a3aa76f0b7122d8ec722a159e41748f7dfc85d5a376fe948a60f66aa88a03540
 
 pkgname = hallucinate

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Property, QCoreApplication, QEvent, QObject, QSettings, QTimer, QUrl, Signal, Slot
 from PySide6.QtMultimedia import QAudioBufferOutput, QAudioFormat, QAudioOutput, QMediaPlayer
+from PySide6.QtQml import QQmlComponent, QQmlEngine
 
 from . import eq
 from .core.tags import is_readable_audio
@@ -23,11 +24,39 @@ VISUALIZER_BARS = 24
 logger = logging.getLogger(__name__)
 
 
+_audio_output_engine = None
+_audio_output_component = None
+
+
+def _new_audio_output(parent):
+    """Create a QAudioOutput on the C++ side rather than as a Python wrapper.
+
+    Qt's FFmpeg backend connects its audio renderer, which lives on its own thread, to the output's signals.
+    Destroying the renderer calls disconnectNotify() on the output while holding Qt's signal-slot lock; for a
+    Python-created output PySide then waits for the GIL. If the GUI thread holds the GIL and is waiting for
+    the same lock (e.g. setSource() right after a seek), the app deadlocks. A C++-created output has no Python
+    overrides, so disconnectNotify() never needs the GIL. Falls back to a Python-created output if the
+    QtMultimedia QML module is unavailable."""
+    global _audio_output_engine, _audio_output_component
+    if _audio_output_component is None:
+        _audio_output_engine = QQmlEngine(QCoreApplication.instance())
+        _audio_output_component = QQmlComponent(_audio_output_engine)
+        _audio_output_component.setData(b"import QtMultimedia\nAudioOutput {}", QUrl())
+    audio = _audio_output_component.create()
+    if not isinstance(audio, QAudioOutput):
+        logger.warning("QtMultimedia QML module unavailable (%s); using a Python audio output",
+                       _audio_output_component.errorString().strip())
+        return QAudioOutput(parent)
+    QQmlEngine.setObjectOwnership(audio, QQmlEngine.ObjectOwnership.CppOwnership)
+    audio.setParent(parent)
+    return audio
+
+
 class _Voice:
     """A QMediaPlayer + QAudioOutput pair. Two of them alternate for near-gapless playback."""
 
     def __init__(self, parent):
-        self.audio = QAudioOutput(parent)
+        self.audio = _new_audio_output(parent)
         self.player = QMediaPlayer(parent)
         self.player.setAudioOutput(self.audio)
         self.visual_output = None
