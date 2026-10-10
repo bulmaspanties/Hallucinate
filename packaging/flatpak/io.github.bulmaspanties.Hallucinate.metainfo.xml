@@ -76,6 +76,14 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.3.3" date="2026-10-10">
+      <description>
+        <ul>
+          <li>Gapless playback: every track now plays to its last sample, with no cut-off or gap between tracks</li>
+          <li>The last track of a queue also plays to the end</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.2" date="2026-10-10">
       <description>
         <ul>
