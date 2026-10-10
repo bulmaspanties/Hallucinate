@@ -7,6 +7,7 @@ MediaPlayer whose own command handling is switched off; that MediaPlayer never p
 import asyncio
 import datetime
 import logging
+import os
 import threading
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
@@ -85,6 +86,7 @@ class MediaControls(QObject):
             if not art and t.get("artUrl", "").startswith("file:"):
                 from PySide6.QtCore import QUrl
                 art = QUrl(t["artUrl"]).toLocalFile()
+            art = os.path.normpath(art) if art else ""  # StorageFile needs native separators on Windows
             self._backend.set_metadata(
                 title=t.get("title") or "", artist=t.get("artist") or "", album=t.get("album") or "",
                 album_artist=t.get("album_artist") or "", track_number=int(t.get("track_no") or 0),
