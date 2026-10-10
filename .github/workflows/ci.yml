@@ -51,7 +51,8 @@ jobs:
       - name: Build Flatpak
         run: |
           # Build like Flathub does, mirroring screenshots so the repo passes the Flathub linter.
-          flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub \
+          # The sandboxed builder installs dependencies through the host's flatpak over D-Bus.
+          dbus-run-session -- flatpak run org.flatpak.Builder --user --force-clean --install-deps-from=flathub \
             --mirror-screenshots-url=https://dl.flathub.org/media/ \
             --repo=flatpak-repo flatpak-build \
             packaging/flatpak/io.github.bulmaspanties.Hallucinate.yml
