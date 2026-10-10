@@ -279,11 +279,11 @@ class Library(QObject):
         if player is not None and hasattr(player, "setRadioSource"):
             player.setRadioSource(self.radioTracks)
 
-    def radioTracks(self, seeds, exclude, done, limit=10):
+    def radioTracks(self, seeds, exclude, done, rules=None, limit=10):
         """Pick radio tracks on the search worker and pass them to `done` (called on that worker)."""
         def work(db):
             try:
-                tracks = decorate(radio_tracks(db, seeds, exclude, limit))
+                tracks = decorate(radio_tracks(db, seeds, exclude, limit, rules=rules))
             except Exception:  # noqa: BLE001
                 logger.exception("Radio could not pick tracks")
                 tracks = []

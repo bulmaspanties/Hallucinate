@@ -42,6 +42,10 @@ codec decodes.
   songs are appended before it ends and that playback continues without a gap. Let it
   run through a few batches; check that artists vary and that recently heard songs are
   not repeated. Turn repeat on and verify nothing more is added.
+- [ ] Smart playlists: create "Liked is yes" + "Last played not in the last 60 days";
+  like and play songs and verify the list updates without reopening it. Edit the
+  rules (field, operator, between, limit, sort) and check the preview count. Play
+  it with radio on and verify added songs still match the rules. Delete it.
 - [ ] Drag a folder from the file manager onto the window: it plays in album order.
   Drag files onto the queue panel: they are appended. Drop a file outside the library.
 - [ ] Queue panel → Save: the new playlist opens with the queue's tracks in order.

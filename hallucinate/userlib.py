@@ -2,17 +2,20 @@
 
 Everything is keyed by file path so it survives rescans. Database work runs on a worker thread; the GUI
 thread only applies small result sets to models."""
+import json
 import logging
 import random
 import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from .core import rules as smart_rules
 from .library import _Reader, decorate
 from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
 
 logger = logging.getLogger(__name__)
 PLAYLIST_KEYS = ["id", "name", "n"]
+SMART_KEYS = ["id", "name", "n", "summary", "rules"]
 STAT_ARTIST_KEYS = [*ARTIST_KEYS, "plays"]
 STAT_ALBUM_KEYS = [*ALBUM_KEYS, "plays"]
 STAT_TRACK_KEYS = [*TRACK_KEYS, "plays"]
@@ -23,6 +26,8 @@ class UserLibrary(QObject):
     playlistsChanged = Signal()
     statsChanged = Signal()
     playlistOpened = Signal(int)
+    smartPlaylistOpened = Signal(int)
+    _smart_loaded = Signal(object)
     _refreshed = Signal(object)
     _playlist_loaded = Signal(object)
     _stats_loaded = Signal(object)
@@ -43,6 +48,8 @@ class UserLibrary(QObject):
             "mostPlayed": DictModel(TRACK_KEYS, self),
             "recentPlayed": DictModel(ALBUM_KEYS, self),
             "playlistTracks": DictModel(TRACK_KEYS, self),
+            "smartPlaylists": DictModel(SMART_KEYS, self, "id"),
+            "smartTracks": DictModel(TRACK_KEYS, self),
             "homeMix": DictModel(TRACK_KEYS, self),
             "topArtists": DictModel(STAT_ARTIST_KEYS, self),
             "topAlbums": DictModel(STAT_ALBUM_KEYS, self),
@@ -50,6 +57,10 @@ class UserLibrary(QObject):
         }
         self._refreshed.connect(self._apply_refresh)
         self._playlist_loaded.connect(self._apply_playlist)
+        self._smart_loaded.connect(self._apply_smart)
+        self._smart_id = -1
+        self._smart_rules = None
+        self._smart_revision = 0
         self._stats_loaded.connect(self._apply_stats)
         if player is not None:
             player.played.connect(self.recordPlay)
@@ -60,6 +71,8 @@ class UserLibrary(QObject):
         return Property(QObject, lambda self: self._models[name], constant=True)
 
     playlists = _model_prop("playlists")
+    smartPlaylists = _model_prop("smartPlaylists")
+    smartTracks = _model_prop("smartTracks")
     likedTracks = _model_prop("liked")
     mostPlayed = _model_prop("mostPlayed")
     recentPlayed = _model_prop("recentPlayed")
@@ -100,11 +113,14 @@ class UserLibrary(QObject):
                     "mostPlayed": decorate(db.most_played(10)),
                     "recentPlayed": decorate(db.recently_played_albums(12)),
                     "homeMix": decorate(db.home_mix(40)),
+                    "smart": self._smart_summaries(db),
                 }
             except Exception:  # noqa: BLE001
                 logger.exception("User library refresh failed")
                 return
             self._refreshed.emit(data)
+            if self._smart_id >= 0:
+                self._load_smart(db, self._smart_id)  # smart playlists are live: re-evaluate the open one
 
         self._reader.submit(work)
 
@@ -117,6 +133,8 @@ class UserLibrary(QObject):
         m["mostPlayed"].set_items(data["mostPlayed"])
         m["recentPlayed"].set_items(data["recentPlayed"])
         m["homeMix"].set_items(data["homeMix"])
+        m["smartPlaylists"].set_items(data["smart"])
+        self._smart_revision += 1
         self._likes_revision += 1
         self.likesChanged.emit()
         self.playlistsChanged.emit()
@@ -261,6 +279,126 @@ class UserLibrary(QObject):
         pid = self.createPlaylist(name.strip())
         self._write(lambda db, i, ps: db.playlist_add(i, ps), pid, paths, reload_playlist=True)
         return pid
+
+    # --- smart playlists ---------------------------------------------------------
+    @Property("QVariantMap", constant=True)
+    def smartRuleSchema(self):
+        return smart_rules.schema()
+
+    @staticmethod
+    def _smart_summaries(db):
+        out = []
+        for row in db.smart_playlists():
+            try:
+                n = smart_rules.count_matching(db, row["rules"])
+                summary = smart_rules.describe(row["rules"])
+            except ValueError:
+                n, summary = 0, "These rules can no longer be read"
+            out.append({**row, "n": n, "summary": summary})
+        return out
+
+    @Slot(str, result=str)
+    def describeRules(self, rules_json):
+        try:
+            return smart_rules.describe(rules_json)
+        except ValueError as exc:
+            return f"Invalid rules: {exc}"
+
+    @Slot(str, result=int)
+    def countRules(self, rules_json):
+        """How many songs a rule set matches now, or -1 if it is invalid (used for the editor's preview)."""
+        try:
+            rules = smart_rules.normalize(rules_json)
+        except ValueError:
+            return -1
+        return self._reader.submit(lambda db: smart_rules.count_matching(db, rules)).result(timeout=10)
+
+    @Slot(str, str, result=int)
+    def createSmartPlaylist(self, name, rules_json):
+        """Returns the new id, or -1 if the name is empty or the rules are invalid."""
+        try:
+            rules = json.dumps(smart_rules.normalize(rules_json))
+        except ValueError:
+            return -1
+        if not name.strip():
+            return -1
+        sid = self._reader.submit(lambda db: db.create_smart_playlist(name.strip(), rules)).result(timeout=10)
+        self.refresh()
+        return sid
+
+    @Slot(int, str, str, result=bool)
+    def updateSmartPlaylist(self, sid, name, rules_json):
+        try:
+            rules = json.dumps(smart_rules.normalize(rules_json))
+        except ValueError:
+            return False
+        if not name.strip():
+            return False
+        self._write(lambda db, i, n, r: db.update_smart_playlist(i, n, r), sid, name.strip(), rules)
+        return True
+
+    @Slot(int)
+    def deleteSmartPlaylist(self, sid):
+        if sid == self._smart_id:
+            self._smart_id = -1
+            self._models["smartTracks"].set_items([])
+        self._write(lambda db, i: db.delete_smart_playlist(i), sid)
+
+    @Property(int, notify=playlistsChanged)
+    def smartRevision(self):
+        return self._smart_revision
+
+    @Slot(int, result="QVariantMap")
+    def smartInfo(self, sid):
+        for item in self._models["smartPlaylists"].items():
+            if item["id"] == sid:
+                return item
+        return {"id": sid, "name": "", "n": 0, "summary": "", "rules": ""}
+
+    @Slot(int, result=str)
+    def smartRules(self, sid):
+        for item in self._models["smartPlaylists"].items():
+            if item["id"] == sid:
+                return item["rules"]
+        return ""
+
+    @Slot(int)
+    def openSmartPlaylist(self, sid):
+        self._smart_id = sid
+        self._reader.submit(lambda db: self._load_smart(db, sid))
+
+    def _load_smart(self, db, sid):
+        row = db.smart_playlist(sid)
+        rules, tracks = None, []
+        if row:
+            try:
+                rules = smart_rules.normalize(row["rules"])
+                tracks = decorate(smart_rules.matching_tracks(db, rules))
+            except ValueError:
+                logger.warning("Smart playlist %s has invalid rules", sid)
+            except Exception:  # noqa: BLE001
+                logger.exception("Smart playlist load failed")
+        self._smart_loaded.emit((sid, rules, tracks))
+
+    @Slot(object)
+    def _apply_smart(self, payload):
+        sid, rules, tracks = payload
+        if sid != self._smart_id:
+            return
+        self._smart_rules = rules
+        self._models["smartTracks"].set_items(tracks)
+        self.smartPlaylistOpened.emit(sid)
+
+    @Slot(int, bool)
+    def playSmartPlaylist(self, index, shuffle=False):
+        tracks = self._models["smartTracks"].items()
+        if not tracks or self._player is None:
+            return
+        if shuffle:
+            index = random.randrange(len(tracks))
+            self._player.setShuffle(True)
+        # Radio picks stay within the playlist's rules once it runs out.
+        self._player.playList(list(tracks), index, radio_rules=self._smart_rules)
 
     @Slot(int)
     def openPlaylist(self, pid):

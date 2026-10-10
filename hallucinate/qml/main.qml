@@ -51,6 +51,12 @@ ApplicationWindow {
         stack.push(playlistPage, { playlistId: id, playlistName: name })
         if (searchField.text.length > 0) searchField.text = ""
     }
+    function openSmartPlaylist(id, name) {
+        section = "smart" + id
+        stack.clear()
+        stack.push(smartPlaylistPage, { smartId: id, playlistName: name })
+        if (searchField.text.length > 0) searchField.text = ""
+    }
     function newPlaylist() { createDlg.open() }
     function openAlbum(key) { stack.push(albumDetail, { albumKey: key }) }
     function openArtist(name) { stack.push(artistDetail, { artistName: name }) }
@@ -68,6 +74,7 @@ ApplicationWindow {
     Component { id: settingsPage; SettingsPage {} }
     Component { id: likedPage; PlaylistPage { liked: true } }
     Component { id: playlistPage; PlaylistPage {} }
+    Component { id: smartPlaylistPage; SmartPlaylistPage {} }
     Component { id: searchPage; SearchPage {} }
     Component { id: albumDetail; AlbumDetailPage {} }
     Component { id: artistDetail; ArtistDetailPage {} }
@@ -84,6 +91,8 @@ ApplicationWindow {
             for (var i = 0; i < userLib.playlists.count; i++) if (userLib.playlists.get(i).id === id) name = userLib.playlists.get(i).name
             window.openPlaylist(id, name)
         }
+        function onOpenSmartPlaylist(id, name) { window.openSmartPlaylist(id, name) }
+        function onEditSmartPlaylist(id, name) { smartEditor.openEdit(id, name) }
         function onEditTags(path) { tagEditor.editTrack(path) }
         function onEditAlbum(key) { tagEditor.editAlbum(key) }
         function onTrackMenu(path, title, context, index) { trackMenu.show(path, title, context, index) }
@@ -105,6 +114,10 @@ ApplicationWindow {
     }
 
     TrackMenu { id: trackMenu }
+    SmartPlaylistEditor {
+        id: smartEditor
+        onSaved: function (id, name) { window.openSmartPlaylist(id, name) }
+    }
     TagEditor { id: tagEditor }
     MiniPlayer {}
     onClosing: function (close) { close.accepted = !shell.handleClose() }
@@ -182,7 +195,17 @@ ApplicationWindow {
                         id: plHeader
                         width: parent.width; height: 34
                         Text { anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter } text: "PLAYLISTS"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); font.weight: Font.DemiBold }
-                        IconButton { anchors { right: parent.right; verticalCenter: parent.verticalCenter } icon: "plus"; size: 14; onClicked: window.newPlaylist() }
+                        IconButton {
+                            id: newPlButton
+                            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                            icon: "plus"; size: 14; tip: "New playlist"
+                            onClicked: newPlMenu.popup(newPlButton, 0, newPlButton.height)
+                        }
+                        Menu {
+                            id: newPlMenu
+                            MenuItem { text: "New playlist"; onTriggered: window.newPlaylist() }
+                            MenuItem { text: "New smart playlist"; onTriggered: smartEditor.openNew() }
+                        }
                     }
                     ListView {
                         anchors { top: plHeader.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -195,6 +218,20 @@ ApplicationWindow {
                             text: model.name
                             selected: window.section === "pl" + model.id && stack.depth <= 1
                             onClicked: window.openPlaylist(model.id, model.name)
+                        }
+                        // Smart playlists follow the regular ones
+                        footer: Column {
+                            width: ListView.view ? ListView.view.width : 0
+                            Repeater {
+                                model: userLib.smartPlaylists
+                                NavButton {
+                                    width: parent.width
+                                    height: 36
+                                    text: "✦ " + model.name
+                                    selected: window.section === "smart" + model.id && stack.depth <= 1
+                                    onClicked: window.openSmartPlaylist(model.id, model.name)
+                                }
+                            }
                         }
                     }
                 }

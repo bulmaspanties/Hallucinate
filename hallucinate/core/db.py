@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS playlist_items(
   id INTEGER PRIMARY KEY, playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
   path TEXT NOT NULL, pos INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_pl_items ON playlist_items(playlist_id, pos);
+CREATE TABLE IF NOT EXISTS smart_playlists(id INTEGER PRIMARY KEY, name TEXT NOT NULL, rules TEXT NOT NULL,
+  created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS plays(path TEXT PRIMARY KEY, count INTEGER NOT NULL, last REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS play_log(
   id INTEGER PRIMARY KEY, ts REAL NOT NULL, path TEXT, artist TEXT NOT NULL DEFAULT '',
@@ -185,6 +187,27 @@ class Database:
             "INSERT INTO playlist_items(playlist_id, path, pos) VALUES(?,?,?)",
             [(pid, p, pos + n) for n, p in enumerate(paths)],
         )
+        self.conn.commit()
+
+    def smart_playlists(self) -> list:
+        return self._rows("SELECT id, name, rules FROM smart_playlists ORDER BY name COLLATE NOCASE, id")
+
+    def smart_playlist(self, sid: int) -> Optional[dict]:
+        rows = self._rows("SELECT id, name, rules FROM smart_playlists WHERE id=?", (sid,))
+        return rows[0] if rows else None
+
+    def create_smart_playlist(self, name: str, rules: str) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO smart_playlists(name, rules, created) VALUES(?,?,?)", (name, rules, time.time()))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def update_smart_playlist(self, sid: int, name: str, rules: str):
+        self.conn.execute("UPDATE smart_playlists SET name=?, rules=? WHERE id=?", (name, rules, sid))
+        self.conn.commit()
+
+    def delete_smart_playlist(self, sid: int):
+        self.conn.execute("DELETE FROM smart_playlists WHERE id=?", (sid,))
         self.conn.commit()
 
     def playlist_tracks(self, pid: int) -> list:

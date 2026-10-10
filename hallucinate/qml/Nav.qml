@@ -8,6 +8,8 @@ QtObject {
     signal openLiked()
     signal goHome()
     signal openPlaylist(int id)
+    signal openSmartPlaylist(int id, string name)
+    signal editSmartPlaylist(int id, string name)
     signal trackMenu(string path, string title, string context, int index)
     signal editTags(string path)
     signal editAlbum(string key)

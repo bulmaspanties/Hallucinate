@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import wait_for
 from PySide6.QtCore import Q_ARG, QMetaObject, QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QIcon, QImage
 from PySide6.QtQml import QQmlApplicationEngine
@@ -191,12 +192,30 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     window.setProperty("queueOpen", True)
     qapp.processEvents()
     assert window.findChild(QObject, "saveQueue") is not None
+
+    # Smart playlist editor: create one from the default rule, then reopen it for editing.
+    editor = window.findChild(QObject, "smartEditor")
+    assert QMetaObject.invokeMethod(editor, "openNew", Qt.ConnectionType.DirectConnection)
+    qapp.processEvents()
+    window.findChild(QObject, "smartName").setProperty("text", "Loved")
+    assert window.findChild(QObject, "smartPreview").property("text").startswith("Liked is yes")
+    assert QMetaObject.invokeMethod(editor, "accept", Qt.ConnectionType.DirectConnection)
+    assert wait_for(lambda: user_lib.smartPlaylists.count == 1)
+    smart_id = user_lib.smartPlaylists.get(0)["id"]
+    qapp.processEvents()
+    assert window.property("section") == f"smart{smart_id}"
+    assert QMetaObject.invokeMethod(editor, "openEdit", Qt.ConnectionType.DirectConnection,
+                                    Q_ARG("QVariant", smart_id), Q_ARG("QVariant", "Loved"))
+    qapp.processEvents()
+    assert window.findChild(QObject, "smartName").property("text") == "Loved"
+    assert QMetaObject.invokeMethod(editor, "reject", Qt.ConnectionType.DirectConnection)
+    qapp.processEvents()
     assert QMetaObject.invokeMethod(window, "showSearch", Qt.ConnectionType.DirectConnection)
     qapp.processEvents()
     assert not qml_warnings
 
     window.close()
-    del device_picker, picker_text, picker, window, engine
+    del editor, device_picker, picker_text, picker, window, engine
     qapp.processEvents()
     scrobbler.shutdown()
     listenbrainz.shutdown()

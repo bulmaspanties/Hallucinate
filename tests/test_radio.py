@@ -94,8 +94,9 @@ class Source:
     def __init__(self):
         self.calls = []
 
-    def __call__(self, seeds, exclude, done):
+    def __call__(self, seeds, exclude, done, rules=None):
         self.calls.append((seeds, exclude, done))
+        self.rules = rules
 
 
 @pytest.fixture
@@ -173,3 +174,19 @@ def test_library_radio_source_runs_on_worker(qapp, tmp_path, db, scan, music):
         assert all("durText" in t and "artUrl" in t for t in got[0])
     finally:
         lib.shutdown()
+
+
+@needs_ffmpeg
+def test_radio_keeps_smart_playlist_rules(qapp, radio_player, radio_clips):
+    p = radio_player
+    source = Source()
+    p.setRadioSource(source)
+    p.setRadio(True)
+    rules = {"match": "all", "rules": [{"field": "liked", "op": "is_true", "value": None}]}
+    p.playList(radio_clips[:1], 0, radio_rules=rules)
+    assert source.rules == rules
+    p.playList(radio_clips[1:2], 0)  # any other list plays without the rules
+    source.calls[0][2](radio_clips[2:3])  # the first batch arrives late: dropped, and radio asks again
+    assert wait_for(lambda: len(source.calls) == 2)
+    assert source.calls[1][0] == [radio_clips[1]["path"]]
+    assert source.rules is None

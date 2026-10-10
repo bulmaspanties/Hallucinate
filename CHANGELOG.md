@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format based on
 ## [Unreleased]
 
 ### Added
+- Smart playlists: live rule-based playlists (title, artist, album, album artist, genre, format, path, year, length, bitrate, play count, date added, last played, liked; match all/any; sort; limit), listed under Playlists and re-evaluated as the library, likes and plays change. The rule editor previews the description and the number of matching songs. Rules are validated and compiled to parameterized SQL.
+- Radio mode follows a smart playlist's rules when it continues one.
 - Radio mode: when the queue is about to end, similar tracks from the local library are appended so playback continues gaplessly. Tracks are scored on listening-session co-plays with the recent tracks, shared and co-played artists, genre, year, likes and play counts, with recently played tracks held back and artists varied. Toggle it with the radio button in the now-playing bar.
 - Output device picker in Settings → Playback. The choice persists; while the chosen device is unplugged, playback uses the system default and switches back when it returns. The equalizer follows the chosen device.
 - Save the queue as a playlist from the queue panel.
