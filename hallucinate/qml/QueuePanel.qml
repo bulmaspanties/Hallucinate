@@ -13,11 +13,59 @@ Rectangle {
         Text { text: "Queue"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(18); font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
         Text { text: player.queueModel.count + " tracks"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12); anchors.verticalCenter: parent.verticalCenter }
     }
-    PillButton {
+    Row {
         anchors { right: parent.right; rightMargin: 14; verticalCenter: head.verticalCenter }
-        height: 30
-        text: "Clear"
-        onClicked: player.clearQueue()
+        spacing: 8
+        PillButton {
+            objectName: "saveQueue"
+            height: 30
+            text: "Save"
+            enabled: player.queueModel.count > 0
+            onClicked: saveDlg.open()
+        }
+        PillButton {
+            height: 30
+            text: "Clear"
+            onClicked: player.clearQueue()
+        }
+    }
+    Dialog {
+        id: saveDlg
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: "Save queue as playlist"
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        onOpened: { saveField.text = ""; saveField.forceActiveFocus() }
+        onAccepted: {
+            var name = saveField.text.trim()
+            if (!name.length) return
+            var id = userLib.saveQueueAsPlaylist(name)
+            if (id >= 0) Nav.openPlaylist(id)
+        }
+        TextField { id: saveField; width: 280; placeholderText: "Playlist name"; selectByMouse: true; onAccepted: saveDlg.accept() }
+    }
+    DropArea {
+        id: queueDrop
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: function (drop) {
+            if (!drop.hasUrls) return
+            library.playDropped(drop.urls, true)
+            drop.acceptProposedAction()
+        }
+        Rectangle {
+            anchors.fill: parent
+            visible: queueDrop.containsDrag
+            color: "transparent"
+            border.color: Theme.accent
+            border.width: 2
+            Text {
+                anchors.centerIn: parent
+                text: "Drop to add to queue"
+                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold
+            }
+        }
     }
     Text {
         visible: player.queueModel.count === 0

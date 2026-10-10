@@ -170,6 +170,10 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     picker_text = window.findChild(QObject, "themePickerText")
     assert picker is not None
     assert picker_text is not None
+    device_picker = window.findChild(QObject, "outputDevice")
+    assert device_picker is not None
+    assert device_picker.property("count") == len(player.outputDevices)
+    assert device_picker.property("currentIndex") == 0
 
     assert manager.selectTheme("Font Test")
     from PySide6.QtTest import QTest
@@ -186,12 +190,13 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
         qapp.processEvents()
     window.setProperty("queueOpen", True)
     qapp.processEvents()
+    assert window.findChild(QObject, "saveQueue") is not None
     assert QMetaObject.invokeMethod(window, "showSearch", Qt.ConnectionType.DirectConnection)
     qapp.processEvents()
     assert not qml_warnings
 
     window.close()
-    del picker_text, picker, window, engine
+    del device_picker, picker_text, picker, window, engine
     qapp.processEvents()
     scrobbler.shutdown()
     listenbrainz.shutdown()

@@ -120,6 +120,18 @@ ApplicationWindow {
         TextField { id: createField; width: 280; placeholderText: "Playlist name"; selectByMouse: true; onAccepted: createDlg.accept() }
     }
 
+    // Drop audio files or folders anywhere to play them (the queue panel, above it, appends instead)
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        keys: ["text/uri-list"]
+        onDropped: function (drop) {
+            if (!drop.hasUrls) return
+            library.playDropped(drop.urls, false)
+            drop.acceptProposedAction()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -292,6 +304,19 @@ ApplicationWindow {
     Shortcut { sequence: "Alt+Left"; onActivated: Nav.back() }
     Shortcut { sequences: ["/", "Ctrl+F", "Ctrl+K"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }
     Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: dropArea.containsDrag
+        color: Qt.rgba(Theme.bg.r, Theme.bg.g, Theme.bg.b, 0.8)
+        border.color: Theme.accent
+        border.width: 3
+        Text {
+            anchors.centerIn: parent
+            text: "Drop to play"
+            color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(24); font.weight: Font.DemiBold
+        }
+    }
 
     Component.onCompleted: go("home")
 }

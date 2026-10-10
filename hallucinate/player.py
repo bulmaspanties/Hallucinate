@@ -8,7 +8,14 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PySide6.QtCore import Property, QCoreApplication, QEvent, QObject, QSettings, Qt, QTimer, QUrl, Signal, Slot
-from PySide6.QtMultimedia import QAudioBufferOutput, QAudioFormat, QAudioOutput, QMediaPlayer
+from PySide6.QtMultimedia import (
+    QAudioBufferOutput,
+    QAudioDevice,
+    QAudioFormat,
+    QAudioOutput,
+    QMediaDevices,
+    QMediaPlayer,
+)
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
 from . import eq
@@ -53,6 +60,20 @@ def _new_audio_output(parent):
     QQmlEngine.setObjectOwnership(audio, QQmlEngine.ObjectOwnership.CppOwnership)
     audio.setParent(parent)
     return audio
+
+
+def device_key(device):
+    """Stable string id for a QAudioDevice, suitable for QSettings and QML."""
+    return bytes(device.id()).hex()
+
+
+def pick_output_device(devices, key):
+    """The device in `devices` whose key is `key`, or None to use the system default."""
+    if key:
+        for device in devices:
+            if device_key(device) == key:
+                return device
+    return None
 
 
 class _Voice:
@@ -114,6 +135,7 @@ class Player(QObject):
     eqChanged = Signal()
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
     visualizerChanged = Signal()
+    outputDevicesChanged = Signal()
     _visual_levels_ready = Signal(object)
 
     def __init__(self, parent=None, session_file=None):
@@ -174,6 +196,10 @@ class Player(QObject):
             except (ValueError, TypeError):
                 pass
             self._eq_preset = self._detect_preset()
+        self._output_key = str(self._settings.value("audio/outputDevice", "") or "")
+        self._output_name = str(self._settings.value("audio/outputDeviceName", "") or "")
+        self._media_devices = QMediaDevices(self)
+        self._media_devices.audioOutputsChanged.connect(self._on_audio_outputs_changed)
         self._fading = False
         self._fade_start = 0.0
         self._fade_ms = 0
@@ -196,6 +222,7 @@ class Player(QObject):
             p.errorOccurred.connect(lambda err, msg, n=n: self._on_error(n, msg))
             p.playbackStateChanged.connect(lambda st, n=n: self._tap_state(n, st))
         self._apply_speed()
+        self._apply_output_device()
         if self._eq_enabled:
             self._sync_taps()
         elif self._visualizer_enabled:
@@ -398,11 +425,67 @@ class Player(QObject):
             self._eq_gains = [float(g) for g in eq.PRESETS[name]]
             self._save_eq()
 
+    # --- output device -------------------------------------------------------
+    @Property("QVariantList", notify=outputDevicesChanged)
+    def outputDevices(self):
+        """[{key, name}] for the Settings picker; key "" follows the system default."""
+        devices = QMediaDevices.audioOutputs()
+        default = QMediaDevices.defaultAudioOutput()
+        label = f"System default ({default.description()})" if not default.isNull() else "System default"
+        items = [{"key": "", "name": label}]
+        items += [{"key": device_key(d), "name": d.description()} for d in devices]
+        if self._output_key and pick_output_device(devices, self._output_key) is None:
+            items.append({"key": self._output_key, "name": f"{self._output_name or 'Saved device'} (not connected)"})
+        return items
+
+    @Property(str, notify=outputDevicesChanged)
+    def outputDevice(self):
+        return self._output_key
+
+    @Slot(str)
+    def setOutputDevice(self, key):
+        key = key or ""
+        device = pick_output_device(QMediaDevices.audioOutputs(), key)
+        if key and device is None and key != self._output_key:
+            return  # unknown device; keep the current choice
+        self._output_key = key
+        if device is not None:
+            self._output_name = device.description()
+        self._settings.setValue("audio/outputDevice", self._output_key)
+        self._settings.setValue("audio/outputDeviceName", self._output_name if key else "")
+        self._apply_output_device()
+        self.outputDevicesChanged.emit()
+
+    def _output_audio_device(self):
+        """The chosen device while it is connected, otherwise the current system default."""
+        device = pick_output_device(QMediaDevices.audioOutputs(), self._output_key)
+        return QMediaDevices.defaultAudioOutput() if device is None else device
+
+    def _apply_output_device(self, reattach=False):
+        device = self._output_audio_device()
+        for voice in self._voices:
+            if reattach and voice.audio.device() == device:
+                voice.audio.setDevice(QAudioDevice())
+            if voice.audio.device() != device:
+                voice.audio.setDevice(device)
+            if voice.tap is not None:
+                voice.tap.setDevice(device, force=reattach)
+
+    @Slot()
+    def _on_audio_outputs_changed(self):
+        # Re-resolve: the saved device may have been plugged in or removed, or the default may have moved.
+        # Some backends (PulseAudio on Qt 6.11) report a device coming back but not it going away, so its entry
+        # looks unchanged while the sound server has moved our stream elsewhere; re-attach to the chosen device.
+        chosen = pick_output_device(QMediaDevices.audioOutputs(), self._output_key) is not None
+        self._apply_output_device(reattach=chosen)
+        self.outputDevicesChanged.emit()
+
     def _sync_taps(self):
         for n, voice in enumerate(self._voices):
             if self._eq_enabled and voice.tap is None:
                 tap = eq.EqTap(eq.EqProcessor(), self)
                 tap.processor.set_gains(self._eq_gains)
+                tap.setDevice(self._output_audio_device())
                 voice.tap = tap
                 tap.setRunning(voice.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
             elif not self._eq_enabled and voice.tap is not None:
