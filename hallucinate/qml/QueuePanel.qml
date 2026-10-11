@@ -4,13 +4,17 @@ import "."
 
 Rectangle {
     id: panel
-    color: Theme.panel
+    color: Theme.glass
+    radius: 24
+    border.width: 1
+    border.color: Theme.stroke
+    clip: true
 
     Row {
         id: head
         x: 18; y: 16
         spacing: 12
-        Text { text: "Queue"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(18); font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
+        Text { text: "Queue"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(15); font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
         Text { text: player.queueModel.count + " tracks"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12); anchors.verticalCenter: parent.verticalCenter }
     }
     Row {

@@ -24,8 +24,8 @@ Item {
             Text {
                 text: "Home"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(30)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(25)
                 font.weight: Font.Bold
             }
 
@@ -44,8 +44,8 @@ Item {
                             : library.scanning ? "Scanning your music…"
                             : library.hasFolders ? "No music found" : "Welcome! Let's find your music"
                         color: Theme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize(20)
+                        font.family: Theme.displayFamily
+                        font.pixelSize: Theme.fontSize(16)
                         font.weight: Font.DemiBold
                     }
                     Text {
@@ -96,8 +96,8 @@ Item {
                 visible: library.recentAlbums.count > 0
                 text: "Recently added"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -121,8 +121,8 @@ Item {
                 visible: userLib.recentPlayed.count > 0
                 text: "Recently played"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -146,8 +146,8 @@ Item {
                 visible: userLib.mostPlayed.count > 0
                 text: "Most played"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             Column {
@@ -177,8 +177,8 @@ Item {
                 visible: userLib.homeMix.count > 0
                 text: "Your mix"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             Column {

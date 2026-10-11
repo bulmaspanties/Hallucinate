@@ -192,6 +192,11 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     window.setProperty("queueOpen", True)
     qapp.processEvents()
     assert window.findChild(QObject, "saveQueue") is not None
+    assert window.findChild(QObject, "sidebarToggle") is not None
+    shell.setSidebarCollapsed(True)  # icon rail with the playlists menu
+    qapp.processEvents()
+    shell.setSidebarCollapsed(False)
+    qapp.processEvents()
 
     # Smart playlist editor: create one from the default rule, then reopen it for editing.
     editor = window.findChild(QObject, "smartEditor")

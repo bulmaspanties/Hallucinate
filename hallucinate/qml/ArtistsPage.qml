@@ -12,8 +12,8 @@ Item {
         x: 28; y: 20
         text: "Artists"
         color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize(30)
+        font.family: Theme.displayFamily
+        font.pixelSize: Theme.fontSize(25)
         font.weight: Font.Bold
     }
     GridView {

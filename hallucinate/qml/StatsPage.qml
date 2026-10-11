@@ -37,8 +37,8 @@ Item {
                     Layout.fillWidth: true
                     text: "Listening stats"
                     color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize(30)
+                    font.family: Theme.displayFamily
+                    font.pixelSize: Theme.fontSize(25)
                     font.weight: Font.Bold
                 }
                 ComboBox {
@@ -57,7 +57,7 @@ Item {
                     color: Theme.surface
                     Column {
                         anchors.centerIn: parent
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: userLib.statsSummary.listens || 0; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(24); font.weight: Font.Bold }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: userLib.statsSummary.listens || 0; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(21); font.weight: Font.Bold }
                         Text { anchors.horizontalCenter: parent.horizontalCenter; text: "listens"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
                     }
                 }
@@ -75,8 +75,8 @@ Item {
                                 return hours + "h " + minutes + "m"
                             }
                             color: Theme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize(24)
+                            font.family: Theme.displayFamily
+                            font.pixelSize: Theme.fontSize(21)
                             font.weight: Font.Bold
                         }
                         Text { anchors.horizontalCenter: parent.horizontalCenter; text: "estimated listening time"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
@@ -87,8 +87,8 @@ Item {
             Text {
                 text: userLib.topTracks.count > 0 ? "Top tracks" : "No listening history for this period yet."
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             Column {
@@ -118,8 +118,8 @@ Item {
                 visible: userLib.topArtists.count > 0
                 text: "Top artists"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             Column {
@@ -151,8 +151,8 @@ Item {
                 visible: userLib.topAlbums.count > 0
                 text: "Top albums"
                 color: Theme.text
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSize(20)
+                font.family: Theme.displayFamily
+                font.pixelSize: Theme.fontSize(16)
                 font.weight: Font.DemiBold
             }
             Column {

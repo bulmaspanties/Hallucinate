@@ -5,6 +5,9 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Changed
+- A new look of its own, inspired by the logo: a slowly drifting, cover-tinted backdrop with fine film grain; frosted glass panels; a floating player; a navigation rail that collapses to icons (playlists move into a menu); and the Unbounded display typeface (SIL OFL, bundled) for headings. Album covers lift and glow on hover, and pages dissolve in. The background motion can be turned off in Settings → Appearance. Everything is drawn with gradients, so it also works without a GPU.
+
 ### Added
 - Project website at https://bulmaspanties.github.io/Hallucinate/ (GitHub Pages), styled after the logo. It detects the visitor's OS for the download button, and is rebuilt automatically after every release and whenever the site, screenshots or changelog change.
 

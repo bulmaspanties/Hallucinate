@@ -31,8 +31,8 @@ Item {
                 Text {
                     text: page.playlistName
                     color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize(36)
+                    font.family: Theme.displayFamily
+                    font.pixelSize: Theme.fontSize(30)
                     font.weight: Font.Bold
                 }
                 Text {

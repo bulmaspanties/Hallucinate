@@ -41,7 +41,7 @@ Item {
             Text {
                 visible: library.searchArtists.count > 0
                 text: "Artists"
-                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold
             }
             ListView {
                 visible: library.searchArtists.count > 0
@@ -60,7 +60,7 @@ Item {
             Text {
                 visible: library.searchAlbums.count > 0
                 text: "Albums"
-                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold
             }
             ListView {
                 visible: library.searchAlbums.count > 0
@@ -80,7 +80,7 @@ Item {
             Text {
                 visible: library.searchTracks.count > 0
                 text: "Songs"
-                color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold
+                color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold
             }
             Repeater {
                 model: library.searchTracks

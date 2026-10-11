@@ -75,6 +75,46 @@ Canvas {
             break
         case "close": line([.22,.22,.78,.78]); line([.78,.22,.22,.78]); break
         case "back": line([.62,.15,.3,.5,.62,.85]); break
+        case "home":
+            line([.12,.48,.5,.14,.88,.48]); line([.22,.4,.22,.86,.78,.86,.78,.4]); line([.42,.86,.42,.62,.58,.62,.58,.86]); break
+        case "album":  // a record
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.38, 0, Math.PI*2); ctx.stroke()
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.1, 0, Math.PI*2); ctx.fill()
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.24, -0.6, 0.4); ctx.stroke(); break
+        case "artist":
+            ctx.beginPath(); ctx.arc(w*.5, h*.34, w*.17, 0, Math.PI*2); ctx.stroke()
+            ctx.beginPath(); ctx.arc(w*.5, h*.98, w*.34, Math.PI*1.12, Math.PI*1.88); ctx.stroke(); break
+        case "songs":
+            line([.1,.24,.56,.24]); line([.1,.46,.56,.46]); line([.1,.68,.4,.68])
+            ctx.beginPath(); ctx.arc(w*.68, h*.76, w*.1, 0, Math.PI*2); ctx.fill(); line([.78,.76,.78,.2,.92,.26]); break
+        case "stats":
+            ctx.fillRect(w*.14, h*.52, w*.16, h*.34); ctx.fillRect(w*.42, h*.18, w*.16, h*.68); ctx.fillRect(w*.7, h*.38, w*.16, h*.48); break
+        case "wave":  // the logo's waveform bars
+            var bars = [.2, .45, .75, .4, .9, .55, .3]
+            for (var b = 0; b < bars.length; b++) {
+                var bx = w * (.12 + b * .127), bh = h * bars[b]
+                ctx.fillRect(bx, (h - bh) / 2, Math.max(1.5, w * .07), bh)
+            }
+            break
+        case "settings":
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.14, 0, Math.PI*2); ctx.stroke()
+            for (var g = 0; g < 8; g++) {
+                var a = g * Math.PI / 4
+                line([.5 + .26*Math.cos(a), .5 + .26*Math.sin(a), .5 + .4*Math.cos(a), .5 + .4*Math.sin(a)])
+            }
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.27, 0, Math.PI*2); ctx.stroke(); break
+        case "playlist":
+            line([.1,.24,.62,.24]); line([.1,.46,.62,.46]); line([.1,.68,.42,.68]); tri(w*.6,h*.56,w*.6,h*.88,w*.9,h*.72); break
+        case "sidebar":
+            ctx.strokeRect(w*.12, h*.18, w*.76, h*.64); line([.38,.18,.38,.82]); break
+        case "sparkle":
+            ctx.beginPath(); ctx.moveTo(w*.5,h*.08); ctx.quadraticCurveTo(w*.56,h*.44,w*.92,h*.5); ctx.quadraticCurveTo(w*.56,h*.56,w*.5,h*.92)
+            ctx.quadraticCurveTo(w*.44,h*.56,w*.08,h*.5); ctx.quadraticCurveTo(w*.44,h*.44,w*.5,h*.08); ctx.closePath(); ctx.fill(); break
+        case "dice":
+            ctx.strokeRect(w*.16, h*.16, w*.68, h*.68)
+            var pips = [[.34,.34],[.66,.66],[.5,.5],[.66,.34],[.34,.66]]
+            for (var q = 0; q < pips.length; q++) { ctx.beginPath(); ctx.arc(w*pips[q][0], h*pips[q][1], w*.06, 0, Math.PI*2); ctx.fill() }
+            break
         case "search":
             ctx.beginPath(); ctx.arc(w*.42, h*.42, w*.28, 0, Math.PI*2); ctx.stroke(); line([.64,.64,.9,.9]); break
         }

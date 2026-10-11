@@ -55,7 +55,7 @@ Item {
                 }
             }
 
-            Text { text: "Albums"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+            Text { text: "Albums"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
             ListView {
                 width: parent.width; height: 240
                 orientation: ListView.Horizontal
@@ -70,7 +70,7 @@ Item {
                 }
             }
 
-            Text { text: "Songs"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+            Text { text: "Songs"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
             Repeater {
                 model: page.tracksModel
                 TrackRow {
