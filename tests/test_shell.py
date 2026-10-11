@@ -103,3 +103,16 @@ def test_desktop_notifications_are_opt_in_and_skip_initial_track(make_shell, mon
     shell.setDesktopNotifications(False)
     shell._on_track_changed()
     assert len(shown) == 1
+
+
+def test_sidebar_and_ambient_motion_preferences_persist(make_shell):
+    from PySide6.QtCore import QSettings
+
+    shell, _win, _player = make_shell()
+    assert shell.sidebarCollapsed is False and shell.ambientMotion is True
+    shell.setSidebarCollapsed(True)
+    shell.setAmbientMotion(False)
+    assert shell.sidebarCollapsed is True and shell.ambientMotion is False
+    stored = QSettings("hallucinate", "hallucinate")
+    assert stored.value("ui/sidebarCollapsed", type=bool) is True
+    assert stored.value("ui/ambientMotion", type=bool) is False

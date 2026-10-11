@@ -20,6 +20,8 @@ class DesktopShell(QObject):
         self._tray_pref = self._settings.value("shell/tray", True, bool)
         self._close_to_tray = self._settings.value("shell/closeToTray", False, bool)
         self._desktop_notifications = self._settings.value("shell/desktopNotifications", False, bool)
+        self._sidebar_collapsed = self._settings.value("ui/sidebarCollapsed", False, bool)
+        self._ambient_motion = self._settings.value("ui/ambientMotion", True, bool)
         self._tray = None
         self._menu = None
         self._icon = icon
@@ -94,6 +96,27 @@ class DesktopShell(QObject):
     @Property(bool, notify=settingsChanged)
     def desktopNotifications(self):
         return self._desktop_notifications
+
+    @Property(bool, notify=settingsChanged)
+    def sidebarCollapsed(self):
+        return self._sidebar_collapsed
+
+    @Slot(bool)
+    def setSidebarCollapsed(self, on):
+        self._sidebar_collapsed = bool(on)
+        self._settings.setValue("ui/sidebarCollapsed", self._sidebar_collapsed)
+        self.settingsChanged.emit()
+
+    @Property(bool, notify=settingsChanged)
+    def ambientMotion(self):
+        """Whether the ambient backdrop drifts (off: it stays still, for less motion and lower power use)."""
+        return self._ambient_motion
+
+    @Slot(bool)
+    def setAmbientMotion(self, on):
+        self._ambient_motion = bool(on)
+        self._settings.setValue("ui/ambientMotion", self._ambient_motion)
+        self.settingsChanged.emit()
 
     @Property(bool, notify=miniChanged)
     def miniOpen(self):

@@ -3,16 +3,49 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "."
 
-Rectangle {
+// The player floats over the backdrop as a glass pill, softly lit by the current cover.
+Item {
     id: bar
     property bool queueOpen: false
     property bool lyricsOpen: false
     signal toggleQueue()
     signal toggleLyrics()
-    color: Theme.panel
     height: Theme.playerHeight
 
-    Rectangle { width: parent.width; height: 1; color: Theme.border }
+    // Soft shadow from stacked translucent outlines (no shader needed)
+    Repeater {
+        model: 4
+        Rectangle {
+            required property int index
+            anchors { fill: glassPill; margins: -(index + 1) * 3; topMargin: -(index + 1) * 2; bottomMargin: -(index + 1) * 4 }
+            radius: glassPill.radius + (index + 1) * 3
+            color: "transparent"
+            border.width: 3
+            border.color: Qt.rgba(0, 0, 0, Theme.light ? 0.035 - index * 0.007 : 0.11 - index * 0.025)
+        }
+    }
+    Rectangle {
+        id: glassPill
+        anchors.fill: parent
+        radius: 26
+        color: Theme.glassStrong
+        border.width: 1
+        border.color: Theme.stroke
+        clip: true
+        // Cover-coloured light leaking in from the left
+        Rectangle {
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            width: parent.width * 0.45
+            radius: parent.radius
+            opacity: player.hasTrack ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 600 } }
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: Qt.rgba(Theme.art0.r, Theme.art0.g, Theme.art0.b, Theme.light ? 0.16 : 0.22) }
+                GradientStop { position: 1; color: Qt.rgba(Theme.art0.r, Theme.art0.g, Theme.art0.b, 0) }
+            }
+        }
+    }
 
     // Now playing
     Row {
@@ -21,7 +54,7 @@ Rectangle {
         spacing: 12
         Cover {
             id: art
-            width: 60; height: 60; radius: Theme.radiusSmall
+            width: 60; height: 60; radius: 14
             source: player.hasTrack ? player.current.artUrl : ""
             MouseArea {
                 anchors.fill: parent
@@ -73,8 +106,14 @@ Rectangle {
             IconButton { icon: "shuffle"; active: player.shuffle; onClicked: player.toggleShuffle() }
             IconButton { icon: "prev"; onClicked: player.previous() }
             Rectangle {
-                width: 42; height: 42; radius: 21
-                color: pp.containsMouse ? Theme.accentHi : Theme.accent
+                width: 44; height: 44; radius: 22
+                scale: pp.pressed ? 0.94 : (pp.containsMouse ? 1.06 : 1)
+                Behavior on scale { NumberAnimation { duration: 120 } }
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: Theme.accentHi }
+                    GradientStop { position: 1; color: Qt.tint(Theme.accent, Qt.rgba(Theme.art1.r, Theme.art1.g, Theme.art1.b, 0.45)) }
+                }
                 Icon {
                     anchors.centerIn: parent
                     width: 18; height: 18

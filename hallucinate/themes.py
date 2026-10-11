@@ -6,8 +6,8 @@ import os
 from collections import Counter
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage
+from PySide6.QtCore import Property, QObject, QSize, QUrl, Signal, Slot
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QImageReader
 
 logger = logging.getLogger(__name__)
 COLOR_KEYS = ("bg", "panel", "surface", "surfaceHi", "border", "text", "textDim", "accent", "error", "onAccent")
@@ -17,9 +17,36 @@ BUILTIN_THEME_DIR = Path(__file__).with_name("themes")
 DEFAULT_THEME = "Hallucinate"
 
 
+def art_palette(path, count=3):
+    """Up to `count` dominant, reasonably saturated colours of an image, most common first.
+
+    Colours closer than ~40 degrees of hue to an earlier pick are skipped so the palette has some range."""
+    reader = QImageReader(path)
+    reader.setScaledSize(QSize(32, 32))  # decoders like JPEG downscale while decoding: cheap even for big covers
+    image = reader.read()
+    if image.isNull():
+        return []
+    counts = Counter()
+    for y in range(image.height()):
+        for x in range(image.width()):
+            color = image.pixelColor(x, y)
+            if color.saturationF() >= 0.28 and 0.18 <= color.valueF() <= 0.98:
+                counts[(color.red() // 16, color.green() // 16, color.blue() // 16)] += 1
+    picks = []
+    for (red, green, blue), _n in counts.most_common():
+        color = QColor(min(255, red * 16 + 8), min(255, green * 16 + 8), min(255, blue * 16 + 8))
+        hue = color.hsvHueF()
+        if all(min(abs(hue - p.hsvHueF()), 1 - abs(hue - p.hsvHueF())) > 0.11 for p in picks):
+            picks.append(color)
+            if len(picks) == count:
+                break
+    return picks
+
+
 class ThemeManager(QObject):
     themeChanged = Signal()
     themesChanged = Signal()
+    artColorsChanged = Signal()
 
     def __init__(self, config_dir, player=None, parent=None):
         super().__init__(parent)
@@ -30,6 +57,7 @@ class ThemeManager(QObject):
         self._current_name = DEFAULT_THEME
         self._album_art_accent = False
         self._album_accent = None
+        self._art_colors = []
         self._current_art_url = ""
         self._player = player
         app = QGuiApplication.instance()
@@ -137,25 +165,21 @@ class ThemeManager(QObject):
         self._update_album_accent()
 
     def _update_album_accent(self):
-        accent = None
-        if self._album_art_accent and self._current_art_url:
-            url = QUrl(self._current_art_url)
-            local_path = url.toLocalFile() if url.isLocalFile() else self._current_art_url
-            image = QImage(local_path)
-            if not image.isNull():
-                image = image.scaled(32, 32, Qt.AspectRatioMode.IgnoreAspectRatio)
-                counts = Counter()
-                for y in range(image.height()):
-                    for x in range(image.width()):
-                        color = image.pixelColor(x, y)
-                        if color.saturationF() >= 0.28 and 0.18 <= color.valueF() <= 0.98:
-                            counts[(color.red() // 16, color.green() // 16, color.blue() // 16)] += 1
-                if counts:
-                    red, green, blue = counts.most_common(1)[0][0]
-                    accent = QColor(min(255, red * 16 + 8), min(255, green * 16 + 8), min(255, blue * 16 + 8))
+        url = QUrl(self._current_art_url)
+        local_path = url.toLocalFile() if url.isLocalFile() else self._current_art_url
+        colors = art_palette(local_path) if local_path else []
+        if colors != self._art_colors:
+            self._art_colors = colors
+            self.artColorsChanged.emit()
+        accent = colors[0] if self._album_art_accent and colors else None
         if accent != self._album_accent:
             self._album_accent = accent
             self.themeChanged.emit()
+
+    @Property("QVariantList", notify=artColorsChanged)
+    def artColors(self):
+        """Dominant colours of the current track's cover (empty without art); drives the ambient backdrop."""
+        return list(self._art_colors)
 
     @Property("QStringList", notify=themesChanged)
     def availableThemes(self):

@@ -60,6 +60,29 @@ QtObject {
     property color error: themeManager.error
     property color onAccent: themeManager.onAccent
     readonly property string fontFamily: themeManager.fontFamily
+
+    // Display typeface for headings, numbers and the wordmark (Unbounded, SIL OFL; bundled in assets/fonts).
+    property FontLoader displayBold: FontLoader { source: Qt.resolvedUrl("../assets/fonts/Unbounded-Bold.ttf") }
+    property FontLoader displaySemiBold: FontLoader { source: Qt.resolvedUrl("../assets/fonts/Unbounded-SemiBold.ttf") }
+    readonly property string displayFamily: displayBold.status === FontLoader.Ready ? displayBold.font.family : fontFamily
+
+    // Light themes get softer glass and ambience
+    readonly property bool light: (0.2126 * bg.r + 0.7152 * bg.g + 0.0722 * bg.b) > 0.5
+    // Translucent surfaces that let the ambient backdrop glow through ("frosted glass")
+    readonly property color glass: Qt.rgba(panel.r, panel.g, panel.b, light ? 0.72 : 0.62)
+    readonly property color glassStrong: Qt.rgba(panel.r, panel.g, panel.b, light ? 0.88 : 0.82)
+    readonly property color glassHover: Qt.rgba(surfaceHi.r, surfaceHi.g, surfaceHi.b, 0.55)
+    readonly property color stroke: Qt.rgba(text.r, text.g, text.b, light ? 0.10 : 0.08)
+    readonly property color strokeHi: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+
+    // Colours of the current cover (or of the theme when nothing has art); they melt slowly between tracks.
+    readonly property var artColors: themeManager.artColors
+    property color art0: artColors.length > 0 ? artColors[0] : accent
+    property color art1: artColors.length > 1 ? artColors[1] : Qt.tint(accent, "#80f2a7d6")
+    property color art2: artColors.length > 2 ? artColors[2] : Qt.tint(accent, "#708fb3ff")
+    Behavior on art0 { ColorAnimation { duration: 2400; easing.type: Easing.InOutQuad } }
+    Behavior on art1 { ColorAnimation { duration: 2800; easing.type: Easing.InOutQuad } }
+    Behavior on art2 { ColorAnimation { duration: 3200; easing.type: Easing.InOutQuad } }
     readonly property real fontScale: themeManager.fontScale
     readonly property int radius: themeManager.radius
     readonly property real radiusSmall: Math.max(2, radius * 0.6)

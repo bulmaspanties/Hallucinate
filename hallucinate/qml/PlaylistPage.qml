@@ -41,8 +41,8 @@ Item {
                 Text {
                     text: page.liked ? "Liked Songs" : page.playlistName
                     color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize(36)
+                    font.family: Theme.displayFamily
+                    font.pixelSize: Theme.fontSize(30)
                     font.weight: Font.Bold
                 }
                 Text { text: list.count + " songs"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }

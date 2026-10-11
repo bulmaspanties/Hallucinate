@@ -145,6 +145,12 @@ ApplicationWindow {
         }
     }
 
+    Ambience {
+        anchors.fill: parent
+        z: -1
+        animated: shell.ambientMotion && window.active
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -154,92 +160,17 @@ ApplicationWindow {
             Layout.fillHeight: true
             spacing: 0
 
-            // Sidebar
-            Rectangle {
-                Layout.preferredWidth: Theme.sidebarWidth
+            Sidebar {
+                id: sidebar
+                Layout.preferredWidth: width
                 Layout.fillHeight: true
-                color: Theme.panel
-                Column {
-                    anchors { fill: parent; margins: 12 }
-                    spacing: 4
-                    Row {
-                        spacing: 10
-                        height: 52
-                        Image {
-                            width: 32; height: 32; anchors.verticalCenter: parent.verticalCenter
-                            source: "../assets/hallucinate.png"; sourceSize: Qt.size(64, 64); smooth: true
-                        }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Hallucinate"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.Bold }
-                    }
-                    Repeater {
-                        model: [
-                            { id: "home", t: "Home" }, { id: "albums", t: "Albums" },
-                            { id: "artists", t: "Artists" }, { id: "songs", t: "Songs" },
-                            { id: "liked", t: "Liked Songs" }, { id: "stats", t: "Stats" },
-                            { id: "visualizer", t: "Visualizer" }, { id: "settings", t: "Settings" }
-                        ]
-                        NavButton {
-                            required property var modelData
-                            width: parent.width
-                            text: modelData.t
-                            selected: window.section === modelData.id && stack.depth <= 1
-                            onClicked: window.go(modelData.id)
-                        }
-                    }
-                }
-                Item {
-                    id: plSection
-                    anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 416; bottom: scanBar.top; bottomMargin: 6; leftMargin: 12; rightMargin: 12 }
-                    clip: true
-                    Item {
-                        id: plHeader
-                        width: parent.width; height: 34
-                        Text { anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter } text: "PLAYLISTS"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); font.weight: Font.DemiBold }
-                        IconButton {
-                            id: newPlButton
-                            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                            icon: "plus"; size: 14; tip: "New playlist"
-                            onClicked: newPlMenu.popup(newPlButton, 0, newPlButton.height)
-                        }
-                        Menu {
-                            id: newPlMenu
-                            MenuItem { text: "New playlist"; onTriggered: window.newPlaylist() }
-                            MenuItem { text: "New smart playlist"; onTriggered: smartEditor.openNew() }
-                        }
-                    }
-                    ListView {
-                        anchors { top: plHeader.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        model: userLib.playlists
-                        delegate: NavButton {
-                            width: ListView.view.width
-                            height: 36
-                            text: model.name
-                            selected: window.section === "pl" + model.id && stack.depth <= 1
-                            onClicked: window.openPlaylist(model.id, model.name)
-                        }
-                        // Smart playlists follow the regular ones
-                        footer: Column {
-                            width: ListView.view ? ListView.view.width : 0
-                            Repeater {
-                                model: userLib.smartPlaylists
-                                NavButton {
-                                    width: parent.width
-                                    height: 36
-                                    text: "✦ " + model.name
-                                    selected: window.section === "smart" + model.id && stack.depth <= 1
-                                    onClicked: window.openSmartPlaylist(model.id, model.name)
-                                }
-                            }
-                        }
-                    }
-                }
-                ScanBar {
-                    id: scanBar
-                    anchors { left: parent.left; right: parent.right; leftMargin: 18; rightMargin: 18; bottom: parent.bottom; bottomMargin: 14 }
-                    compact: true
-                }
+                section: window.section
+                atRoot: stack.depth <= 1
+                onNavigate: id => window.go(id)
+                onOpenPlaylist: (id, name) => window.openPlaylist(id, name)
+                onOpenSmartPlaylist: (id, name) => window.openSmartPlaylist(id, name)
+                onNewPlaylist: window.newPlaylist()
+                onNewSmartPlaylist: smartEditor.openNew()
             }
 
             // Content
@@ -250,33 +181,34 @@ ApplicationWindow {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 64
+                    Layout.preferredHeight: 68
                     IconButton {
                         id: backBtn
-                        anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
+                        anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
                         icon: "back"
                         visible: stack.depth > 1
                         onClicked: Nav.back()
                     }
                     TextField {
                         id: searchField
-                        anchors { left: backBtn.visible ? backBtn.right : parent.left; leftMargin: backBtn.visible ? 8 : 28; verticalCenter: parent.verticalCenter }
-                        width: Math.min(460, parent.width - 120)
-                        height: 40
+                        anchors { left: backBtn.visible ? backBtn.right : parent.left; leftMargin: backBtn.visible ? 8 : 24; verticalCenter: parent.verticalCenter }
+                        width: Math.min(520, parent.width - 120)
+                        height: 42
                         placeholderText: "Search artists, albums, songs   ( / )"
                         placeholderTextColor: Theme.textDim
                         color: Theme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize(14)
-                        leftPadding: 42
+                        leftPadding: 44
                         rightPadding: 14
                         selectByMouse: true
                         background: Rectangle {
-                            radius: Theme.radiusLarge
-                            color: Theme.surface
+                            radius: height / 2
+                            color: searchField.activeFocus ? Theme.glassStrong : Theme.glass
                             border.width: 1
-                            border.color: searchField.activeFocus ? Theme.accent : Theme.border
-                            Icon { x: 14; anchors.verticalCenter: parent.verticalCenter; width: 16; height: 16; name: "search"; color: Theme.textDim }
+                            border.color: searchField.activeFocus ? Theme.strokeHi : Theme.stroke
+                            Behavior on border.color { ColorAnimation { duration: 160 } }
+                            Icon { x: 16; anchors.verticalCenter: parent.verticalCenter; width: 16; height: 16; name: "search"; color: searchField.activeFocus ? Theme.accentHi : Theme.textDim }
                         }
                         onTextChanged: searchTimer.restart()
                         Keys.onEscapePressed: { text = ""; focus = false; window.contentItem.forceActiveFocus() }
@@ -293,21 +225,31 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        pushEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140 } }
-                        pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 100 } }
-                        popEnter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140 } }
-                        popExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 100 } }
+                        // Pages dissolve in with a slight rise: soft, not a hard cut
+                        pushEnter: Transition {
+                            ParallelAnimation {
+                                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                                NumberAnimation { property: "y"; from: 14; to: 0; duration: 260; easing.type: Easing.OutCubic }
+                            }
+                        }
+                        pushExit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 120 } }
+                        popEnter: pushEnter
+                        popExit: pushExit
                         replaceEnter: pushEnter
                         replaceExit: pushExit
                     }
                     QueuePanel {
-                        Layout.preferredWidth: window.queueOpen ? 320 : 0
+                        Layout.preferredWidth: window.queueOpen ? 330 : 0
                         Layout.fillHeight: true
+                        Layout.rightMargin: 10
+                        Layout.bottomMargin: 4
                         visible: window.queueOpen
                     }
                     LyricsPanel {
-                        Layout.preferredWidth: window.lyricsOpen ? 340 : 0
+                        Layout.preferredWidth: window.lyricsOpen ? 350 : 0
                         Layout.fillHeight: true
+                        Layout.rightMargin: 10
+                        Layout.bottomMargin: 4
                         visible: window.lyricsOpen
                     }
                 }
@@ -317,6 +259,8 @@ ApplicationWindow {
         NowPlayingBar {
             Layout.fillWidth: true
             Layout.preferredHeight: Theme.playerHeight
+            Layout.margins: 10
+            Layout.topMargin: 6
             queueOpen: window.queueOpen
             lyricsOpen: window.lyricsOpen
             onToggleQueue: { window.queueOpen = !window.queueOpen; if (window.queueOpen) window.lyricsOpen = false }
@@ -351,7 +295,7 @@ ApplicationWindow {
         Text {
             anchors.centerIn: parent
             text: "Drop to play"
-            color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(24); font.weight: Font.DemiBold
+            color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(21); font.weight: Font.DemiBold
         }
     }
 

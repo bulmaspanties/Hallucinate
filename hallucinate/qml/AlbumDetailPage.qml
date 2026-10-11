@@ -36,8 +36,8 @@ Item {
                     width: parent.width
                     text: page.info.album || ""
                     color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize(36)
+                    font.family: Theme.displayFamily
+                    font.pixelSize: Theme.fontSize(30)
                     font.weight: Font.Bold
                     elide: Text.ElideRight
                 }

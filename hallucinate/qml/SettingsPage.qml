@@ -19,8 +19,8 @@ Item {
         width: page.width - 56
         spacing: 16
 
-        Text { text: "Settings"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(30); font.weight: Font.Bold }
-        Text { text: "Appearance"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Settings"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(25); font.weight: Font.Bold }
+        Text { text: "Appearance"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         StyledCheck {
             text: "Show audio format and average bitrate on tracks"
             checked: player.showTrackInfo
@@ -67,6 +67,12 @@ Item {
                 }
             }
         }
+        StyledCheck {
+            objectName: "ambientMotion"
+            text: "Animated background (slowly drifting colours from the current cover)"
+            checked: shell.ambientMotion
+            onToggled: shell.setAmbientMotion(checked)
+        }
         CheckBox {
             id: albumAccentToggle
             text: "Use album-art accent color"
@@ -108,7 +114,7 @@ Item {
             onClicked: themeManager.reloadThemes()
         }
 
-        Text { text: "Desktop"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Desktop"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         StyledCheck {
             visible: shell.trayAvailable
             text: "Show system tray icon"
@@ -130,7 +136,7 @@ Item {
         }
         PillButton { text: "Open mini player"; onClicked: shell.toggleMini() }
 
-        Text { text: "Playback"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Playback"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Row {
             spacing: 12
             Text { anchors.verticalCenter: parent.verticalCenter; text: "Output device"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(14) }
@@ -182,10 +188,10 @@ Item {
             }
         }
         Text { text: "Gapless playback is always on; with crossfade off, consecutive tracks play back to back."; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
-        Text { text: "Equalizer"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Equalizer"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         EqualizerPanel {}
 
-        Text { text: "Music folders"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Music folders"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Text {
             text: "Folders are scanned in the background and watched for changes."
             color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13)
@@ -256,7 +262,7 @@ Item {
 
         Rectangle { width: parent.width; height: 1; color: Theme.border }
         Rectangle { width: parent.width; height: 1; color: Theme.border }
-        Text { text: "Discord Rich Presence"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Discord Rich Presence"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Text {
             width: parent.width
             wrapMode: Text.WordWrap
@@ -279,7 +285,7 @@ Item {
         StyledCheck { text: "Hide cover art"; checked: discord.hideCover; onToggled: discord.setPref("hideCover", checked) }
         StyledCheck { text: "Privacy mode (don't share track details)"; checked: discord.privacy; onToggled: discord.setPref("privacy", checked) }
 
-        Text { text: "Last.fm"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "Last.fm"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Text {
             width: parent.width
             wrapMode: Text.WordWrap
@@ -361,7 +367,7 @@ Item {
             font.pixelSize: Theme.fontSize(13)
             wrapMode: Text.WordWrap
         }
-        Text { text: "ListenBrainz"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "ListenBrainz"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Text {
             width: parent.width
             wrapMode: Text.WordWrap
@@ -430,7 +436,7 @@ Item {
             text: listenbrainz.importStatus
             color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13); wrapMode: Text.WordWrap
         }
-        Text { text: "About Hallucinate"; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(20); font.weight: Font.DemiBold }
+        Text { text: "About Hallucinate"; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(16); font.weight: Font.DemiBold }
         Image {
             width: 260
             height: 210

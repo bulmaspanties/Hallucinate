@@ -4,15 +4,19 @@ import "."
 
 Rectangle {
     id: panel
-    color: Theme.panel
+    color: Theme.glass
+    radius: 24
+    border.width: 1
+    border.color: Theme.stroke
+    clip: true
 
     Text {
         id: head
         x: 20; y: 16
         text: "Lyrics"
         color: Theme.text
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontSize(18)
+        font.family: Theme.displayFamily
+        font.pixelSize: Theme.fontSize(15)
         font.weight: Font.DemiBold
     }
     Text {
