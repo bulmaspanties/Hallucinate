@@ -193,6 +193,13 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     for name in ("historyList", "historyHeatmap", "historySummary", "historySearch"):
         assert window.findChild(QObject, name) is not None, name
+    # Albums three ways, and an album's sleeve page
+    for view in ("colour", "timeline", "grid"):
+        shell.setUiValue("albumsView", view)
+        assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "albums"))
+        qapp.processEvents()
+    assert QMetaObject.invokeMethod(window, "openAlbum", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "x|y"))
+    qapp.processEvents()
     # Visualizer: with the software renderer the shader styles fall back to bars
     assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "visualizer"))
     qapp.processEvents()

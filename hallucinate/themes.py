@@ -43,6 +43,27 @@ def art_palette(path, count=3):
     return picks
 
 
+def cover_color(path):
+    """The colour a cover reads as from across the room, for ordering the colour wall.
+
+    Saturated pixels count more than greys, so a mostly-black sleeve with a red title still reads as red only
+    when the red is a real part of it. Returns {"color": "#rrggbb", "hue", "sat", "val"} (0..1) or None."""
+    reader = QImageReader(path)
+    reader.setScaledSize(QSize(24, 24))
+    image = reader.read()
+    if image.isNull():
+        return None
+    red = green = blue = weight = 0.0
+    for y in range(image.height()):
+        for x in range(image.width()):
+            c = image.pixelColor(x, y)
+            w = 0.15 + c.saturationF() * c.valueF()
+            red, green, blue, weight = red + c.redF() * w, green + c.greenF() * w, blue + c.blueF() * w, weight + w
+    color = QColor.fromRgbF(red / weight, green / weight, blue / weight)
+    return {"color": color.name(), "hue": max(0.0, color.hsvHueF()), "sat": color.hsvSaturationF(),
+            "val": color.valueF()}
+
+
 class ThemeManager(QObject):
     themeChanged = Signal()
     themesChanged = Signal()
