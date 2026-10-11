@@ -87,10 +87,15 @@ Item {
                     onClicked: Nav.openArtist(player.current.album_artist)
                 }
             }
-            AudioInfoBadge {
-                visible: player.showTrackInfo && player.hasTrack
-                formatName: player.hasTrack ? player.current.codec || "" : ""
-                bitrate: player.hasTrack ? player.current.bitrate || 0 : 0
+            Row {
+                spacing: 6
+                visible: player.hasTrack
+                AudioInfoBadge {
+                    visible: player.showTrackInfo && player.hasTrack
+                    formatName: player.hasTrack ? player.current.codec || "" : ""
+                    bitrate: player.hasTrack ? player.current.bitrate || 0 : 0
+                }
+                SignalPath { visible: player.hasTrack && stages.length > 0 }
             }
         }
     }

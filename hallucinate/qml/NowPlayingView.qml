@@ -202,7 +202,8 @@ Item {
                         onClicked: { view.open = false; Nav.openAlbum(player.current.album_key) }
                     }
                 }
-                Item { Layout.preferredHeight: 18 }
+                SignalPath { light: true; Layout.topMargin: 4 }
+                Item { Layout.preferredHeight: 12 }
                 WaveformSeek {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 640

@@ -50,6 +50,16 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize(14)
                 }
+                Text {
+                    objectName: "homeHealthLink"
+                    visible: library.trackCount > 0
+                    text: "Library health ›"
+                    color: healthLinkMouse.containsMouse ? Theme.accentHi : Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize(13)
+                    font.weight: Font.DemiBold
+                    MouseArea { id: healthLinkMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Nav.openHealth() }
+                }
             }
 
             Rectangle {

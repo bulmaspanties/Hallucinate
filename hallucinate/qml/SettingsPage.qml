@@ -238,6 +238,7 @@ Item {
                 onClicked: { library.addFolder(pathField.text); pathField.text = "" }
             }
             PillButton { text: "Rescan now"; onClicked: library.rescan() }
+            PillButton { objectName: "openHealth"; text: "Library health"; onClicked: Nav.openHealth() }
         }
         ScanBar { width: parent.width }
         Text {
