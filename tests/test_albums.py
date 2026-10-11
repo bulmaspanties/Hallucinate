@@ -66,10 +66,9 @@ def test_timeline_groups_by_decade_and_year():
 
 def test_library_wall_timeline_and_notes(qapp, tmp_path, db, scan, music):
     from conftest import wait_for
+    from PySide6.QtGui import QColor, QImage
 
     from hallucinate.library import Library
-
-    from PySide6.QtGui import QColor, QImage
 
     scan(music)
     arts = {r[0] for r in db.conn.execute("SELECT DISTINCT art FROM tracks WHERE art != ''")}
