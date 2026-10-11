@@ -167,3 +167,14 @@ jobs:
           v="${TAG#v}"
           cp "dist/hallucinate-$v-macos-arm64.zip" dist/Hallucinate-macos-arm64.zip  # fixed name for latest-download links
           gh release upload "$TAG" "dist/hallucinate-$v-macos-arm64.zip" dist/Hallucinate-macos-arm64.zip --clobber
+
+  # Redeploy the website once every download is attached. A release created by this workflow's token doesn't
+  # trigger other workflows, so call the Pages workflow directly.
+  website:
+    needs: [appimage, windows, macos]
+    if: ${{ inputs.version != '' || startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

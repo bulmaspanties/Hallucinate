@@ -22,7 +22,7 @@
   <a href="https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-macos-arm64.zip">⬇ macOS (Apple silicon)</a>
 </h3>
 <p align="center">
-  Flatpak, Arch (AUR) and pip: see <a href="#install">Install</a> · <a href="https://github.com/bulmaspanties/Hallucinate/releases">all releases</a> · <a href="CHANGELOG.md">what's new</a>
+  <a href="https://bulmaspanties.github.io/Hallucinate/"><b>Website</b></a> · Flatpak, Arch (AUR) and pip: see <a href="#install">Install</a> · <a href="https://github.com/bulmaspanties/Hallucinate/releases">all releases</a> · <a href="CHANGELOG.md">what's new</a>
 </p>
 
 <p align="center">
@@ -261,7 +261,6 @@ FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, WavPack, AIFF and APE
 ## Roadmap
 - Signed Windows builds
 - Real-device verification of APE playback and desktop media keys
-- A project website
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).

@@ -33,6 +33,18 @@ QT_QPA_PLATFORM=offscreen pytest -q
    AppImage, Windows and macOS builds. (Pushing a `vX.Y.Z` tag yourself does the same.)
 3. Update the AUR and Flathub packages: see `packaging/aur/README.md` and `packaging/flatpak/README.md`.
 
+## Website
+The site at <https://bulmaspanties.github.io/Hallucinate/> is `site/` (plain HTML, CSS and a little
+JavaScript; no build tools). `scripts/build_site.py` fills in the newest released version, its date and its
+CHANGELOG entry, and copies the README screenshots and logo next to it. The **Website** workflow publishes it
+whenever `site/`, the screenshots, the logo or the changelog change on `main`, and the Release workflow
+redeploys it once a release's downloads are attached. Preview locally:
+```sh
+python scripts/build_site.py && python -m http.server -d _site 8000   # then open http://localhost:8000
+```
+Download buttons use the fixed-name release files (`releases/latest/download/Hallucinate-…`), so they always
+point at the latest release.
+
 ## Themes
 New built-in themes are JSON files in `hallucinate/themes/` (see the README theming guide).
 

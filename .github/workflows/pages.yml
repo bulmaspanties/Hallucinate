@@ -1,0 +1,54 @@
+name: Website
+
+# Builds site/ into a static page (scripts/build_site.py) and publishes it to GitHub Pages:
+# https://bulmaspanties.github.io/Hallucinate/
+# Runs when the site, screenshots, logo or changelog change on main, after every release (called from
+# release.yml, because releases created by a workflow don't trigger other workflows), or by hand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/screenshots/**"
+      - "assets/logo/**"
+      - "CHANGELOG.md"
+      - "scripts/build_site.py"
+      - ".github/workflows/pages.yml"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0  # tags: the site shows the newest released version
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python scripts/build_site.py _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
