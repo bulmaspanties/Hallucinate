@@ -193,6 +193,8 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     assert window.findChild(QObject, "saveQueue") is not None
     assert window.findChild(QObject, "sidebarToggle") is not None
+    for name in ("randomAlbum", "listeningCard", "formatsTile", "librarySummary"):
+        assert window.findChild(QObject, name) is not None, name
     shell.setSidebarCollapsed(True)  # icon rail with the playlists menu
     qapp.processEvents()
     shell.setSidebarCollapsed(False)

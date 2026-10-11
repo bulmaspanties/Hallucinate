@@ -178,6 +178,56 @@ Item {
                     }
                 }
             }
+
+            SectionHeader {
+                visible: userLib.recentPlayed.count > 0
+                title: "Recently played"
+            }
+            ListView {
+                visible: userLib.recentPlayed.count > 0
+                width: parent.width
+                height: 248
+                orientation: ListView.Horizontal
+                spacing: 20
+                clip: true
+                model: userLib.recentPlayed
+                boundsBehavior: Flickable.StopAtBounds
+                delegate: AlbumCard {
+                    albumKey: model.album_key
+                    title: model.album
+                    subtitle: model.album_artist
+                    artUrl: model.artUrl
+                }
+            }
+
+            SectionHeader {
+                visible: userLib.homeMix.count > 0
+                title: "Your mix"
+                subtitle: "Songs you play and like most, a few per artist"
+            }
+            Column {
+                visible: userLib.homeMix.count > 0
+                width: parent.width
+                Repeater {
+                    model: userLib.homeMix
+                    TrackRow {
+                        width: parent.width
+                        path: model.path
+                        audioFormat: model.codec
+                        audioBitrate: model.bitrate
+                        rowIndex: index
+                        number: index + 1
+                        title: model.title
+                        artist: model.artist
+                        album: model.album
+                        durText: model.durText
+                        artUrl: model.artUrl
+                        current: player.hasTrack && player.current.id === model.id
+                        onActivated: userLib.playHomeMix(index)
+                        onEnqueue: player.enqueue(userLib.homeMix.get(index))
+                    }
+                }
+            }
         }
     }
 }
