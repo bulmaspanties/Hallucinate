@@ -44,20 +44,28 @@
 
   <screenshots>
     <screenshot type="default">
-      <caption>Home with recently played albums and a personal mix</caption>
-      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/home.png</image>
+      <caption>Home with recently added and recently played albums</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/home.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Radio mode keeps the queue going with similar songs</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/queue.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Smart playlist rules with a live preview</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/smart-editor.png</image>
     </screenshot>
     <screenshot>
       <caption>Album browser</caption>
-      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/albums.png</image>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/albums.png</image>
     </screenshot>
     <screenshot>
-      <caption>Song list with search</caption>
-      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/songs.png</image>
+      <caption>Song list</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/songs.png</image>
     </screenshot>
     <screenshot>
-      <caption>Settings and themes</caption>
-      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.3.1/docs/screenshots/settings.png</image>
+      <caption>Settings, themes and output device</caption>
+      <image>https://raw.githubusercontent.com/bulmaspanties/Hallucinate/v0.4.0/docs/screenshots/settings.png</image>
     </screenshot>
   </screenshots>
 
