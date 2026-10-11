@@ -1,30 +1,58 @@
 <p align="center">
-  <img src="assets/logo/hallucinate-logo.png" width="420" alt="Hallucinate — melting vinyl portal logo">
+  <img src="assets/logo/hallucinate-logo.png" width="380" alt="Hallucinate — melting vinyl portal logo">
 </p>
 
 <h1 align="center">Hallucinate</h1>
 
-[![CI](https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml/badge.svg)](https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
-![Platform: Linux first](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+<p align="center">
+  <b>A fast desktop music player for the music you own.</b><br>
+  Type to find any artist, album or song, click to play. Gapless, themeable, and private.
+</p>
 
-A fast, modern desktop music player (PySide6 + QML) for Linux (other
-OSes secondary) with a Spotify-style search-and-browse experience. Not
-playlist-driven: type to find, click to play.
+<p align="center">
+  <a href="https://github.com/bulmaspanties/Hallucinate/releases/latest"><img src="https://img.shields.io/github/v/release/bulmaspanties/Hallucinate?label=latest&color=c79cf5" alt="Latest release"></a>
+  <a href="https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml"><img src="https://github.com/bulmaspanties/Hallucinate/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%20%7C%20macOS-6f5aa8" alt="Linux, Windows and macOS">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+<h3 align="center">
+  <a href="https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-windows-x64-setup.exe">⬇ Windows</a> &nbsp;·&nbsp;
+  <a href="https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-x86_64.AppImage">⬇ Linux (AppImage)</a> &nbsp;·&nbsp;
+  <a href="https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-macos-arm64.zip">⬇ macOS (Apple silicon)</a>
+</h3>
+<p align="center">
+  Flatpak, Arch (AUR) and pip: see <a href="#install">Install</a> · <a href="https://github.com/bulmaspanties/Hallucinate/releases">all releases</a> · <a href="CHANGELOG.md">what's new</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="860" alt="Hallucinate home screen with albums, recently played and the now-playing bar">
+</p>
+
+## Highlights
+- **Instant search and browsing.** Your whole library, grouped into artists, albums and songs as you type, even with 50,000 tracks.
+- **Plays everything well.** FLAC, MP3, AAC/ALAC, Ogg, Opus, WAV, WavPack, AIFF and more, with true gapless playback, crossfade, ReplayGain and a 10-band equalizer.
+- **Radio mode.** When the queue runs out, similar songs from your own library keep playing, chosen from your listening history, artists, genres and years.
+- **Smart playlists.** Playlists that update themselves from rules, like "liked songs I haven't played in 60 days" or "jazz before 1970".
+- **Feels at home on your desktop.** Media keys and system media controls on Linux (MPRIS) and Windows, a tray icon, a mini player, and an output device picker.
+- **Yours to style.** Live-switchable themes (Catppuccin, Nord, Gruvbox, Tokyo Night, Dracula and more), custom themes, and an album-art accent.
+- **Extras.** Lyrics with synced highlighting, a tag editor and cover art lookup, listening stats, a spectrum visualizer, and optional Last.fm, ListenBrainz and Discord.
+- **No account, no cloud.** Your library, playlists and stats stay on your computer. Scrobbling and Discord are opt-in, cover art is fetched only when you ask, and online lyrics lookup can be turned off.
 
 ## Screenshots
 ![Themes](docs/screenshots/themes.gif)
 
-| Home | Albums |
+| Queue with radio mode | Smart playlist rules |
 |---|---|
-| ![Home](docs/screenshots/home.png) | ![Albums](docs/screenshots/albums.png) |
-| Songs | Settings |
-| ![Songs](docs/screenshots/songs.png) | ![Settings](docs/screenshots/settings.png) |
+| ![Queue with radio mode](docs/screenshots/queue.png) | ![Smart playlist editor](docs/screenshots/smart-editor.png) |
+| Albums | Songs |
+| ![Albums](docs/screenshots/albums.png) | ![Songs](docs/screenshots/songs.png) |
+| Smart playlist | Settings |
+| ![Smart playlist](docs/screenshots/smart-playlist.png) | ![Settings](docs/screenshots/settings.png) |
 
 _Screenshots are rendered offscreen from a synthetic library: `python scripts/screenshots.py docs/screenshots [--scale 2]`._
 
-## Features
+## All features
 - Scans folders (mutagen tags + embedded/folder cover art) into SQLite with FTS5 instant search; incremental rescans (mtime/size), background scanning, file watching, and removal of moved/deleted paths.
 - Formats: FLAC, MP3, OGG/Vorbis, Opus, WAV, AAC/M4A, ALAC, WMA, APE, WavPack, AIFF and more (anything Qt's FFmpeg backend decodes). WAV/AIFF RIFF/FORM text tags are read; missing tags fall back to the filename and unknown values.
 - Global search grouped into Artists / Albums / Songs; Home, Albums, Artists, Songs browse views; album and artist pages; editable queue; shuffle/repeat; seek; volume. Queue, current position, shuffle, repeat, and volume are restored after restart; missing queue files are discarded.
@@ -58,12 +86,12 @@ cd packaging/aur/hallucinate && makepkg -si       # or packaging/aur/hallucinate
 Maintainer and submission notes: [packaging/aur/README.md](packaging/aur/README.md).
 
 ### Windows
-Download `hallucinate-*-windows-x64-setup.exe` (installer) or `hallucinate-*-windows-x64.zip` (portable; run `Hallucinate\Hallucinate.exe`) from [Releases](https://github.com/bulmaspanties/Hallucinate/releases). Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn. MPRIS is Linux-only; Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\hallucinate`.
+Download the [installer](https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-windows-x64-setup.exe), or the portable `hallucinate-*-windows-x64.zip` (run `Hallucinate\Hallucinate.exe`) from [Releases](https://github.com/bulmaspanties/Hallucinate/releases). Windows 10 or 11; media keys and the system media overlay work out of the box. Built with PyInstaller (`packaging/windows/build.ps1`). Unsigned, so SmartScreen may warn ("More info" → "Run anyway"). Last.fm credentials use Windows Credential Manager; data lives in `%APPDATA%\hallucinate`.
 
 ### AppImage (any x86_64 Linux)
-Download `hallucinate-*-x86_64.AppImage` from the [Releases](https://github.com/bulmaspanties/Hallucinate/releases) page:
+Download the [AppImage](https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-x86_64.AppImage), then:
 ```sh
-chmod +x hallucinate-*.AppImage && ./hallucinate-*.AppImage
+chmod +x Hallucinate-x86_64.AppImage && ./Hallucinate-x86_64.AppImage
 ```
 Bundles Python, PySide6 and the Qt Multimedia FFmpeg backend. Build it yourself with `packaging/appimage/build.sh`.
 
@@ -82,7 +110,7 @@ to grant access to other music directories. Flathub submission steps:
 
 ### macOS
 The release workflow builds a self-contained `.app` zip for the runner's native
-architecture. Download `hallucinate-*-macos-*.zip` from [Releases](https://github.com/bulmaspanties/Hallucinate/releases),
+architecture (Apple silicon). Download the [macOS zip](https://github.com/bulmaspanties/Hallucinate/releases/latest/download/Hallucinate-macos-arm64.zip),
 unzip it, and move `Hallucinate.app` to Applications. The build is unsigned and
 not notarized, so Gatekeeper may require explicit approval. Build locally on a
 Mac with `packaging/macos/build.sh`.

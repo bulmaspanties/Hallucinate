@@ -76,11 +76,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sha256sum hallucinate-*.AppImage > SHA256SUMS
+          # A fixed-name copy keeps releases/latest/download/... links (README, website) valid across versions.
+          cp "hallucinate-${TAG#v}-x86_64.AppImage" Hallucinate-x86_64.AppImage
+          sha256sum "hallucinate-${TAG#v}-x86_64.AppImage" Hallucinate-x86_64.AppImage > SHA256SUMS
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$TAG" hallucinate-*.AppImage SHA256SUMS --clobber
+          gh release upload "$TAG" "hallucinate-${TAG#v}-x86_64.AppImage" Hallucinate-x86_64.AppImage SHA256SUMS --clobber
 
   windows:
     needs: tag
@@ -122,7 +124,10 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$TAG" dist/*.zip dist/*-setup.exe --clobber
+          v="${TAG#v}"
+          cp "dist/hallucinate-$v-windows-x64-setup.exe" dist/Hallucinate-windows-x64-setup.exe  # fixed name for latest-download links
+          gh release upload "$TAG" "dist/hallucinate-$v-windows-x64.zip" "dist/hallucinate-$v-windows-x64-setup.exe" \
+            dist/Hallucinate-windows-x64-setup.exe --clobber
 
   macos:
     needs: tag
@@ -159,4 +164,6 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --generate-notes || gh release view "$TAG" >/dev/null
           fi
-          gh release upload "$TAG" dist/*-macos-*.zip --clobber
+          v="${TAG#v}"
+          cp "dist/hallucinate-$v-macos-arm64.zip" dist/Hallucinate-macos-arm64.zip  # fixed name for latest-download links
+          gh release upload "$TAG" "dist/hallucinate-$v-macos-arm64.zip" dist/Hallucinate-macos-arm64.zip --clobber
