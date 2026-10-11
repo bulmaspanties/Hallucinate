@@ -140,13 +140,9 @@ Item {
             width: parent.width
             spacing: 10
             Text { text: Theme.fmtTime(player.position); color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); Layout.preferredWidth: 38; horizontalAlignment: Text.AlignRight }
-            StyledSlider {
+            WaveformSeek {
                 Layout.fillWidth: true
-                from: 0
-                to: Math.max(1, player.duration)
-                value: player.position
-                enabled: player.hasTrack
-                onMoved: player.seek(value)
+                Layout.preferredHeight: 26
             }
             Text { text: Theme.fmtTime(player.duration); color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11); Layout.preferredWidth: 38 }
         }

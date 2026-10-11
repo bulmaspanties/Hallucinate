@@ -49,6 +49,23 @@ def cover(seed):
     return bytes(ba)
 
 
+def _render_tone(path, seed, seconds):
+    """Audible demo track with a varied loudness shape (so waveforms look real); needs ffmpeg."""
+    import shutil
+    import subprocess
+    if not shutil.which("ffmpeg"):
+        return False
+    rnd = random.Random(seed)
+    f1, f2, slow, beat = rnd.choice([196, 220, 247, 262, 294]), rnd.choice([330, 392, 440]), rnd.uniform(9, 23), rnd.uniform(0.45, 0.9)
+    expr = (f"(0.55*sin(2*PI*{f1}*t)+0.25*sin(2*PI*{f2}*t))"
+            f"*(0.35+0.65*abs(sin(PI*t/{slow:.2f})))*(0.55+0.45*abs(sin(2*PI*t/{beat:.2f})))"
+            f"*min(1,t/3)*min(1,({seconds}-t)/4)")
+    result = subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc='{expr}':s=22050:d={seconds}",
+         "-ac", "1", "-b:a", "48k", str(path)], capture_output=True)
+    return result.returncode == 0
+
+
 def build_library(root: Path):
     frame = b"\xff\xfb\x90\x00" + b"\x00" * 413
     for n, (artist, album, tracks) in enumerate(ALBUMS):
@@ -57,7 +74,8 @@ def build_library(root: Path):
         d.mkdir(parents=True)
         for i, title in enumerate(tracks, 1):
             f = d / f"{i:02d} {title}.mp3"
-            f.write_bytes(frame * (400 + 60 * i))
+            if not _render_tone(f, seed=n * 10 + i, seconds=40 + 9 * i):
+                f.write_bytes(frame * (400 + 60 * i))
             t = ID3()
             t.add(TIT2(encoding=3, text=title))
             t.add(TPE1(encoding=3, text=artist))

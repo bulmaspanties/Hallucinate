@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format based on
 - A new look of its own, inspired by the logo: a slowly drifting, cover-tinted backdrop with fine film grain; frosted glass panels; a floating player; a navigation rail that collapses to icons (playlists move into a menu); and the Unbounded display typeface (SIL OFL, bundled) for headings. Album covers lift and glow on hover, and pages dissolve in. The background motion can be turned off in Settings → Appearance. Everything is drawn with gradients, so it also works without a GPU.
 
 ### Added
+- A waveform seek bar: each track's loudness is drawn as bars in the player (the played part lit, the time under the pointer on hover, click or drag to seek). Tracks are analysed once in the background, the next one ahead of time, and cached on disk.
 - Home is now about your own library instead of a feed: a random album to play (or roll again), a 26-week listening heatmap with your streak and this month's top artists, library facts (hours of music, size on disk, lossless share, formats), a "Rediscover" shelf of albums you haven't played in three months (or ever), "On this day" from past years, and recently added albums. Recently played and your mix move to the Stats page, next to its top tracks.
 - Project website at https://bulmaspanties.github.io/Hallucinate/ (GitHub Pages), styled after the logo. It detects the visitor's OS for the download button, and is rebuilt automatically after every release and whenever the site, screenshots or changelog change.
 

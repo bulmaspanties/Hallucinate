@@ -26,6 +26,7 @@ from .shell import DesktopShell
 from .themes import ThemeManager
 from .thumbs import ArtProvider
 from .userlib import UserLibrary
+from .waveform import WaveformService
 
 HERE = Path(__file__).resolve().parent
 
@@ -96,6 +97,8 @@ def main(argv=None) -> int:
     library = Library(paths.db_path(), paths.art_dir())
     control.setLibrary(library)
     player = Player(session_file=paths.data_dir() / "session.json")
+    waveforms = WaveformService(paths.cache_dir() / "waveforms")
+    player.setWaveformService(waveforms)
     control.setPlayer(player)
     library.setPlayer(player)
     user_lib = UserLibrary(paths.db_path(), player)
@@ -177,6 +180,7 @@ def main(argv=None) -> int:
     if media_controls is not None:
         media_controls.shutdown()
     player.shutdown()
+    waveforms.shutdown()
     lyrics.shutdown()
     meta_editor.shutdown()
     user_lib.shutdown()

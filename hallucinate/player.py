@@ -138,6 +138,7 @@ class Player(QObject):
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
     visualizerChanged = Signal()
     outputDevicesChanged = Signal()
+    waveformChanged = Signal()
     radioChanged = Signal()
     _radio_ready = Signal(object)
     _visual_levels_ready = Signal(object)
@@ -203,6 +204,8 @@ class Player(QObject):
         self._radio = str(self._settings.value("playback/radio", "false")).lower() == "true"
         self._radio_source = None
         self._radio_rules = None
+        self._waveforms = None
+        self._waveform = []
         self._radio_pending = False
         self._radio_ready.connect(self._apply_radio)
         self._output_key = str(self._settings.value("audio/outputDevice", "") or "")
@@ -238,6 +241,7 @@ class Player(QObject):
             self._sync_audio_buffer_outputs()
         self.trackChanged.connect(self._clear_visualizer)
         self.trackChanged.connect(self._maybe_extend_radio)
+        self.trackChanged.connect(self._update_waveform)
         self.queueChanged.connect(self._maybe_extend_radio)
         self.repeatChanged.connect(self._maybe_extend_radio)
         self.shuffleChanged.connect(self._maybe_extend_radio)
@@ -437,6 +441,36 @@ class Player(QObject):
         if name in eq.PRESETS:
             self._eq_gains = [float(g) for g in eq.PRESETS[name]]
             self._save_eq()
+
+    # --- waveform --------------------------------------------------------------
+    @Property("QVariantList", notify=waveformChanged)
+    def waveform(self):
+        """Loudness envelope of the current track (0..1 values), or empty while it is being analysed."""
+        return self._waveform
+
+    def setWaveformService(self, service):
+        self._waveforms = service
+        service.ready.connect(self._on_waveform_ready)
+        self._update_waveform()
+
+    @Slot()
+    def _update_waveform(self):
+        path = self._queue[self._index].get("path", "") if self.hasTrack else ""
+        peaks = self._waveforms.request(path) if self._waveforms is not None and path else None
+        self._set_waveform(peaks or [])
+        nxt = self._index + 1
+        if self._waveforms is not None and 0 <= nxt < len(self._queue):
+            self._waveforms.request(self._queue[nxt].get("path", ""), urgent=False)  # ready when it starts
+
+    @Slot(str)
+    def _on_waveform_ready(self, path):
+        if self.hasTrack and self._queue[self._index].get("path") == path:
+            self._set_waveform(self._waveforms.peaks(path) or [])
+
+    def _set_waveform(self, peaks):
+        if peaks != self._waveform:
+            self._waveform = list(peaks)
+            self.waveformChanged.emit()
 
     # --- radio ----------------------------------------------------------------
     @Property(bool, notify=radioChanged)
