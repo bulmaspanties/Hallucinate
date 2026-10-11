@@ -45,7 +45,7 @@ musicplayer = "hallucinate.app:main"
 packages = ["hallucinate", "hallucinate.core", "musicplayer"]
 
 [tool.setuptools.package-data]
-hallucinate = ["qml/*", "assets/*", "assets/fonts/*", "themes/*.json"]
+hallucinate = ["qml/*", "qml/shaders/*", "assets/*", "assets/fonts/*", "themes/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

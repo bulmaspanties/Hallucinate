@@ -116,3 +116,17 @@ def test_sidebar_and_ambient_motion_preferences_persist(make_shell):
     stored = QSettings("hallucinate", "hallucinate")
     assert stored.value("ui/sidebarCollapsed", type=bool) is True
     assert stored.value("ui/ambientMotion", type=bool) is False
+
+
+def test_visualizer_style_and_vinyl_preferences_persist(make_shell):
+    from PySide6.QtCore import QSettings
+
+    shell, _win, _player = make_shell()
+    assert shell.visualizerStyle == "liquid" and shell.nowPlayingVinyl is False
+    shell.setVisualizerStyle("aurora")
+    shell.setVisualizerStyle("not-a-style")  # ignored
+    shell.setNowPlayingVinyl(True)
+    assert shell.visualizerStyle == "aurora" and shell.nowPlayingVinyl is True
+    stored = QSettings("hallucinate", "hallucinate")
+    assert stored.value("ui/visualizerStyle") == "aurora"
+    assert stored.value("ui/nowPlayingVinyl", type=bool) is True

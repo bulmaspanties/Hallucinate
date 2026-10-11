@@ -102,6 +102,7 @@ ApplicationWindow {
         function onEditTags(path) { tagEditor.editTrack(path) }
         function onEditAlbum(key) { tagEditor.editAlbum(key) }
         function onTrackMenu(path, title, context, index) { trackMenu.show(path, title, context, index) }
+        function onToggleNowPlaying() { nowPlaying.toggle() }
         function onBack() { if (stack.depth > 1) stack.pop() }
     }
 
@@ -287,10 +288,15 @@ ApplicationWindow {
     Shortcut { sequence: "R"; enabled: !window.typing; onActivated: player.cycleRepeat() }
     Shortcut { sequence: "Q"; enabled: !window.typing; onActivated: { window.queueOpen = !window.queueOpen; if (window.queueOpen) window.lyricsOpen = false } }
     Shortcut { sequence: "Ctrl+M"; onActivated: shell.toggleMini() }
+    Shortcut { sequence: "F"; enabled: !window.typing; onActivated: nowPlaying.toggle() }
+    Shortcut { sequence: "Escape"; enabled: nowPlaying.open; onActivated: nowPlaying.open = false }
+    Shortcut { sequence: "F11"; onActivated: nowPlaying.toggleFullScreen() }
     Shortcut { sequence: "L"; enabled: !window.typing; onActivated: { window.lyricsOpen = !window.lyricsOpen; if (window.lyricsOpen) window.queueOpen = false } }
     Shortcut { sequence: "Alt+Left"; onActivated: Nav.back() }
     Shortcut { sequences: ["/", "Ctrl+F", "Ctrl+K"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }
     Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
+
+    NowPlayingView { id: nowPlaying; anchors.fill: parent }
 
     Rectangle {
         anchors.fill: parent

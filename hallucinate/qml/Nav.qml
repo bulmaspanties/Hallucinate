@@ -8,6 +8,7 @@ QtObject {
     signal openLiked()
     signal goHome()
     signal openHistory(string day)
+    signal toggleNowPlaying()
     signal openPlaylist(int id)
     signal openSmartPlaylist(int id, string name)
     signal editSmartPlaylist(int id, string name)

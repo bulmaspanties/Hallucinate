@@ -193,6 +193,28 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     for name in ("historyList", "historyHeatmap", "historySummary", "historySearch"):
         assert window.findChild(QObject, name) is not None, name
+    # Visualizer: with the software renderer the shader styles fall back to bars
+    assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "visualizer"))
+    qapp.processEvents()
+    for style in ("aurora", "bars", "liquid"):
+        shell.setVisualizerStyle(style)
+        qapp.processEvents()
+        page_vis = window.findChild(QObject, "pageVisualizer")
+        assert page_vis.property("style") == style and not page_vis.property("shaderStyle")
+        assert page_vis.findChild(QObject, "visualizerShader") is None  # no shader under the software renderer
+    # Now Playing opens over everything and closes again
+    now_playing = window.findChild(QObject, "nowPlayingView")
+    assert not now_playing.property("open")
+    window.findChild(QObject, "openNowPlaying").clicked.emit()
+    qapp.processEvents()
+    assert now_playing.property("open")
+    shell.setNowPlayingVinyl(True)
+    qapp.processEvents()
+    assert window.findChild(QObject, "vinylRecord").property("x") >= 0
+    shell.setNowPlayingVinyl(False)
+    window.findChild(QObject, "closeNowPlaying").clicked.emit()
+    qapp.processEvents()
+    assert not now_playing.property("open")
     assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "settings"))
     qapp.processEvents()
     window.setProperty("queueOpen", True)
