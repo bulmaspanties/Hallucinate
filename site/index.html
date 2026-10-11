@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hallucinate — a fast desktop music player for the music you own</title>
+  <meta name="description" content="Hallucinate is a free, open-source desktop music player for Linux, Windows and macOS: instant search, gapless playback, radio mode, smart playlists and live themes.">
+  <meta name="theme-color" content="#07060c">
+  <meta name="color-scheme" content="dark">
+  <link rel="canonical" href="{{SITE_URL}}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Hallucinate — a fast desktop music player">
+  <meta property="og:description" content="Instant search, gapless playback, radio mode and smart playlists for the music you own. Free for Linux, Windows and macOS.">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:image" content="{{SITE_URL}}img/social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css?v={{VERSION}}">
+  <script defer src="main.js?v={{VERSION}}"></script>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="nav">
+    <a class="brand" href="#top" aria-label="Hallucinate home">
+      <img src="img/icon-64.png" width="32" height="32" alt="">
+      <span>Hallucinate</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/bulmaspanties/Hallucinate" class="nav-gh">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>Version {{VERSION}} · {{RELEASE_DATE}}</p>
+        <h1>A fast desktop music player <span class="grad">for the music you own.</span></h1>
+        <p class="lede">Type to find any artist, album or song, click to play. Gapless, beautifully themeable, and entirely yours: no account, no cloud, no ads.</p>
+        <div class="cta">
+          <a class="btn primary" id="primary-download" href="#download">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+            <span>Download for free</span>
+          </a>
+          <a class="btn ghost" href="#download" id="other-platforms">All platforms</a>
+        </div>
+        <p class="fine">Linux · Windows · macOS &nbsp;·&nbsp; free and open source (MIT)</p>
+      </div>
+      <div class="hero-art">
+        <picture>
+          <source srcset="img/logo.webp" type="image/webp">
+          <img src="img/logo.jpg" width="720" height="720" alt="Hallucinate logo: a vinyl record melting into a dreamy purple sky">
+        </picture>
+      </div>
+    </section>
+
+    <section class="showcase" aria-label="The Hallucinate app">
+      <div class="window">
+        <div class="window-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img src="screenshots/home.png" width="1280" height="800" alt="Hallucinate's home screen: recently added and recently played albums, playlists in the sidebar and the now-playing bar">
+      </div>
+      <div class="wave" aria-hidden="true">{{WAVE}}</div>
+    </section>
+
+    <section id="features" class="section">
+      <h2>Everything your library deserves</h2>
+      <p class="section-lede">Built for people with a folder full of music they love, from a few albums to fifty thousand tracks.</p>
+      <div class="features">
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>
+          <h3>Instant search</h3>
+          <p>Artists, albums and songs appear as you type, grouped and ready to play, even across huge libraries.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h3l2-6 4 12 2-6h5"/></svg>
+          <h3>Gapless and great-sounding</h3>
+          <p>True gapless playback, crossfade, ReplayGain and a 10-band equalizer. FLAC, MP3, AAC, ALAC, Ogg, Opus and more.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>
+          <h3>Radio mode</h3>
+          <p>When the queue runs out, similar songs from your own library keep playing, picked from your listening history, artists, genres and eras.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l2.2 5.3L20 9l-4.5 3.8L17 18.5 12 15.6 7 18.5l1.5-5.7L4 9l5.8-.7z"/></svg>
+          <h3>Smart playlists</h3>
+          <p>Playlists that build themselves from rules: "liked songs I haven't heard in two months", "jazz before 1970", and anything in between.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <h3>At home on your desktop</h3>
+          <p>Media keys and system media controls on Linux and Windows, a tray icon, a mini player and an output device picker.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-1.2-1-1.4-1-2.4 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.1-4-7.5-9-7.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>
+          <h3>Yours to style</h3>
+          <p>Live-switchable themes like Catppuccin, Nord, Gruvbox, Tokyo Night and Dracula, your own custom themes, and an album-art accent.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 10h10M4 14h16M4 18h7"/></svg>
+          <h3>Lyrics, tags and stats</h3>
+          <p>Synced lyrics, a tag editor with cover art lookup, listening stats, a spectrum visualizer, and optional Last.fm, ListenBrainz and Discord.</p>
+        </article>
+        <article>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <h3>Private by design</h3>
+          <p>Your library, playlists and listening history stay on your computer. Scrobbling and Discord are strictly opt-in.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="screenshots" class="section">
+      <h2>Take a look</h2>
+      <p class="section-lede">Every screenshot here is rendered straight from the app.</p>
+      <figure class="themes">
+        <img src="screenshots/themes.gif" width="800" height="500" loading="lazy" alt="The home screen cycling through the Hallucinate, Dark, Light, Catppuccin Mocha and Nord themes">
+        <figcaption>Switch themes live, no restart needed.</figcaption>
+      </figure>
+      <div class="gallery">
+        <figure><img src="screenshots/queue.png" width="1280" height="800" loading="lazy" alt="The queue panel filled with similar songs by radio mode"><figcaption>Radio mode keeps the queue going</figcaption></figure>
+        <figure><img src="screenshots/smart-editor.png" width="1280" height="800" loading="lazy" alt="The smart playlist rule editor with a live preview of matching songs"><figcaption>Smart playlist rules with a live preview</figcaption></figure>
+        <figure><img src="screenshots/albums.png" width="1280" height="800" loading="lazy" alt="The album browser grid"><figcaption>Browse albums</figcaption></figure>
+        <figure><img src="screenshots/songs.png" width="1280" height="800" loading="lazy" alt="The song list with search and filters"><figcaption>Every song, with filters</figcaption></figure>
+        <figure><img src="screenshots/smart-playlist.png" width="1280" height="800" loading="lazy" alt="A smart playlist page listing matching songs"><figcaption>Smart playlists update themselves</figcaption></figure>
+        <figure><img src="screenshots/settings.png" width="1280" height="800" loading="lazy" alt="Settings with themes, playback and output device options"><figcaption>Themes, playback and output device</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="download" class="section">
+      <h2>Download Hallucinate {{VERSION}}</h2>
+      <p class="section-lede">Free forever. Pick your platform.</p>
+      <div class="downloads">
+        <article class="dl" data-os="windows">
+          <h3>Windows</h3>
+          <p>Windows 10 or 11, 64-bit. Media keys and the system media overlay work out of the box.</p>
+          <a class="btn primary" href="{{RELEASES}}/latest/download/Hallucinate-windows-x64-setup.exe">Download installer</a>
+          <p class="note">Not code-signed yet, so SmartScreen may warn: choose <em>More info → Run anyway</em>. A <a href="{{RELEASES}}/latest">portable zip</a> is also available.</p>
+        </article>
+        <article class="dl" data-os="linux">
+          <h3>Linux</h3>
+          <p>An AppImage that runs on any modern x86-64 distribution, with everything bundled.</p>
+          <a class="btn primary" href="{{RELEASES}}/latest/download/Hallucinate-x86_64.AppImage">Download AppImage</a>
+          <p class="note">Make it executable, then run it: <code>chmod +x Hallucinate-x86_64.AppImage</code>. Flatpak and Arch (AUR) packages can be <a href="{{REPO}}#install">built from source</a>.</p>
+        </article>
+        <article class="dl" data-os="mac">
+          <h3>macOS</h3>
+          <p>A native app for Apple silicon Macs (M1 and newer).</p>
+          <a class="btn primary" href="{{RELEASES}}/latest/download/Hallucinate-macos-arm64.zip">Download for Mac</a>
+          <p class="note">Unzip and move Hallucinate to Applications. It isn't notarized yet, so if macOS blocks it the first time, allow it under <em>System Settings → Privacy &amp; Security → Open Anyway</em>.</p>
+        </article>
+      </div>
+      <p class="more">Other options: <a href="{{REPO}}#pip-any-os">install with pip</a> · <a href="{{RELEASES}}">all releases and checksums</a> · <a href="{{REPO}}">source code</a></p>
+    </section>
+
+    <section id="changes" class="section">
+      <h2>What's new in {{VERSION}}</h2>
+      <div class="changes">
+        {{CHANGES}}
+      </div>
+      <p class="more"><a href="{{REPO}}/blob/main/CHANGELOG.md">Full changelog</a></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <img src="img/icon-64.png" width="28" height="28" alt="">
+    <p>Hallucinate is free and open-source software under the MIT license.</p>
+    <p><a href="{{REPO}}">GitHub</a> · <a href="{{REPO}}/issues">Report a bug</a> · <a href="{{REPO}}/discussions">Discussions</a> · <a href="{{REPO}}/blob/main/CONTRIBUTING.md">Contribute</a></p>
+  </footer>
+</body>
+</html>

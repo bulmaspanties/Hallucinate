@@ -27,6 +27,12 @@ dependencies = [
     "winrt-Windows.Storage.Streams>=3.2.1; sys_platform == 'win32'",
 ]
 
+[project.urls]
+Homepage = "https://bulmaspanties.github.io/Hallucinate/"
+Source = "https://github.com/bulmaspanties/Hallucinate"
+Issues = "https://github.com/bulmaspanties/Hallucinate/issues"
+Changelog = "https://github.com/bulmaspanties/Hallucinate/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 test = ["pytest>=9.1.1"]
 icons = ["Pillow>=9"]

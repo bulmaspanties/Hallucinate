@@ -3,6 +3,11 @@
 All notable changes to this project are documented here. Format based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Project website at https://bulmaspanties.github.io/Hallucinate/ (GitHub Pages), styled after the logo. It detects the visitor's OS for the download button, and is rebuilt automatically after every release and whenever the site, screenshots or changelog change.
+
 ## [0.4.0] - 2026-10-10
 
 ### Added
