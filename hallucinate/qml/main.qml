@@ -33,6 +33,7 @@ ApplicationWindow {
         case "artists": return artistsPage
         case "songs": return songsPage
         case "stats": return statsPage
+        case "history": return historyPage
         case "visualizer": return visualizerPage
         case "settings": return settingsPage
         case "liked": return likedPage
@@ -70,6 +71,7 @@ ApplicationWindow {
     Component { id: artistsPage; ArtistsPage {} }
     Component { id: songsPage; SongsPage {} }
     Component { id: statsPage; StatsPage {} }
+    Component { id: historyPage; HistoryPage {} }
     Component { id: visualizerPage; VisualizerPage {} }
     Component { id: settingsPage; SettingsPage {} }
     Component { id: likedPage; PlaylistPage { liked: true } }
@@ -86,6 +88,10 @@ ApplicationWindow {
         function onOpenSettings() { window.go("settings") }
         function onOpenLiked() { window.go("liked") }
         function onGoHome() { window.go("home") }
+        function onOpenHistory(day) {
+            window.go("history")
+            if (day.length && stack.currentItem) stack.currentItem.period = "day:" + day
+        }
         function onOpenPlaylist(id) {
             var name = ""
             for (var i = 0; i < userLib.playlists.count; i++) if (userLib.playlists.get(i).id === id) name = userLib.playlists.get(i).name

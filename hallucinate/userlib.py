@@ -9,7 +9,7 @@ import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
-from .core import insights
+from .core import history, insights
 from .core import rules as smart_rules
 from .library import _Reader, decorate
 from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
@@ -21,6 +21,10 @@ REASON_ALBUM_KEYS = [*ALBUM_KEYS, "reason"]
 STAT_ARTIST_KEYS = [*ARTIST_KEYS, "plays"]
 STAT_ALBUM_KEYS = [*ALBUM_KEYS, "plays"]
 STAT_TRACK_KEYS = [*TRACK_KEYS, "plays"]
+HISTORY_KEYS = ["id", "ts", "day", "dayLabel", "time", "title", "artist", "album", "album_key", "path", "artUrl", "duration",
+                "durText", "source", "available"]
+HISTORY_PAGE = 200
+HISTORY_WEEKS = 53
 
 
 class UserLibrary(QObject):
@@ -30,6 +34,9 @@ class UserLibrary(QObject):
     playlistOpened = Signal(int)
     smartPlaylistOpened = Signal(int)
     homeChanged = Signal()
+    historyChanged = Signal()
+    _history_loaded = Signal(object)
+    _history_requery = Signal()
     _smart_loaded = Signal(object)
     _refreshed = Signal(object)
     _playlist_loaded = Signal(object)
@@ -60,7 +67,13 @@ class UserLibrary(QObject):
             "topArtists": DictModel(STAT_ARTIST_KEYS, self),
             "topAlbums": DictModel(STAT_ALBUM_KEYS, self),
             "topTracks": DictModel(STAT_TRACK_KEYS, self),
+            "history": DictModel(HISTORY_KEYS, self),
         }
+        self._history_filter = None
+        self._history_generation = 0
+        self._history_info = {"summary": {}, "days": {}, "heatmap": {}, "hasMore": False, "loading": False}
+        self._history_loaded.connect(self._apply_history)
+        self._history_requery.connect(self._reload_history)
         self._refreshed.connect(self._apply_refresh)
         self._playlist_loaded.connect(self._apply_playlist)
         self._smart_loaded.connect(self._apply_smart)
@@ -89,6 +102,7 @@ class UserLibrary(QObject):
     topArtists = _model_prop("topArtists")
     topAlbums = _model_prop("topAlbums")
     topTracks = _model_prop("topTracks")
+    historyModel = _model_prop("history")
 
     @Property(str, notify=statsChanged)
     def statsPeriod(self):
@@ -497,6 +511,7 @@ class UserLibrary(QObject):
             return
         self._write(lambda db, p: db.record_play(p), path)
         self.refreshStats()
+        self._reload_history()
 
     def importPlays(self, items, source, done):
         """Merge external listens on the worker thread; call `done(result, error)` when finished."""
@@ -509,8 +524,90 @@ class UserLibrary(QObject):
                 return
             done(res, "")
             self.refresh()
+            self._history_requery.emit()
 
         self._reader.submit(work)
+
+    # --- listening history -------------------------------------------------------
+    @Property("QVariantMap", notify=historyChanged)
+    def historyInfo(self):
+        """For the history page: the filter in use, totals for it (`summary`), plays and seconds per day (`days`),
+        a heatmap of the last year, whether more rows can be loaded, and whether a query is running."""
+        info = dict(self._history_info)
+        info.update(self._history_filter or {})
+        return info
+
+    @Slot(str, str, str, str)
+    def loadHistory(self, query, period, artist, source):
+        """Show listens matching the filters: free text over title/artist/album, a period (see
+        core.history.period_range), an exact artist and a source ("local", "imported" or "" for both)."""
+        self._history_filter = {"query": query, "period": period or "all", "artist": artist, "source": source}
+        self._query_history(0)
+
+    @Slot()
+    def loadMoreHistory(self):
+        if self._history_filter is not None and self._history_info["hasMore"] and not self._history_info["loading"]:
+            self._query_history(self._models["history"].count)
+
+    @Slot()
+    def _reload_history(self):
+        if self._history_filter is not None:
+            self._query_history(0)
+
+    def _query_history(self, offset):
+        self._history_generation += 1
+        generation, f = self._history_generation, dict(self._history_filter)
+        self._history_info["loading"] = True
+        self.historyChanged.emit()
+
+        def work(db):
+            try:
+                start, end = history.period_range(f["period"])
+                args = (f["query"], start, end, f["artist"], f["source"])
+                rows = history.plays(db, *args, limit=HISTORY_PAGE + 1, offset=offset)
+                payload = {"rows": decorate(rows[:HISTORY_PAGE]), "hasMore": len(rows) > HISTORY_PAGE}
+                if offset == 0:
+                    payload["summary"] = history.summary(db, *args)
+                    payload["days"] = history.daily_totals(db, *args)
+                    payload["heatmap"] = insights.listening_heatmap(db, weeks=HISTORY_WEEKS)
+            except Exception:  # noqa: BLE001
+                logger.exception("History query failed")
+                payload = {"rows": [], "hasMore": False}
+            self._history_loaded.emit((generation, offset, payload))
+
+        self._reader.submit(work)
+
+    @Slot(object)
+    def _apply_history(self, result):
+        generation, offset, payload = result
+        if generation != self._history_generation:
+            return
+        for row in payload["rows"]:
+            row["dayLabel"] = history.day_label(row["day"])
+        if offset == 0:
+            self._models["history"].set_items(payload["rows"])
+            for key in ("summary", "days", "heatmap"):
+                if key in payload:
+                    self._history_info[key] = payload[key]
+        else:
+            self._models["history"].append_items(payload["rows"])
+        self._history_info["hasMore"] = payload["hasMore"]
+        self._history_info["loading"] = False
+        self.historyChanged.emit()
+
+    @Slot(int)
+    def removeHistoryEntry(self, play_id):
+        """Forget one listen (its song's play count drops by one)."""
+        self._write(lambda db, i: history.delete_play(db, i), play_id)
+        self.refreshStats()
+        self._reload_history()
+
+    @Slot(int)
+    def playHistoryEntry(self, index):
+        row = self._models["history"].get(index)
+        t = self._track(row.get("path")) if row.get("path") else None
+        if t:
+            self._play([t], 0)
 
     def shutdown(self):
         self._reader.close()

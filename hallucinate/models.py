@@ -97,6 +97,16 @@ class DictModel(QAbstractListModel):
             self.dataChanged.emit(self.index(0), self.index(len(items) - 1))
         self.countChanged.emit()
 
+    def append_items(self, items):
+        items = list(items)
+        if not items:
+            return
+        self.beginInsertRows(QModelIndex(), len(self._items), len(self._items) + len(items) - 1)
+        self._items.extend(items)
+        self.revision += 1
+        self.endInsertRows()
+        self.countChanged.emit()
+
     def items(self):
         return self._items
 

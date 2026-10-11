@@ -23,7 +23,7 @@ Item {
         { id: "home", t: "Home", i: "home" }, { id: "albums", t: "Albums", i: "album" },
         { id: "artists", t: "Artists", i: "artist" }, { id: "songs", t: "Songs", i: "songs" },
         { id: "liked", t: "Liked Songs", i: "heart" }, { id: "stats", t: "Stats", i: "stats" },
-        { id: "visualizer", t: "Visualizer", i: "wave" }
+        { id: "history", t: "History", i: "history" }, { id: "visualizer", t: "Visualizer", i: "wave" }
     ]
 
     Rectangle {
