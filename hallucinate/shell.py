@@ -5,6 +5,8 @@ from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
+VISUALIZER_STYLES = ("liquid", "aurora", "nebula", "bars")
+
 
 class DesktopShell(QObject):
     miniChanged = Signal()
@@ -22,6 +24,10 @@ class DesktopShell(QObject):
         self._desktop_notifications = self._settings.value("shell/desktopNotifications", False, bool)
         self._sidebar_collapsed = self._settings.value("ui/sidebarCollapsed", False, bool)
         self._ambient_motion = self._settings.value("ui/ambientMotion", True, bool)
+        self._visualizer_style = str(self._settings.value("ui/visualizerStyle", "liquid"))
+        self._now_playing_vinyl = self._settings.value("ui/nowPlayingVinyl", False, bool)
+        if self._visualizer_style not in VISUALIZER_STYLES:
+            self._visualizer_style = "liquid"
         self._tray = None
         self._menu = None
         self._icon = icon
@@ -116,6 +122,29 @@ class DesktopShell(QObject):
     def setAmbientMotion(self, on):
         self._ambient_motion = bool(on)
         self._settings.setValue("ui/ambientMotion", self._ambient_motion)
+        self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def visualizerStyle(self):
+        """The visualizer look: one of VISUALIZER_STYLES."""
+        return self._visualizer_style
+
+    @Slot(str)
+    def setVisualizerStyle(self, style):
+        if style in VISUALIZER_STYLES and style != self._visualizer_style:
+            self._visualizer_style = style
+            self._settings.setValue("ui/visualizerStyle", style)
+            self.settingsChanged.emit()
+
+    @Property(bool, notify=settingsChanged)
+    def nowPlayingVinyl(self):
+        """Whether Now Playing shows the record spinning out of its sleeve."""
+        return self._now_playing_vinyl
+
+    @Slot(bool)
+    def setNowPlayingVinyl(self, on):
+        self._now_playing_vinyl = bool(on)
+        self._settings.setValue("ui/nowPlayingVinyl", self._now_playing_vinyl)
         self.settingsChanged.emit()
 
     @Property(bool, notify=miniChanged)

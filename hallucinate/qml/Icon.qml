@@ -115,6 +115,15 @@ Canvas {
             var pips = [[.34,.34],[.66,.66],[.5,.5],[.66,.34],[.34,.66]]
             for (var q = 0; q < pips.length; q++) { ctx.beginPath(); ctx.arc(w*pips[q][0], h*pips[q][1], w*.06, 0, Math.PI*2); ctx.fill() }
             break
+        case "fullscreen":  // four corners
+            line([.14,.36,.14,.14]); line([.14,.14,.36,.14]); line([.64,.14,.86,.14]); line([.86,.14,.86,.36])
+            line([.86,.64,.86,.86]); line([.86,.86,.64,.86]); line([.36,.86,.14,.86]); line([.14,.86,.14,.64]); break
+        case "down":
+            line([.22,.38,.5,.66]); line([.5,.66,.78,.38]); break
+        case "vinyl":
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.4, 0, Math.PI*2); ctx.stroke()
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.24, -0.6, 1.2); ctx.stroke()
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.08, 0, Math.PI*2); ctx.fill(); break
         case "history":  // a clock
             ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.38, 0, Math.PI*2); ctx.stroke()
             line([.5,.26,.5,.5]); line([.5,.5,.67,.62]); break

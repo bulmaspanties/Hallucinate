@@ -158,6 +158,7 @@ Item {
             onClicked: playbackMenu.popup()
             PlaybackMenu { id: playbackMenu }
         }
+        IconButton { objectName: "openNowPlaying"; icon: "fullscreen"; tip: "Now playing (F)"; onClicked: Nav.toggleNowPlaying() }
         IconButton { icon: "expand"; tip: "Mini player (Ctrl+M)"; visible: true; onClicked: shell.toggleMini() }
         IconButton { icon: "note"; active: bar.lyricsOpen; tip: "Lyrics"; onClicked: bar.toggleLyrics() }
         IconButton { icon: "queue"; active: bar.queueOpen; onClicked: bar.toggleQueue() }
