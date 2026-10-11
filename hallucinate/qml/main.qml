@@ -34,6 +34,7 @@ ApplicationWindow {
         case "songs": return songsPage
         case "stats": return statsPage
         case "history": return historyPage
+        case "health": return healthPage
         case "visualizer": return visualizerPage
         case "settings": return settingsPage
         case "liked": return likedPage
@@ -72,6 +73,7 @@ ApplicationWindow {
     Component { id: songsPage; SongsPage {} }
     Component { id: statsPage; StatsPage {} }
     Component { id: historyPage; HistoryPage {} }
+    Component { id: healthPage; HealthPage {} }
     Component { id: visualizerPage; VisualizerPage {} }
     Component { id: settingsPage; SettingsPage {} }
     Component { id: likedPage; PlaylistPage { liked: true } }
@@ -103,6 +105,9 @@ ApplicationWindow {
         function onEditAlbum(key) { tagEditor.editAlbum(key) }
         function onTrackMenu(path, title, context, index) { trackMenu.show(path, title, context, index) }
         function onToggleNowPlaying() { nowPlaying.toggle() }
+        function onOpenHealth() { window.go("health") }
+        function onOpenPalette() { commandPalette.show() }
+        function onNewSmartPlaylist() { smartEditor.openNew() }
         function onBack() { if (stack.depth > 1) stack.pop() }
     }
 
@@ -121,6 +126,7 @@ ApplicationWindow {
     }
 
     TrackMenu { id: trackMenu }
+    CommandPalette { id: commandPalette; win: window }
     SmartPlaylistEditor {
         id: smartEditor
         onSaved: function (id, name) { window.openSmartPlaylist(id, name) }
@@ -201,7 +207,7 @@ ApplicationWindow {
                         anchors { left: backBtn.visible ? backBtn.right : parent.left; leftMargin: backBtn.visible ? 8 : 24; verticalCenter: parent.verticalCenter }
                         width: Math.min(520, parent.width - 120)
                         height: 42
-                        placeholderText: "Search artists, albums, songs   ( / )"
+                        placeholderText: "Search   ( / )        Ctrl+K  commands & pages"
                         placeholderTextColor: Theme.textDim
                         color: Theme.text
                         font.family: Theme.fontFamily
@@ -293,7 +299,8 @@ ApplicationWindow {
     Shortcut { sequence: "F11"; onActivated: nowPlaying.toggleFullScreen() }
     Shortcut { sequence: "L"; enabled: !window.typing; onActivated: { window.lyricsOpen = !window.lyricsOpen; if (window.lyricsOpen) window.queueOpen = false } }
     Shortcut { sequence: "Alt+Left"; onActivated: Nav.back() }
-    Shortcut { sequences: ["/", "Ctrl+F", "Ctrl+K"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }
+    Shortcut { sequences: ["Ctrl+K", "Ctrl+P"]; onActivated: commandPalette.opened ? commandPalette.close() : commandPalette.show() }
+    Shortcut { sequences: ["/", "Ctrl+F"]; enabled: !window.typing; onActivated: { searchField.forceActiveFocus(); searchField.selectAll() } }
     Shortcut { sequence: "Ctrl+Q"; onActivated: Qt.quit() }
 
     NowPlayingView { id: nowPlaying; anchors.fill: parent }

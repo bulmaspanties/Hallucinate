@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot
 
 from .core import albums as album_views
+from .core import health as health_checks
 from .core.db import Database, fold
 from .core.radio import radio_tracks
 from .core.scanner import Scanner
@@ -130,6 +131,8 @@ class Library(QObject):
     _duplicates_loaded = Signal(object)
     _dropped = Signal(object)
     _wall_loaded = Signal(object)
+    _health_loaded = Signal(object)
+    healthChanged = Signal()
     timelineChanged = Signal()
     wallChanged = Signal()
     foldersChanged = Signal()
@@ -161,6 +164,9 @@ class Library(QObject):
         self._wall_wanted = False
         self._wall_loading = False
         self._wall_gen = 0
+        self._health = {}
+        self._health_wanted = False
+        self._health_loading = False
         self._detail = {}
         self._counts = {"tracks": 0, "albums": 0, "artists": 0}
         self._scanning = False
@@ -188,6 +194,7 @@ class Library(QObject):
         self._duplicates_loaded.connect(self._apply_duplicates)
         self._dropped.connect(self._apply_dropped)
         self._wall_loaded.connect(self._apply_wall)
+        self._health_loaded.connect(self._apply_health)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_dir_changed)
         self._debounce = QTimer(self)
@@ -355,6 +362,8 @@ class Library(QObject):
         self.timelineChanged.emit()
         if self._wall_wanted:
             self.loadAlbumWall()
+        if self._health_wanted:
+            self.checkHealth()
         self._counts = data["counts"]
         self._filter_values = data["filterValues"]
         self._artist_index = {fold(a["name"]): a for a in data["artists"]}
@@ -750,6 +759,37 @@ class Library(QObject):
         self._models["wall"].set_items(albums)
         self._wall_loading = False
         self.wallChanged.emit()
+
+    # --- library health ----------------------------------------------------------------
+    @Property("QVariantMap", notify=healthChanged)
+    def health(self):
+        """The latest health report (see core.health.report), plus "loading"."""
+        return {**self._health, "loading": self._health_loading}
+
+    @Slot()
+    def checkHealth(self):
+        self._health_wanted = True
+        self._health_loading = True
+        self.healthChanged.emit()
+
+        def work(db):
+            try:
+                report = health_checks.report(db)
+                for check in report["checks"]:
+                    if check["kind"] != "folder":
+                        decorate(check["items"])
+            except Exception:  # noqa: BLE001
+                logger.exception("Library health check failed")
+                report = {}
+            self._health_loaded.emit(report)
+
+        self._bulk.submit(work)
+
+    @Slot(object)
+    def _apply_health(self, report):
+        self._health = report
+        self._health_loading = False
+        self.healthChanged.emit()
 
     def shutdown(self):
         self._bulk.close()

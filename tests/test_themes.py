@@ -193,6 +193,21 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
     qapp.processEvents()
     for name in ("historyList", "historyHeatmap", "historySummary", "historySearch"):
         assert window.findChild(QObject, name) is not None, name
+    # Library health and the command palette
+    assert QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", "health"))
+    qapp.processEvents()
+    assert window.findChild(QObject, "healthScore") is not None
+    palette = window.findChild(QObject, "commandPalette")
+    assert QMetaObject.invokeMethod(palette, "show")
+    qapp.processEvents()
+    field = window.findChild(QObject, "paletteField")
+    field.setProperty("text", "hist")
+    assert QMetaObject.invokeMethod(palette, "rebuild")
+    results = palette.property("results").toVariant()
+    assert results and results[0]["t"] == "History"
+    assert QMetaObject.invokeMethod(palette, "runCurrent")
+    qapp.processEvents()
+    assert window.property("section") == "history"
     # Albums three ways, and an album's sleeve page
     for view in ("colour", "timeline", "grid"):
         shell.setUiValue("albumsView", view)

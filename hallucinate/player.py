@@ -18,7 +18,7 @@ from PySide6.QtMultimedia import (
 )
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
-from . import eq
+from . import eq, signalpath
 from .core.tags import is_readable_audio
 from .models import TRACK_KEYS, DictModel
 
@@ -138,6 +138,7 @@ class Player(QObject):
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
     visualizerChanged = Signal()
     outputDevicesChanged = Signal()
+    signalPathChanged = Signal()
     waveformChanged = Signal()
     radioChanged = Signal()
     _radio_ready = Signal(object)
@@ -164,6 +165,9 @@ class Player(QObject):
         self._visualizer_pending = False
         self._visualizer_pool = None
         self._visual_levels_ready.connect(self._apply_visualizer_levels)
+        for changed in (self.trackChanged, self.volumeChanged, self.audioSettingsChanged, self.speedChanged,
+                        self.eqChanged, self.outputDevicesChanged):
+            changed.connect(self.signalPathChanged)
 
         self._settings = QSettings("hallucinate", "hallucinate")
         self._show_track_info = str(self._settings.value("display/showTrackInfo", "false")).lower() == "true"
@@ -557,6 +561,24 @@ class Player(QObject):
         self._settings.setValue("audio/outputDeviceName", self._output_name if key else "")
         self._apply_output_device()
         self.outputDevicesChanged.emit()
+
+    @Property("QVariantMap", notify=signalPathChanged)
+    def signalPath(self):
+        """The current track's way from file to speakers (see signalpath.describe)."""
+        track = self._queue[self._index] if self.hasTrack else None
+        device = self._output_audio_device()
+        return signalpath.describe(
+            track,
+            rg_factor=replaygain_factor(track, self._rg_mode, self._rg_preamp),
+            rg_mode=self._rg_mode,
+            volume=self._volume,
+            speed=self._speed,
+            eq_enabled=self._eq_enabled,
+            eq_preset=self._eq_preset,
+            crossfade=self._crossfade,
+            device_name="" if device.isNull() else device.description(),
+            device_rate=0 if device.isNull() else device.preferredFormat().sampleRate(),
+        )
 
     def _output_audio_device(self):
         """The chosen device while it is connected, otherwise the current system default."""
