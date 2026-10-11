@@ -147,6 +147,15 @@ class DesktopShell(QObject):
         self._settings.setValue("ui/nowPlayingVinyl", self._now_playing_vinyl)
         self.settingsChanged.emit()
 
+    @Slot(str, str, result=str)
+    def uiValue(self, key, default):
+        """A small remembered view choice (e.g. the Albums page layout), stored under ui/<key>."""
+        return str(self._settings.value("ui/" + key, default))
+
+    @Slot(str, str)
+    def setUiValue(self, key, value):
+        self._settings.setValue("ui/" + key, value)
+
     @Property(bool, notify=miniChanged)
     def miniOpen(self):
         return self._mini

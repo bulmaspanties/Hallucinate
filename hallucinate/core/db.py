@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS play_log(
   source TEXT NOT NULL DEFAULT 'local',
   UNIQUE(ts, artist, title));
 CREATE INDEX IF NOT EXISTS idx_play_log_ts ON play_log(ts);
+CREATE TABLE IF NOT EXISTS album_colors(album_key TEXT PRIMARY KEY, art TEXT NOT NULL, color TEXT NOT NULL,
+  hue REAL NOT NULL, sat REAL NOT NULL, val REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS lyrics(path TEXT PRIMARY KEY, synced TEXT NOT NULL DEFAULT '',
   plain TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', fetched REAL NOT NULL);
 """

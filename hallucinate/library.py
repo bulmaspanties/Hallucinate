@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtCore import Property, QFileSystemWatcher, QObject, QTimer, QUrl, Signal, Slot
 
+from .core import albums as album_views
 from .core.db import Database, fold
 from .core.radio import radio_tracks
 from .core.scanner import Scanner
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 MAX_WATCHED_DIRS = 2000
 DUPLICATE_KEYS = [*TRACK_KEYS, "duplicateCount"]
+WALL_KEYS = [*ALBUM_KEYS, "color"]
 MAX_DROPPED_TRACKS = 5000
 
 
@@ -127,6 +129,9 @@ class Library(QObject):
     _filtered = Signal(object)
     _duplicates_loaded = Signal(object)
     _dropped = Signal(object)
+    _wall_loaded = Signal(object)
+    timelineChanged = Signal()
+    wallChanged = Signal()
     foldersChanged = Signal()
     filtersChanged = Signal()
     duplicatesChanged = Signal()
@@ -150,7 +155,12 @@ class Library(QObject):
             "sArtists": DictModel(ARTIST_KEYS, self),
             "filteredTracks": DictModel(TRACK_KEYS, self, "id"),
             "duplicates": DictModel(DUPLICATE_KEYS, self, "id"),
+            "wall": DictModel(WALL_KEYS, self, "album_key"),
         }
+        self._timeline = []
+        self._wall_wanted = False
+        self._wall_loading = False
+        self._wall_gen = 0
         self._detail = {}
         self._counts = {"tracks": 0, "albums": 0, "artists": 0}
         self._scanning = False
@@ -177,6 +187,7 @@ class Library(QObject):
         self._filtered.connect(self._apply_filtered)
         self._duplicates_loaded.connect(self._apply_duplicates)
         self._dropped.connect(self._apply_dropped)
+        self._wall_loaded.connect(self._apply_wall)
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_dir_changed)
         self._debounce = QTimer(self)
@@ -192,6 +203,7 @@ class Library(QObject):
         return Property(QObject, lambda self: self._models[name], constant=True)
 
     albums = _model_prop("albums")
+    albumWall = _model_prop("wall")
     recentAlbums = _model_prop("recent")
     artists = _model_prop("artists")
     songs = _model_prop("songs")
@@ -303,6 +315,7 @@ class Library(QObject):
             "counts": db.counts(),
             "filterValues": db.filter_values(),
         }
+        data["timeline"] = Library._timeline_rows(data["albums"])
         data["ops"] = {}
         for name, snap in snapshots.items():
             if snap is None:
@@ -338,6 +351,10 @@ class Library(QObject):
             revision, ops = data["ops"].get(name, (None, None))
             m[name].update_items(data[name], ops, revision)
         m["recent"].set_items(data["recent"])
+        self._timeline = data["timeline"]
+        self.timelineChanged.emit()
+        if self._wall_wanted:
+            self.loadAlbumWall()
         self._counts = data["counts"]
         self._filter_values = data["filterValues"]
         self._artist_index = {fold(a["name"]): a for a in data["artists"]}
@@ -651,6 +668,88 @@ class Library(QObject):
 
     def _on_dir_changed(self, _path):
         self._debounce.start()
+
+    # --- album views: liner notes, colour wall, timeline ------------------------------------
+    @Slot(str, result="QVariantMap")
+    def albumNotes(self, key):
+        """Liner notes for an album's page (see core.albums.liner_notes)."""
+        try:
+            return album_views.liner_notes(self._db, key)
+        except Exception:  # noqa: BLE001
+            logger.exception("Album notes failed")
+            return {}
+
+    @Slot(str, result="QVariantList")
+    def albumPalette(self, key):
+        """Up to three colours from an album's cover, for tinting its page."""
+        from .themes import art_palette
+
+        info = self._db.album(key)
+        return [c.name() for c in art_palette(info["art"])] if info and info.get("art") else []
+
+    @Property("QVariantList", notify=timelineChanged)
+    def timeline(self):
+        """Rows for the timeline view: {"kind": "decade", "label", "count"} then {"kind": "year", "year", "albums"}."""
+        return self._timeline
+
+    @staticmethod
+    def _timeline_rows(albums):
+        rows = []
+        for decade in album_views.timeline(albums):
+            rows.append({"kind": "decade", "label": decade["decade"], "count": decade["count"]})
+            rows.extend({"kind": "year", "year": y["year"], "albums": y["albums"]} for y in decade["years"])
+        return rows
+
+    @Property(bool, notify=wallChanged)
+    def wallLoading(self):
+        return self._wall_loading
+
+    @Slot()
+    def loadAlbumWall(self):
+        """Order the albums by cover colour; covers not seen before are measured once and cached."""
+        from .themes import cover_color
+
+        self._wall_wanted = True
+        self._wall_gen += 1
+        gen = self._wall_gen
+        self._wall_loading = True
+        self.wallChanged.emit()
+
+        def work(db):
+            try:
+                albums = decorate(db.albums())
+                cache = album_views.cached_colors(db)
+                measured = {}
+                for a in albums:
+                    art = a.get("art") or ""
+                    known = cache.get(a["album_key"])
+                    if known and known[0] == art:
+                        a["cover"] = known[1]
+                    elif art:
+                        colour = cover_color(art)
+                        if colour:
+                            a["cover"] = colour
+                            measured[a["album_key"]] = (art, colour)
+                if measured:
+                    album_views.store_colors(db, measured)
+                albums.sort(key=album_views.colour_order)
+                for a in albums:
+                    a["color"] = a.pop("cover", {}).get("color", "")
+            except Exception:  # noqa: BLE001
+                logger.exception("Colour wall failed")
+                albums = []
+            self._wall_loaded.emit((gen, albums))
+
+        self._bulk.submit(work)
+
+    @Slot(object)
+    def _apply_wall(self, payload):
+        gen, albums = payload
+        if gen != self._wall_gen:
+            return
+        self._models["wall"].set_items(albums)
+        self._wall_loading = False
+        self.wallChanged.emit()
 
     def shutdown(self):
         self._bulk.close()
