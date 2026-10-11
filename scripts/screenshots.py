@@ -9,6 +9,7 @@ import os
 import random
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TRCK
@@ -158,9 +159,11 @@ def main():
                 # A little listening history so Home, Stats and radio have something to show.
                 tracks = library.allTracks()
                 rnd = random.Random(7)
-                for t in tracks:
-                    for _ in range(rnd.choice([0, 0, 1, 2, 4])):
-                        user_lib.recordPlay({"path": t["path"]})
+                now = time.time()
+                when = [now - rnd.betavariate(1, 3) * 200 * 86400 for _ in range(260)]
+                plays = [(rnd.choice(tracks)["path"], ts) for ts in when if rnd.random() < 0.85]
+                plays += [(t["path"], now - rnd.uniform(60, 6 * 3600)) for t in rnd.sample(tracks, 6)]
+                user_lib._reader.submit(lambda db: [db.record_play(p, ts) for p, ts in plays]).result()
                 for t in rnd.sample(tracks, 8):
                     user_lib.toggleLike(t["path"])
                 state["smart"] = user_lib.createSmartPlaylist("Late-night dreams", (
@@ -191,7 +194,7 @@ def main():
 
             state = {}
             todo += [seed, play, pause]
-            for page in ("home", "albums", "songs", "settings"):
+            for page in ("home", "albums", "songs", "history", "settings"):
                 todo += [go(page), shot(page)]
             todo += [go("home"), lambda: win.setProperty("queueOpen", True), shot("queue"),
                      lambda: win.setProperty("queueOpen", False)]

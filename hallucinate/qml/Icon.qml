@@ -115,6 +115,9 @@ Canvas {
             var pips = [[.34,.34],[.66,.66],[.5,.5],[.66,.34],[.34,.66]]
             for (var q = 0; q < pips.length; q++) { ctx.beginPath(); ctx.arc(w*pips[q][0], h*pips[q][1], w*.06, 0, Math.PI*2); ctx.fill() }
             break
+        case "history":  // a clock
+            ctx.beginPath(); ctx.arc(w*.5, h*.5, w*.38, 0, Math.PI*2); ctx.stroke()
+            line([.5,.26,.5,.5]); line([.5,.5,.67,.62]); break
         case "search":
             ctx.beginPath(); ctx.arc(w*.42, h*.42, w*.28, 0, Math.PI*2); ctx.stroke(); line([.64,.64,.9,.9]); break
         }
