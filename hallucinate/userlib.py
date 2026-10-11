@@ -9,6 +9,7 @@ import time
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from .core import insights
 from .core import rules as smart_rules
 from .library import _Reader, decorate
 from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
@@ -16,6 +17,7 @@ from .models import ALBUM_KEYS, ARTIST_KEYS, TRACK_KEYS, DictModel
 logger = logging.getLogger(__name__)
 PLAYLIST_KEYS = ["id", "name", "n"]
 SMART_KEYS = ["id", "name", "n", "summary", "rules"]
+REASON_ALBUM_KEYS = [*ALBUM_KEYS, "reason"]
 STAT_ARTIST_KEYS = [*ARTIST_KEYS, "plays"]
 STAT_ALBUM_KEYS = [*ALBUM_KEYS, "plays"]
 STAT_TRACK_KEYS = [*TRACK_KEYS, "plays"]
@@ -27,6 +29,7 @@ class UserLibrary(QObject):
     statsChanged = Signal()
     playlistOpened = Signal(int)
     smartPlaylistOpened = Signal(int)
+    homeChanged = Signal()
     _smart_loaded = Signal(object)
     _refreshed = Signal(object)
     _playlist_loaded = Signal(object)
@@ -42,6 +45,7 @@ class UserLibrary(QObject):
         self._playlist_items = []
         self._stats_period = "all"
         self._stats_summary = {"listens": 0, "listeningSeconds": 0}
+        self._home = {"facts": {}, "heatmap": {}, "topArtists": []}
         self._models = {
             "playlists": DictModel(PLAYLIST_KEYS, self, "id"),
             "liked": DictModel(TRACK_KEYS, self),
@@ -49,6 +53,8 @@ class UserLibrary(QObject):
             "recentPlayed": DictModel(ALBUM_KEYS, self),
             "playlistTracks": DictModel(TRACK_KEYS, self),
             "smartPlaylists": DictModel(SMART_KEYS, self, "id"),
+            "rediscover": DictModel(REASON_ALBUM_KEYS, self),
+            "onThisDay": DictModel(REASON_ALBUM_KEYS, self),
             "smartTracks": DictModel(TRACK_KEYS, self),
             "homeMix": DictModel(TRACK_KEYS, self),
             "topArtists": DictModel(STAT_ARTIST_KEYS, self),
@@ -72,6 +78,8 @@ class UserLibrary(QObject):
 
     playlists = _model_prop("playlists")
     smartPlaylists = _model_prop("smartPlaylists")
+    rediscover = _model_prop("rediscover")
+    onThisDay = _model_prop("onThisDay")
     smartTracks = _model_prop("smartTracks")
     likedTracks = _model_prop("liked")
     mostPlayed = _model_prop("mostPlayed")
@@ -114,6 +122,13 @@ class UserLibrary(QObject):
                     "recentPlayed": decorate(db.recently_played_albums(12)),
                     "homeMix": decorate(db.home_mix(40)),
                     "smart": self._smart_summaries(db),
+                    "rediscover": decorate(insights.rediscover_albums(db)),
+                    "onThisDay": decorate(insights.on_this_day(db)),
+                    "home": {
+                        "facts": insights.library_facts(db),
+                        "heatmap": insights.listening_heatmap(db),
+                        "topArtists": decorate(insights.top_artists(db)),
+                    },
                 }
             except Exception:  # noqa: BLE001
                 logger.exception("User library refresh failed")
@@ -134,6 +149,10 @@ class UserLibrary(QObject):
         m["recentPlayed"].set_items(data["recentPlayed"])
         m["homeMix"].set_items(data["homeMix"])
         m["smartPlaylists"].set_items(data["smart"])
+        m["rediscover"].set_items(data["rediscover"])
+        m["onThisDay"].set_items(data["onThisDay"])
+        self._home = data["home"]
+        self.homeChanged.emit()
         self._smart_revision += 1
         self._likes_revision += 1
         self.likesChanged.emit()
@@ -343,6 +362,11 @@ class UserLibrary(QObject):
             self._smart_id = -1
             self._models["smartTracks"].set_items([])
         self._write(lambda db, i: db.delete_smart_playlist(i), sid)
+
+    @Property("QVariantMap", notify=homeChanged)
+    def home(self):
+        """Library facts, the listening heatmap and this month's top artists for Home."""
+        return self._home
 
     @Property(int, notify=playlistsChanged)
     def smartRevision(self):

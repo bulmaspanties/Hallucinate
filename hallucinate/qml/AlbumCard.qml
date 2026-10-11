@@ -8,9 +8,10 @@ Item {
     property string title
     property string subtitle
     property url artUrl
+    property string note: ""
     property real cardWidth: 170
     width: cardWidth
-    height: cardWidth + 62
+    height: cardWidth + (note.length ? 80 : 62)
     activeFocusOnTab: true
     Keys.onReturnPressed: Nav.openAlbum(card.albumKey)
     Keys.onSpacePressed: Nav.openAlbum(card.albumKey)
@@ -82,6 +83,16 @@ Item {
             color: Theme.textDim
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize(12)
+            elide: Text.ElideRight
+        }
+        Text {
+            visible: card.note.length > 0
+            width: parent.width
+            text: card.note
+            color: Theme.accent
+            opacity: 0.85
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize(11)
             elide: Text.ElideRight
         }
     }

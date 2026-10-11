@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -459,6 +460,13 @@ class Library(QObject):
             self._player.enqueueAll(tracks)
         else:
             self._player.playList(tracks, 0)
+
+    @Slot(str, result="QVariantMap")
+    def randomAlbum(self, avoid=""):
+        """A random album from the library (not `avoid` when there is a choice), or {} when it is empty."""
+        albums = self._models["albums"].items()
+        choices = [a for a in albums if a.get("album_key") != avoid] or albums
+        return dict(random.choice(choices)) if choices else {}
 
     @Slot(int)
     def playSongs(self, index):

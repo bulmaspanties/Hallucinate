@@ -92,6 +92,17 @@ QtObject {
 
     function fontSize(pixels) { return pixels * fontScale }
 
+    function fmtBytes(bytes) {
+        var units = ["B", "KB", "MB", "GB", "TB"], i = 0, v = bytes
+        while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
+        return (v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)) + " " + units[i]
+    }
+    function fmtHours(seconds) {
+        var h = seconds / 3600
+        if (h >= 48) return Math.round(h / 24) + " days"
+        return (h >= 10 ? Math.round(h) : h.toFixed(1)) + " hours"
+    }
+
     function fmtTime(ms) {
         var s = Math.max(0, Math.floor(ms / 1000))
         var m = Math.floor(s / 60)

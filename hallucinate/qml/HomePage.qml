@@ -2,9 +2,20 @@ import QtQuick
 import QtQuick.Controls
 import "."
 
+// Home is about your library: something to play from your own shelves, when you listen, what your collection
+// holds, and albums you haven't heard in a while.
 Item {
     id: page
     objectName: "home"
+    property var pick: ({})
+    readonly property var facts: userLib.home.facts || ({})
+
+    function reroll() { pick = library.randomAlbum(pick.album_key || "") }
+    Component.onCompleted: reroll()
+    Connections {
+        target: library
+        function onReloaded() { if (!page.pick.album_key) page.reroll() }
+    }
 
     Flickable {
         id: fl
@@ -17,16 +28,28 @@ Item {
 
         Column {
             id: col
-            x: 28; y: 20
+            x: 28; y: 12
             width: fl.width - 56
-            spacing: 22
+            spacing: 26
 
-            Text {
-                text: "Home"
-                color: Theme.text
-                font.family: Theme.displayFamily
-                font.pixelSize: Theme.fontSize(25)
-                font.weight: Font.Bold
+            Column {
+                spacing: 6
+                Text {
+                    text: "Home"
+                    color: Theme.text
+                    font.family: Theme.displayFamily
+                    font.pixelSize: Theme.fontSize(25)
+                    font.weight: Font.Bold
+                }
+                Text {
+                    objectName: "librarySummary"
+                    visible: library.trackCount > 0
+                    text: [library.albumCount + " albums", library.trackCount + " songs", library.artistCount + " artists",
+                           page.facts.seconds ? Theme.fmtHours(page.facts.seconds) + " of music" : ""].filter(s => s).join("  ·  ")
+                    color: Theme.textDim
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize(14)
+                }
             }
 
             Rectangle {
@@ -70,139 +93,127 @@ Item {
                 }
             }
 
-            Row {
+            // Something to play, and when you listen
+            Flow {
                 visible: library.trackCount > 0
-                spacing: 12
-                Repeater {
-                    model: [
-                        { n: library.trackCount, l: "songs" },
-                        { n: library.albumCount, l: "albums" },
-                        { n: library.artistCount, l: "artists" }
-                    ]
-                    Rectangle {
-                        required property var modelData
-                        width: 130; height: 64; radius: Theme.radius
-                        color: Theme.surface
-                        Column {
-                            anchors.centerIn: parent
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.n; color: Theme.text; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(22); font.weight: Font.Bold }
-                            Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.l; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(12) }
+                width: parent.width
+                spacing: 18
+                RandomAlbumCard {
+                    width: col.width >= 860 ? (col.width - 18) * 0.5 : col.width
+                    album: page.pick
+                    onReroll: page.reroll()
+                }
+                ListeningCard {
+                    width: col.width >= 860 ? (col.width - 18) * 0.5 : col.width
+                }
+            }
+
+            // What your collection holds
+            Row {
+                id: factRow
+                visible: library.trackCount > 0
+                width: parent.width
+                spacing: 14
+                readonly property real tileWidth: (width - 3 * spacing) / 4
+                component Fact: GlassPanel {
+                    property string value
+                    property string label
+                    width: factRow.tileWidth; height: 96
+                    Column {
+                        anchors { left: parent.left; leftMargin: 20; verticalCenter: parent.verticalCenter }
+                        spacing: 4
+                        Text { text: value; color: Theme.text; font.family: Theme.displayFamily; font.pixelSize: Theme.fontSize(21); font.weight: Font.Bold }
+                        Text { text: label; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(13) }
+                    }
+                }
+                Fact { value: page.facts.seconds ? Theme.fmtHours(page.facts.seconds).replace(" ", "\u2009") : "–"; label: "of music" }
+                Fact { value: page.facts.bytes ? Theme.fmtBytes(page.facts.bytes) : "–"; label: "on disk" }
+                Fact { value: page.facts.tracks ? Math.round(page.facts.lossless * 100) + "%" : "–"; label: "lossless" }
+                GlassPanel {
+                    id: formatsTile
+                    objectName: "formatsTile"
+                    width: factRow.tileWidth; height: 96
+                    readonly property var formats: page.facts.formats || []
+                    readonly property var swatches: [Theme.accent, Theme.art1, Theme.art2, Theme.accentHi, Theme.textDim]
+                    Column {
+                        anchors { left: parent.left; right: parent.right; margins: 18; verticalCenter: parent.verticalCenter }
+                        spacing: 10
+                        Row {
+                            width: parent.width
+                            height: 10
+                            Repeater {
+                                model: formatsTile.formats
+                                Rectangle {
+                                    required property var modelData
+                                    required property int index
+                                    width: Math.max(3, parent.width * modelData.share - 2)
+                                    height: 10
+                                    radius: 5
+                                    color: formatsTile.swatches[index % 5]
+                                }
+                            }
+                        }
+                        Flow {
+                            width: parent.width
+                            spacing: 10
+                            Repeater {
+                                model: formatsTile.formats
+                                Row {
+                                    required property var modelData
+                                    required property int index
+                                    spacing: 5
+                                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 8; height: 8; radius: 4; color: formatsTile.swatches[index % 5] }
+                                    Text { text: modelData.name + " " + Math.round(modelData.share * 100) + "%"; color: Theme.textDim; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize(11) }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            Text {
-                visible: library.recentAlbums.count > 0
-                text: "Recently added"
-                color: Theme.text
-                font.family: Theme.displayFamily
-                font.pixelSize: Theme.fontSize(16)
-                font.weight: Font.DemiBold
+            component AlbumShelf: Column {
+                property alias model: shelf.model
+                property string title
+                property string subtitle
+                spacing: 14
+                width: col.width
+                SectionHeader { title: parent.title; subtitle: parent.subtitle }
+                ListView {
+                    id: shelf
+                    width: parent.width
+                    height: 262
+                    orientation: ListView.Horizontal
+                    spacing: 20
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    delegate: AlbumCard {
+                        albumKey: model.album_key
+                        title: model.album
+                        subtitle: model.album_artist
+                        artUrl: model.artUrl
+                        note: model.reason || ""
+                    }
+                }
             }
-            ListView {
+
+            AlbumShelf {
+                objectName: "rediscoverShelf"
+                visible: userLib.rediscover.count > 0
+                title: "Rediscover"
+                subtitle: "Albums you haven't played in a while, or ever"
+                model: userLib.rediscover
+            }
+            AlbumShelf {
+                visible: userLib.onThisDay.count > 0
+                title: "On this day"
+                subtitle: "What you were listening to around this date in past years"
+                model: userLib.onThisDay
+            }
+            AlbumShelf {
                 visible: library.recentAlbums.count > 0
-                width: parent.width
-                height: 240
-                orientation: ListView.Horizontal
-                spacing: 18
-                clip: true
+                title: "Recently added"
+                subtitle: "New on your shelves"
                 model: library.recentAlbums
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: AlbumCard {
-                    albumKey: model.album_key
-                    title: model.album
-                    subtitle: model.album_artist
-                    artUrl: model.artUrl
-                }
-            }
-
-            Text {
-                visible: userLib.recentPlayed.count > 0
-                text: "Recently played"
-                color: Theme.text
-                font.family: Theme.displayFamily
-                font.pixelSize: Theme.fontSize(16)
-                font.weight: Font.DemiBold
-            }
-            ListView {
-                visible: userLib.recentPlayed.count > 0
-                width: parent.width
-                height: 240
-                orientation: ListView.Horizontal
-                spacing: 18
-                clip: true
-                model: userLib.recentPlayed
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: AlbumCard {
-                    albumKey: model.album_key
-                    title: model.album
-                    subtitle: model.album_artist
-                    artUrl: model.artUrl
-                }
-            }
-
-            Text {
-                visible: userLib.mostPlayed.count > 0
-                text: "Most played"
-                color: Theme.text
-                font.family: Theme.displayFamily
-                font.pixelSize: Theme.fontSize(16)
-                font.weight: Font.DemiBold
-            }
-            Column {
-                visible: userLib.mostPlayed.count > 0
-                width: parent.width
-                Repeater {
-                    model: userLib.mostPlayed
-                    TrackRow {
-                        width: parent.width
-                        path: model.path
-                        audioFormat: model.codec
-                        audioBitrate: model.bitrate
-                        rowIndex: index
-                        number: index + 1
-                        title: model.title
-                        artist: model.artist
-                        album: model.album
-                        durText: model.durText
-                        artUrl: model.artUrl
-                        current: player.hasTrack && player.current.id === model.id
-                        onActivated: userLib.playMostPlayed(index)
-                        onEnqueue: player.enqueue(userLib.mostPlayed.get(index))
-                    }
-                }
-            }
-            Text {
-                visible: userLib.homeMix.count > 0
-                text: "Your mix"
-                color: Theme.text
-                font.family: Theme.displayFamily
-                font.pixelSize: Theme.fontSize(16)
-                font.weight: Font.DemiBold
-            }
-            Column {
-                visible: userLib.homeMix.count > 0
-                width: parent.width
-                Repeater {
-                    model: userLib.homeMix
-                    TrackRow {
-                        width: parent.width
-                        path: model.path
-                        audioFormat: model.codec
-                        audioBitrate: model.bitrate
-                        rowIndex: index
-                        number: index + 1
-                        title: model.title
-                        artist: model.artist
-                        album: model.album
-                        durText: model.durText
-                        artUrl: model.artUrl
-                        current: player.hasTrack && player.current.id === model.id
-                        onActivated: userLib.playHomeMix(index)
-                        onEnqueue: player.enqueue(userLib.homeMix.get(index))
-                    }
-                }
             }
         }
     }
