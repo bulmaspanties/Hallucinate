@@ -337,3 +337,85 @@ def test_only_one_reconnect_waits_at_a_time(radio):
     player._check_stream_quiet(1100.0)
     assert player._stream_retries == 1  # quiet while a reconnect is pending isn't a new drop
     player._retry_timer.stop()
+
+
+def test_a_station_is_only_connected_while_you_listen(radio, server, tmp_path):
+    """Restored at start or paused, a station holds no connection: nothing reconnects in the background, and
+    play connects again."""
+    stations, player, _ = radio
+    stations.add(server.url("/live"), "Idle")
+    assert wait_for(lambda: stations.count == 1)
+    stations.play(stations.model._items[0]["id"])
+    assert wait_for(lambda: player.playing and player.position > 200, timeout=15), player.error
+    player.pause()
+    assert not player.playing and player.hasTrack and player._voice.player.source().isEmpty()  # hung up
+    before = len([r for r in server.requests if r == "/live"])
+    player._on_error(player._cur, "the old connection went away")  # as a station dropping an idle connection
+    assert player._reconnect_stream("dropped while paused") is True and not player._retry_timer.isActive()
+    wait_for(lambda: False, timeout=1.5)
+    assert len([r for r in server.requests if r == "/live"]) == before  # nothing fetched while not listening
+    player.play()
+    assert wait_for(lambda: player.playing and player.position > 100, timeout=15), player.error
+    # restored at start: shown, not connected
+    player.saveSession()
+    from hallucinate.player import Player
+
+    fresh = Player(session_file=player._session_file)
+    try:
+        fresh.restoreSession()
+        assert fresh.hasTrack and fresh.current.get("kind") == "station" and fresh._parked
+        assert fresh._voice.player.source().isEmpty() and not fresh.playing
+    finally:
+        fresh.shutdown()
+
+
+def test_a_station_whose_server_cant_be_found_says_so_instead_of_freezing(radio):
+    """Its host is looked up in the background first; the window never waits on it."""
+    import time as _time
+
+    _, player, _ = radio
+    entry = {"path": "http://no-such-station.invalid/live", "kind": "station", "station": "Nowhere",
+             "title": "Nowhere", "artist": "", "duration": 0, "id": -99}
+    began = _time.monotonic()
+    player.playList([entry], 0)
+    assert _time.monotonic() - began < 0.5  # handed to a worker, not looked up here
+    assert player.error in ("Connecting…", "") or "Couldn't find" in player.error
+    assert wait_for(lambda: "Couldn't find the station" in player.error, timeout=30), player.error
+    assert not player.playing and player._voice.player.source().isEmpty()
+
+
+def test_a_stream_still_opening_is_set_aside_not_waited_for(radio):
+    """Stopping or switching a player that's still opening a network stream would make the window wait on
+    it (FFmpeg's address lookup can't be interrupted): the voice gets a new player instead."""
+    import socket
+    import threading
+    import time as _time
+
+    from hallucinate import player as player_module
+
+    _, player, _ = radio
+    silent = socket.socket()
+    silent.bind(("127.0.0.1", 0))
+    silent.listen(5)
+    held = []
+    threading.Thread(target=lambda: held.append(silent.accept()), daemon=True).start()  # accepts, never answers
+    url = f"http://127.0.0.1:{silent.getsockname()[1]}/live"
+    player.playList([{"path": url, "kind": "station", "station": "Silent", "title": "Silent", "artist": "",
+                      "duration": 0, "id": -98}], 0)
+    voice = player._voice
+    assert wait_for(lambda: voice.player.mediaStatus() == player_module.QMediaPlayer.MediaStatus.LoadingMedia,
+                    timeout=10)
+    old = voice.player
+    began = _time.monotonic()
+    player.pause()  # hangs up a station: clears its voice
+    assert _time.monotonic() - began < 0.5
+    assert voice.player is not old and any(item[0] is old for item in player_module._set_aside)
+    assert voice.player.source().isEmpty()
+    player.play()  # the fresh player works like the old one
+    assert wait_for(lambda: voice.player.mediaStatus() == player_module.QMediaPlayer.MediaStatus.LoadingMedia,
+                    timeout=10)
+    player.pause()
+    silent.close()
+    for conn, _addr in held:
+        conn.close()
+    assert wait_for(lambda: not any(item[0] is old for item in player_module._set_aside), timeout=30)

@@ -25,12 +25,9 @@ def rss_mb():
         return float("nan")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--tracks", type=int, default=250_000)
-    ap.add_argument("--plays", type=int, default=300_000)
-    ap.add_argument("--dir", default="/tmp/hallucinate-scale")
-    args = ap.parse_args()
+def launch(args):
+    """Start the real window on the synthetic library of `args` (tracks, plays, dir) and wait until it's ready.
+    Returns what a check drives: app, window, library, player, wait(ms), go(page) and the heartbeat."""
     work = Path(args.dir) / f"n{args.tracks}"
     work.mkdir(parents=True, exist_ok=True)
     for k in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
@@ -65,6 +62,7 @@ def main():
     from hallucinate.podcasts import Podcasts
     from hallucinate.replaygain import ReplayGainAnalyzer
     from hallucinate.scrobbling import LastFmScrobbler
+    from hallucinate.servers import Servers
     from hallucinate.shell import DesktopShell
     from hallucinate.stations import Stations
     from hallucinate.themes import ThemeManager
@@ -117,6 +115,7 @@ def main():
         "discord": DiscordPresence(player),
         "themeManager": ThemeManager(work / "config", player),
         "stations": Stations(work / "streams.db", work / "cache", player),
+        "servers": Servers(db_path, work / "art", player),
         "podcasts": Podcasts(work / "streams.db", work / "data", work / "cache", player),
     }
     for k, v in context.items():
@@ -130,6 +129,35 @@ def main():
     while not library.ready and time.time() < deadline:
         wait(20)
     print(f"{library.trackCount} songs: ready in {time.perf_counter() - started:.1f} s, rss {rss_mb():.0f} MB")
+    def go(page):
+        QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", page))
+
+    def call(name, value):
+        QMetaObject.invokeMethod(window, name, Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", value))
+
+    from types import SimpleNamespace
+
+    return SimpleNamespace(app=app, window=window, library=library, player=player, user_lib=user_lib, wait=wait,
+                           go=go, call=call, beat=beat, engine=engine, context=context, QTest=QTest, QObject=QObject)
+
+
+def arguments(**defaults):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tracks", type=int, default=defaults.get("tracks", 250_000))
+    ap.add_argument("--plays", type=int, default=defaults.get("plays", 300_000))
+    ap.add_argument("--dir", default="/tmp/hallucinate-scale")
+    for name, value in defaults.items():
+        if name not in ("tracks", "plays"):
+            ap.add_argument(f"--{name}", type=type(value), default=value)
+    return ap.parse_args()
+
+
+def main():
+    run = launch(arguments())
+    window, library, player, wait, go, beat = run.window, run.library, run.player, run.wait, run.go, run.beat
+    from PySide6.QtCore import Q_ARG, QMetaObject, QObject, Qt
+    from PySide6.QtTest import QTest
+
     wait(1500)
     results = []
 
@@ -138,9 +166,6 @@ def main():
         action()
         wait(settle)
         results.append((label, beat.worst))
-
-    def go(page):
-        QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", page))
 
     for page in ("albums", "artists", "songs", "folders", "liked", "stats", "history", "recap", "health", "home"):
         step(page, lambda p=page: go(p))

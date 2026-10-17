@@ -1,0 +1,12 @@
+# What the release builds install; build-requirements.txt pins it. Mirrors pyproject.toml's dependencies.
+PySide6>=6.11.2
+mutagen>=1.48.1
+keyring>=25.7.0
+numpy>=1.24
+winrt-runtime>=3.2.1; sys_platform == 'win32'
+winrt-Windows.Foundation>=3.2.1; sys_platform == 'win32'
+winrt-Windows.Media>=3.2.1; sys_platform == 'win32'
+winrt-Windows.Media.Playback>=3.2.1; sys_platform == 'win32'
+winrt-Windows.Storage>=3.2.1; sys_platform == 'win32'
+winrt-Windows.Storage.Streams>=3.2.1; sys_platform == 'win32'
+pyinstaller; sys_platform != 'linux'

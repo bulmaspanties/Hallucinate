@@ -119,7 +119,7 @@ class Stations(QObject):
                 target.write_bytes(data)
                 got = True
             except (OSError, ValueError) as exc:
-                logger.info("No logo for %s: %s", station.get("name"), exc)
+                logger.info("No logo for a station: %s", exc)
         if got:
             self._done.emit(("icons", None, None))
 
@@ -221,10 +221,7 @@ class Stations(QObject):
             self.message.emit("Offline mode is on, so stations can't play")
             return
         self._player.playList([self._entry(s) for s in stations], index)
-        self._db.station_played(station_id)
-        uuid = stations[index].get("uuid")
-        if uuid:
-            self._pool.submit(st.count_click, uuid)
+        self._db.station_played(station_id)  # kept here: nothing about what you play is sent anywhere
         self.refresh()
 
     @Slot(int)
@@ -339,8 +336,6 @@ class Stations(QObject):
         saved = self._db.station_by_url(found["url"])
         entry = self._entry({**found, "id": saved["id"] if saved else 0})
         self._player.playList([entry], 0)
-        if found.get("uuid"):
-            self._pool.submit(st.count_click, found["uuid"])
 
     # --- what's playing ------------------------------------------------------------------------------------
     @Property(bool, notify=changed)

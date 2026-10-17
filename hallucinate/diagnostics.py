@@ -1,11 +1,13 @@
 """Debug info for bug reports: versions, platform, display, audio, settings and the recent log.
 
-Personal details are left out on purpose (no file paths, user names, library contents or account names), since
-the text usually ends up in a public issue."""
+Personal details are left out on purpose, since the text usually ends up in a public issue: links, song files,
+the music folders and the home folder (with the user name) are taken out of every line (`_redact`), and the
+lines that would name an album, song or station don't name it in the first place."""
 import collections
 import logging
 import os
 import platform
+import re
 import sys
 import time
 
@@ -25,8 +27,25 @@ class _RingHandler(logging.Handler):
             pass
 
 
+_private_folders = []  # the music folders: song paths under them say what's in the library
+_AUDIO = r"(?:flac|mp3|m4a|m4b|mp4|aac|alac|ogg|oga|opus|wav|wv|aif|aiff|ape|mpc|dsf|dff|wma|cue|lrc|m3u8?|pls)"
+_LINK = re.compile(r"\b(?:https?|ftp|file)://[^\s'\"<>]*[^\s'\"<>.,;:!?)\]]", re.I)  # not a trailing comma
+# a path to an audio file, spaces and all: from a drive letter or a slash up to the file's extension
+_AUDIO_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|[\\/]|~[\\/])[^\n\"'<>|]*?\." + _AUDIO + r"\b(?:#\d+)?", re.I)
+
+
+def set_private_folders(folders):
+    """The music folders, to be hidden in reports along with everything under them."""
+    _private_folders[:] = sorted((str(f) for f in folders if f and len(str(f)) > 1), key=len, reverse=True)
+
+
 def _redact(text):
-    """Replace the home folder (and with it the user name) in a log line."""
+    """Take out of a log line what could say who you are or what you listen to: links (they can carry names,
+    tokens or a station you play), song files and the music folders, and the home folder (the user name)."""
+    text = _LINK.sub("<link>", str(text))
+    text = _AUDIO_PATH.sub("<song file>", text)
+    for folder in _private_folders:
+        text = text.replace(folder, "<music folder>")
     home = os.path.expanduser("~")
     return text.replace(home, "~") if home and home not in ("/", "~") else text
 

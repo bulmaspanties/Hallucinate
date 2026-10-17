@@ -106,7 +106,23 @@ finding, following and playing podcasts.
 - [ ] The whole app from the keyboard alone: Tab through every page, arrows in lists, Enter to play, Menu key
   (or Shift+F10) for menus, Esc closes dialogs.
 
-### 10. New in 0.9.9.3
+### 10. New in 0.9.9.4
+- [ ] **Leave it open overnight** with a radio station restored from last time, not playing: still responding
+  in the morning. Then press play: the station connects and plays what's on now.
+- [ ] Pause a station for a few minutes, then play: it reconnects without fuss.
+- [ ] Music servers (Settings → Features → Music servers, then Settings → Music servers): add your Navidrome or
+  Jellyfin server; its songs appear in Songs, Albums, Artists and search, and play, seek and skip like files.
+  Stop the server: its songs are passed over, and come back within a few minutes of it returning. Remove it:
+  its songs leave the library.
+- [ ] Rate a song, then look in another player (or a tagger): the rating is in the file. Clear it, rescan:
+  it stays cleared.
+- [ ] Add a cover to an album: cover.jpg appears in its folder (and in the files, if "Also embed" is on).
+- [ ] With your music on a USB or network drive that's gone to sleep: play a song from it, and switch songs
+  while it wakes. The window keeps responding ("Opening…" shows while it waits).
+- [ ] Lock your keyring (or log in without it unlocked) and start the app: it opens, and Last.fm says it's
+  waiting for the keyring.
+
+### 11. New in 0.9.9.3
 - [ ] Sidebar: drag entries into a new order, right-click → Move up/down, Alt+Up/Down on a focused entry, and the
   list in Settings → Features (with Reset). The order survives a restart, and switching a page off and on keeps
   its place.
@@ -125,7 +141,7 @@ finding, following and playing podcasts.
 - [ ] CPU with the window focused and music playing, on your real GPU (`htop`): note the number; turn off
   **Animated background** in Settings → Appearance and note it again.
 
-### 11. macOS (Apple Silicon)
+### 12. macOS (Apple Silicon)
 The macOS app isn't signed, so the first start needs **right-click → Open** (or `xattr -dr
 com.apple.quarantine /Applications/Hallucinate.app`). Then:
 - [ ] It opens, scans `~/Music` or a chosen folder, and plays FLAC, MP3, AAC/ALAC, Opus and WAV.

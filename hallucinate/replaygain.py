@@ -1,6 +1,7 @@
 """Measure ReplayGain for songs whose files carry no gain tags, an album at a time, in the background.
 
-Like the waveform service, decoding uses QAudioDecoder on the GUI thread (it only delivers buffers there); the
+Like the waveform service, decoding uses QAudioDecoder on the GUI thread (it only delivers buffers there), each
+file opened on a thread first so a slow disk can't hold the window (fileready.py); the
 loudness maths is vectorised (see loudness.py), so the GUI thread only does a little numpy per buffer. Files
 are never modified: results go to the database and are used when a file has no tags of its own."""
 import logging
@@ -10,6 +11,8 @@ from PySide6.QtMultimedia import QAudioDecoder
 
 from . import loudness
 from .core.db import Database
+from .core.remote import SQL_LOCAL
+from .fileready import FileReady
 from .waveform import _SCALE
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,7 @@ class ReplayGainAnalyzer(QObject):
         self._total_tracks = 0
         self._current = ""
         self._failed = 0
+        self._ready = FileReady(self)  # each file is opened off this thread first (a slow disk can't hang it)
         from PySide6.QtCore import QSettings
 
         self._settings = QSettings("hallucinate", "hallucinate")
@@ -112,7 +116,8 @@ class ReplayGainAnalyzer(QObject):
     def analyseAlbum(self, album_key):
         db = self._conn()
         paths = [r[0] for r in db.conn.execute(
-            "SELECT path FROM tracks WHERE album_key=? AND file IS NULL ORDER BY disc_no, track_no, s_title", (album_key,))]
+            f"SELECT path FROM tracks WHERE album_key=? AND file IS NULL AND {SQL_LOCAL} "
+            "ORDER BY disc_no, track_no, s_title", (album_key,))]
         if paths:
             self.analyse([(album_key, paths)])
 
@@ -167,6 +172,16 @@ class ReplayGainAnalyzer(QObject):
             return
         path = paths[self._index]
         self._current = path
+        self.changed.emit()
+        self._ready.check(path, self._opened)
+
+    def _opened(self, ok):
+        if not ok:
+            logger.debug("ReplayGain analysis skipped %s: the file didn't open", self._current)
+            self._failed += 1
+            self._track_done(None)
+            return
+        path = self._current
         self._meter = loudness.Meter()
         self._decoder = QAudioDecoder(self)
         self._decoder.bufferReady.connect(self._on_buffer)
@@ -208,6 +223,7 @@ class ReplayGainAnalyzer(QObject):
         self._next_track()
 
     def _stop_decoder(self):
+        self._ready.cancel()
         decoder, self._decoder = self._decoder, None
         if decoder is not None:
             decoder.blockSignals(True)  # stop() would report "finished" again, synchronously

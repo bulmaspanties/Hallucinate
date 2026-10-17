@@ -359,3 +359,25 @@ def test_the_top_search_stays_quick_with_many_episodes(tmp_path):
     per_search = (time.perf_counter() - start) / 5
     db.close()
     assert per_search < 0.05, f"{per_search * 1000:.0f} ms"
+
+
+def test_a_refresh_writes_only_what_the_feed_changed(tmp_path):
+    from hallucinate.core.streams_db import StreamsDB
+
+    db = StreamsDB(tmp_path / "s.db")
+    pid = db.add_podcast({"title": "Show", "feed_url": "https://x/feed"})
+    eps = [{"guid": str(i), "title": f"E{i}", "url": f"https://x/{i}.mp3", "duration": 60} for i in range(50)]
+    assert len(db.merge_episodes(pid, eps + [dict(eps[0])])) == 50  # listed twice in the feed: added once
+    first = db.episodes(pid)[0]
+    db.conn.execute("UPDATE episodes SET position=12 WHERE id=?", (first["id"],))
+    db.conn.commit()
+    before = db.conn.total_changes
+    assert db.merge_episodes(pid, eps) == []
+    assert db.conn.total_changes == before  # nothing changed: nothing written
+    eps[0] = {**eps[0], "title": "E0 (fixed)"}
+    assert db.merge_episodes(pid, eps) == []
+    assert db.conn.total_changes == before + 1
+    rows = {e["guid"]: e for e in db.episodes(pid)}
+    assert rows["0"]["title"] == "E0 (fixed)" and len(rows) == 50
+    assert rows[first["guid"]]["position"] == 12  # where you stopped is kept
+    db.close()

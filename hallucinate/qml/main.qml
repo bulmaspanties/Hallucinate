@@ -36,6 +36,10 @@ ApplicationWindow {
             if (!window.featureOn("lyrics")) { window.lyricsOpen = false; nowPlaying.lyricsMode = false }
         }
     }
+    Connections {  // music servers say how adding and syncing went
+        target: servers
+        function onMessage(text) { toast.show(text) }
+    }
 
     function pageFor(name) {
         switch (name) {

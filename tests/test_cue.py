@@ -279,3 +279,18 @@ def test_cue_songs_get_their_own_waveform(qapp, tmp_path):
         assert len(again.request_window("steps#02", str(audio), 2.0, 0.0)) == wf.POINTS
     finally:
         again.shutdown()
+
+
+@needs_ffmpeg
+def test_a_last_song_past_the_end_of_the_file_is_not_read_on_every_scan(db, tmp_path):
+    folder = tmp_path / "Music" / "Short"
+    _album(folder, seconds=3.0)  # the sheet's third song starts at 4 s: past the end, so it has no length
+    art = tmp_path / "art"
+    art.mkdir()
+
+    def scan():
+        return Scanner(db, art).scan([str(folder.parent)])
+
+    assert scan()["added"] == 2
+    again = scan()
+    assert again["unchanged"] == 2 and again["updated"] == 0 and again["added"] == 0

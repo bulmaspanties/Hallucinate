@@ -1,6 +1,9 @@
 """Write tags and cover art back to audio files (FLAC, MP3, Ogg/Opus, M4A, WAV/AIFF, APE/WMA)."""
 import base64
+import functools
 import os
+import threading
+import uuid
 
 import mutagen
 from mutagen import id3
@@ -37,6 +40,31 @@ class TagWriteError(Exception):
     pass
 
 
+# Tags are written from more than one thread (the tag editor, ratings): one at a time, so two saves of the same
+# song can't each start from the old file and the second undo the first.
+_write_lock = threading.RLock()
+# Told (path, stat before, stat after) when a song is rewritten with new tags: the audio is the same, so what was
+# worked out from it (waveforms, loudness) moves to the new file instead of being worked out again.
+_rewritten = []
+
+
+def on_rewritten(listener):
+    _rewritten.append(listener)
+
+
+def forget_rewritten(listener):
+    if listener in _rewritten:
+        _rewritten.remove(listener)
+
+
+def _one_at_a_time(fn):
+    @functools.wraps(fn)
+    def locked(*args, **kwargs):
+        with _write_lock:
+            return fn(*args, **kwargs)
+    return locked
+
+
 def _clean(fields):
     out = {}
     for k in FIELDS:
@@ -47,6 +75,8 @@ def _clean(fields):
 
 
 def _writable(path):
+    if "://" in path:
+        raise TagWriteError("This song is on a music server: change its tags there")
     if cue.is_virtual(path):
         raise TagWriteError("This song comes from a CUE sheet; edit the .cue file instead")
     if not os.path.isfile(path):
@@ -87,8 +117,9 @@ def _save_safely(f, path):
     import shutil
 
     path = os.fspath(path)
+    before = os.stat(path)
     folder, name = os.path.split(path)
-    tmp = os.path.join(folder, f".{name}.hallucinate-tmp")
+    tmp = os.path.join(folder, f".{name}.{uuid.uuid4().hex[:8]}.hallucinate-tmp")
     try:
         shutil.copy2(path, tmp)
         f.save(tmp)
@@ -101,10 +132,18 @@ def _save_safely(f, path):
         except OSError:
             pass
         raise
+    after = os.stat(path)
+    for listener in list(_rewritten):
+        try:
+            listener(path, before, after)
+        except Exception:  # noqa: BLE001 - a cache that can't follow is only worked out again
+            pass
 
 
+@_one_at_a_time
 def write_tags(path, fields):
     """Write the given fields ("" removes a tag). Raises TagWriteError."""
+    path = os.fspath(path)
     fields = _clean(fields)
     _writable(path)
     f = _open(path)
@@ -163,8 +202,8 @@ def _w_asf(f, fields):
     for k, v in fields.items():
         if v:
             f.tags[_ASF[k]] = [v]
-        else:
-            f.tags.pop(_ASF[k], None)
+        elif _ASF[k] in f.tags:  # ASF tags have no pop(key, default)
+            del f.tags[_ASF[k]]
 
 
 def _w_ape(f, fields):
@@ -179,8 +218,10 @@ def _mime(data):
     return "image/png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
 
 
+@_one_at_a_time
 def embed_cover(path, data):
     """Replace the front cover embedded in the file."""
+    path = os.fspath(path)
     _writable(path)
     f = _open(path)
     kind = _kind(f)
@@ -210,3 +251,66 @@ def embed_cover(path, data):
         raise
     except Exception as exc:  # noqa: BLE001
         raise TagWriteError(f"Could not embed cover: {exc}") from exc
+
+
+# Star ratings in the tags other players read: ID3 POPM (Windows Media Player's steps, which MusicBee, foobar2000
+# and Explorer understand), Vorbis/APE RATING (1-5, foobar2000) with FMPS_RATING (0-1, Strawberry, Quod Libet),
+# MP4 FMPS_Rating, and WMA's WM/SharedUserRating.
+POPM_EMAIL = "Windows Media Player 9 Series"
+_POPM_STEPS = (0, 1, 64, 128, 196, 255)
+_WMA_STEPS = (0, 1, 25, 50, 75, 99)
+_MP4_FMPS = "----:com.apple.iTunes:FMPS_Rating"
+
+
+@_one_at_a_time
+def write_rating(path, stars):
+    """Put 1-5 stars in the file's tags; 0 takes the rating out. Raises TagWriteError."""
+    stars = max(0, min(5, int(stars)))
+    path = os.fspath(path)
+    _writable(path)
+    f = _open(path)
+    kind = _kind(f)
+    if kind is None:
+        raise TagWriteError(f"Ratings can't be saved in {type(f).__name__} files")
+    try:
+        if f.tags is None:
+            if not stars:
+                return  # no tags at all, so no rating to take out
+            f.add_tags()
+    except Exception:  # noqa: BLE001 - APE and friends create tags on save
+        pass
+    fraction = f"{stars / 5:.1f}"
+    try:
+        if kind == "id3":
+            plays = [getattr(fr, "count", 0) for fr in f.tags.getall("POPM")]
+            f.tags.delall("POPM")
+            for key in [k for k in f.tags.keys() if k.lower() == "txxx:fmps_rating"]:
+                del f.tags[key]
+            if stars:
+                f.tags.add(id3.POPM(email=POPM_EMAIL, rating=_POPM_STEPS[stars], count=max(plays, default=0)))
+        elif kind == "vorbis":
+            for key in ("rating", "fmps_rating"):
+                if stars:
+                    f.tags[key] = [str(stars) if key == "rating" else fraction]
+                elif key in f.tags:
+                    del f.tags[key]
+        elif kind == "mp4":
+            if stars:
+                f.tags[_MP4_FMPS] = [fraction.encode("ascii")]
+            else:
+                f.tags.pop(_MP4_FMPS, None)
+        elif kind == "asf":
+            if stars:
+                f.tags["WM/SharedUserRating"] = [_WMA_STEPS[stars]]
+            elif "WM/SharedUserRating" in f.tags:
+                del f.tags["WM/SharedUserRating"]
+        elif kind == "ape":
+            if stars:
+                f.tags["Rating"] = str(stars)
+            elif "Rating" in f.tags:
+                del f.tags["Rating"]
+        _save_safely(f, path)
+    except TagWriteError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise TagWriteError(f"Could not save the rating: {exc}") from exc

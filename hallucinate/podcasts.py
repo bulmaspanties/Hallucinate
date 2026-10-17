@@ -139,6 +139,10 @@ class Podcasts(QObject):
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setInterval(max(1, self._options["refreshHours"]) * 3600 * 1000)
         self._refresh_timer.timeout.connect(self.refreshAll)
+        self._reload_timer = QTimer(self)  # quiet refreshes of every show reload the lists once, not per show
+        self._reload_timer.setSingleShot(True)
+        self._reload_timer.setInterval(300)
+        self._reload_timer.timeout.connect(self.reload)
         self._progress_timer = QTimer(self)
         self._progress_timer.setInterval(500)
         self._progress_timer.timeout.connect(self._reload_episodes)
@@ -913,13 +917,18 @@ class Podcasts(QObject):
                 self._db.update_podcast(podcast_id, error=value, checked=time.time())
                 if not quiet:
                     self.message.emit(f"Couldn't check for new episodes: {value}")
-                self.reload()
+                    self.reload()
+                else:
+                    self._reload_timer.start()
                 return
             if info:
                 self._db.update_podcast(podcast_id, **{k: v for k, v in info.items() if v and k != "folder"})
             new = self._db.merge_episodes(podcast_id, episodes)
             self._db.update_podcast(podcast_id, checked=time.time(), error="")
-            self.reload()
+            if quiet:
+                self._reload_timer.start()
+            else:
+                self.reload()
             if new and self._options["notifyNew"]:
                 show = self._db.podcast(podcast_id) or {}
                 latest = self._db.episode(new[0]) or {}
@@ -987,6 +996,7 @@ class Podcasts(QObject):
         self._save_position()
         self._save_timer.stop()
         self._refresh_timer.stop()
+        self._reload_timer.stop()
         self._progress_timer.stop()
         with self._lock:
             self._cancel.update(self._downloading)

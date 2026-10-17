@@ -4,6 +4,7 @@ import math
 import os
 import random
 import time
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -18,8 +19,8 @@ from PySide6.QtMultimedia import (
 )
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
-from . import eq, signalpath
-from .core import net
+from . import eq, fileready, signalpath
+from .core import net, remote
 from .core.kinds import counts_for_scrobbling, is_url, track_kind  # noqa: F401 - re-exported
 from .core.tags import is_readable_audio
 from .models import TRACK_KEYS, DictModel
@@ -85,6 +86,104 @@ def pick_output_device(devices, key):
     return None
 
 
+RESOLVE_FRESH_S = 10  # a host name looked up this recently is taken as answering (FFmpeg looks it up again)
+RESOLVE_TIMEOUT_MS = 15_000  # a lookup that hasn't answered by then counts as failed
+FILE_WAIT_S = 0.25  # a song file that hasn't answered by then is waited for in the background
+FILE_TIMEOUT_MS = 15_000
+_resolved_hosts = {}  # host -> when it last resolved
+
+
+def _net_host(path):
+    """The host a network source would connect to, if its name needs looking up first ("" otherwise: a local
+    file, or an address given as numbers)."""
+    import ipaddress
+    import urllib.parse
+
+    if is_url(path):
+        name = urllib.parse.urlsplit(path).hostname or ""
+    elif remote.is_remote(path):
+        name = remote.host(path)
+    else:
+        return ""
+    try:
+        ipaddress.ip_address(name)
+        return ""
+    except ValueError:
+        return name
+
+
+def _host_ready(name):
+    return not name or time.monotonic() - _resolved_hosts.get(name, -1e9) < RESOLVE_FRESH_S
+
+
+def _resolve(name):
+    """Look a host name up (on a worker thread). Qt's player looks it up again itself, on the window's thread
+    for a stream it's switching away from, and that lookup can't be interrupted: so a stream is only handed
+    over once its name has just answered, and a server that can't be found says so instead of freezing."""
+    import socket
+
+    try:
+        socket.getaddrinfo(name, None)
+    except (OSError, UnicodeError):
+        return False
+    _resolved_hosts[name] = time.monotonic()
+    return True
+
+
+def _is_network(path):
+    return is_url(path) or remote.is_remote(path)
+
+
+def _resolve_in_background(name, done=None):
+    """Look `name` up on a thread of its own (a stuck lookup holds nothing else up, nor the app closing), and
+    call done(ok) from that thread."""
+    import threading
+
+    def run():
+        ok = _resolve(name)
+        if done is not None:
+            done(ok)
+
+    threading.Thread(target=run, name="resolve", daemon=True).start()
+
+
+# Players set aside while they were still opening a stream or file (see _Voice._set_aside_if_loading): stopping or
+# switching one then makes the window wait for the lookup or slow disk inside it, so it's left to finish and
+# deleted after.
+_set_aside = []
+
+
+def _reap_set_aside():
+    for item in list(_set_aside):
+        player = item[0]
+        try:
+            loading = player.mediaStatus() == QMediaPlayer.MediaStatus.LoadingMedia
+        except RuntimeError:  # already gone
+            _set_aside.remove(item)
+            continue
+        if not loading:
+            _set_aside.remove(item)
+            for obj in item:
+                if obj is not None:
+                    obj.deleteLater()
+
+
+def still_opening():
+    """Whether a set-aside player is still opening its source (quitting would then wait on it)."""
+    _reap_set_aside()
+    return bool(_set_aside)
+
+
+def _playable(path):
+    """Whether a queue entry's audio can be opened now: a stream, a server song whose server can be reached,
+    or a readable audio file."""
+    if is_url(path):
+        return True
+    if remote.is_remote(path):
+        return remote.available(path)
+    return isinstance(path, str) and os.path.isfile(path) and is_readable_audio(path)
+
+
 def track_file(track):
     """The audio file a queue entry plays: its own path, or for a CUE sheet song the album's file."""
     return track.get("file") or track.get("path", "")
@@ -104,9 +203,13 @@ class _Voice:
     then relative to `start`, and `end` (0: the end of the file) is where the song stops."""
 
     def __init__(self, parent):
+        import weakref
+
+        self._parent = weakref.ref(parent)  # not a strong reference: the Player owns its voices
         self.audio = _new_audio_output(parent)
         self.player = QMediaPlayer(parent)
         self.player.setAudioOutput(self.audio)
+        self.on_new_player = None  # set by the Player: wires a replacement player up like the first
         self.visual_output = None
         self.index = -1  # queue index the loaded source belongs to
         self.path = ""  # the file loaded
@@ -120,10 +223,37 @@ class _Voice:
         self.finishing = False  # still playing its last moments after the next track took over
         self.finish_by = 0.0
 
+    def _set_aside_if_loading(self):
+        """A player still opening its source can't be stopped or pointed elsewhere without the window waiting
+        on it (FFmpeg's address lookup, or a file on a disk waking up, can't be interrupted): leave it to
+        finish on its own, and carry on with a new one. True when it did."""
+        try:
+            loading = self.player.mediaStatus() == QMediaPlayer.MediaStatus.LoadingMedia
+        except RuntimeError:
+            return False
+        if not loading:
+            return False
+        old = (self.player, self.audio, self.tap, self.visual_output)
+        self.player.blockSignals(True)
+        if self.tap is not None:
+            self.tap.close()
+        _set_aside.append(old)
+        parent = self._parent()
+        self.audio = _new_audio_output(parent)
+        self.player = QMediaPlayer(parent)
+        self.player.setAudioOutput(self.audio)
+        self.tap = None
+        self.tap_visual_connected = False
+        self.visual_output = None
+        if self.on_new_player is not None:
+            self.on_new_player(self)
+        return True
+
     def clear(self):
         self.finishing = False
-        self.player.stop()
-        self.player.setSource(QUrl())
+        if not self._set_aside_if_loading():
+            self.player.stop()
+            self.player.setSource(QUrl())
         self.index = -1
         self.path = ""
         self.start = self.end = 0
@@ -135,13 +265,19 @@ class _Voice:
 
     def load(self, index, track):
         """Point this voice at a queue entry: its file and, for a CUE song, its stretch of it."""
+        self._set_aside_if_loading()  # still opening a stream: don't wait for it, use a new player
         self.index, self.path = index, track_file(track)
         self.start, self.end = track_window(track)
         resume = int(track.get("resume_ms") or 0)  # a podcast episode picks up where it was left
+        if track_kind(track) == "music":
+            track.pop("resume_ms", None)  # a song's (a parked stream's) is used once
         self.seek_on_load = self.start + resume if self.start or resume else -1
         if self.tap is not None:
             self.tap.reset()
-        url = QUrl(self.path) if is_url(self.path) else QUrl.fromLocalFile(self.path)
+        if remote.is_remote(self.path):  # a song on a music server: its stream link, made now, login and all
+            url = QUrl(remote.stream_url(self.path))
+        else:
+            url = QUrl(self.path) if is_url(self.path) else QUrl.fromLocalFile(self.path)
         if (self.seek_on_load >= 0 or is_url(self.path)) and self.player.source() == url:
             # the same file again: reload it, so it reports loaded and seeks; the same stream again (a
             # reconnect): drop the old connection, which Qt would otherwise keep
@@ -194,6 +330,8 @@ class Player(QObject):
     sleepChanged = Signal()
     eqChanged = Signal()
     showSpeedChanged = Signal(int, float)  # a podcast show's own speed was changed while one of its episodes played
+    _host_looked_up = Signal(object)
+    _file_checked = Signal(object)
     played = Signal("QVariantMap")  # a track was listened to for long enough to count as a play
     skipped = Signal("QVariantMap")  # the listener moved on from a playing track before it counted as played
     visualizerChanged = Signal()
@@ -208,6 +346,12 @@ class Player(QObject):
         super().__init__(parent)
         self._session_file = Path(session_file) if session_file else None
         self._restore_pos = 0
+        self._parked = False  # a station shown but not connected (see _park_station)
+        self._outputs_changed = False  # sound devices changed while nothing played (applied on play)
+        self._host_wait = 0
+        self._looking_up = set()
+        self._host_looked_up.connect(self._on_host_looked_up)
+        self._file_checked.connect(self._on_file_checked)
         self._next_pick = None
         self.gapless_swaps = 0
         self._queue = []
@@ -305,13 +449,12 @@ class Player(QObject):
         self._cur = 0
         for n, v in enumerate(self._voices):
             v.audio.setVolume(self._volume ** 2)
-            p = v.player
-            p.playbackStateChanged.connect(lambda *_, n=n: self._if_current(n, self.stateChanged))
-            p.positionChanged.connect(lambda *_, n=n: self._on_position(n))
-            p.durationChanged.connect(lambda *_, n=n: self._on_duration(n))
-            p.mediaStatusChanged.connect(lambda st, n=n: self._on_media_status(n, st))
-            p.errorOccurred.connect(lambda err, msg, n=n: self._on_error(n, msg))
-            p.playbackStateChanged.connect(lambda st, n=n: self._tap_state(n, st))
+            self._connect_voice(n)
+            v.on_new_player = lambda _v, n=n, me=weakref.ref(self): me() is not None and me()._rewire_voice(n)
+        self._reap_timer = QTimer(self)
+        self._reap_timer.setInterval(1000)
+        self._reap_timer.timeout.connect(_reap_set_aside)
+        self._reap_timer.start()
         self._apply_speed()
         self._apply_output_device()
         self._eq_device = self._current_device_key()
@@ -459,6 +602,26 @@ class Player(QObject):
         self.speedChanged.emit()
 
     @Slot()
+    def _connect_voice(self, n):
+        p = self._voices[n].player
+        p.playbackStateChanged.connect(lambda *_, n=n: self._if_current(n, self.stateChanged))
+        p.positionChanged.connect(lambda *_, n=n: self._on_position(n))
+        p.durationChanged.connect(lambda *_, n=n: self._on_duration(n))
+        p.mediaStatusChanged.connect(lambda st, n=n: self._on_media_status(n, st))
+        p.errorOccurred.connect(lambda err, msg, n=n: self._on_error(n, msg))
+        p.playbackStateChanged.connect(lambda st, n=n: self._tap_state(n, st))
+
+    def _rewire_voice(self, n):
+        """A voice got a new player (its old one was still opening a stream): set it up like the old one."""
+        self._connect_voice(n)
+        self._apply_speed()
+        self._apply_output_device()
+        if self._dsp_on():
+            self._sync_taps()
+        elif self._visualizer_enabled:
+            self._sync_audio_buffer_outputs()
+        self._apply_volume()
+
     def _apply_speed(self):
         rate = self._rate()
         for v in self._voices:
@@ -707,8 +870,8 @@ class Player(QObject):
 
     def _request_waveform(self, track, urgent=True):
         path = track.get("path", "")
-        if not path or is_url(path) or track_kind(track) != "music":
-            return None
+        if not path or is_url(path) or remote.is_remote(path) or track_kind(track) != "music":
+            return None  # streams and server songs: no file to read a waveform from
         if track.get("file"):  # a CUE sheet song: its stretch of the album's file
             return self._waveforms.request_window(path, track["file"], track.get("cue_start") or 0.0,
                                                   track.get("cue_end") or 0.0, urgent)
@@ -855,6 +1018,16 @@ class Player(QObject):
 
     @Slot()
     def _on_audio_outputs_changed(self):
+        if not self.playing:
+            # Nothing's playing (a monitor going to sleep takes its HDMI sound with it, for one): don't touch
+            # the sound system now; play sets the output up first.
+            self._outputs_changed = True
+            self.outputDevicesChanged.emit()
+            return
+        self._outputs_changed = False
+        self._reapply_outputs()
+
+    def _reapply_outputs(self):
         # Re-resolve: the saved device may have been plugged in or removed, or the default may have moved.
         # Some backends (PulseAudio on Qt 6.11) report a device coming back but not it going away, so its entry
         # looks unchanged while the sound server has moved our stream elsewhere; re-attach to the chosen device.
@@ -1169,6 +1342,12 @@ class Player(QObject):
     # --- transport ---------------------------------------------------------
     @Slot()
     def play(self):
+        if self._outputs_changed:  # the sound devices changed while nothing played
+            self._outputs_changed = False
+            self._reapply_outputs()
+        if self.hasTrack and self._parked:
+            self._load(self._index, record=False)  # a stream that was only shown: connect to it now
+            return
         if self.hasTrack:
             if self._ended or self._player.mediaStatus() == QMediaPlayer.MediaStatus.EndOfMedia:
                 if self._voice.tap is not None:
@@ -1181,6 +1360,12 @@ class Player(QObject):
 
     @Slot()
     def pause(self):
+        if self.hasTrack and track_kind(self.current) == "station":
+            # Live radio can't be paused: hang up, and play connects again (to what's on now). A paused
+            # connection only gets dropped by the station and reconnected for nothing.
+            self._park_station(self._index)
+            self.saveSession()
+            return
         self._ended = False
         self._end_fade()
         self._player.pause()
@@ -1189,6 +1374,10 @@ class Player(QObject):
 
     @Slot()
     def stop(self):
+        if self.hasTrack and track_kind(self.current) == "station":
+            self._park_station(self._index)
+            self.saveSession()
+            return
         self._ended = False
         self._end_fade()
         self._player.stop()
@@ -1455,6 +1644,7 @@ class Player(QObject):
 
     # --- internals ---------------------------------------------------------
     def _reset_empty(self):
+        self._host_wait += 1  # nothing to play: a lookup still in flight must not start anything
         self._voice.clear()
         self._index = -1
         self._invalidate_next()
@@ -1520,6 +1710,11 @@ class Player(QObject):
             del self._history[:-200]
         track = self._queue[i]
         path = track_file(track)
+        self._host_wait += 1  # whatever was being looked up for an earlier choice no longer counts
+        if _is_network(path) and not autoplay:
+            self._park(i)  # not listening: don't connect to a stream until play
+            return
+        self._parked = False
         if i != self._index:
             self._stream_retries = 0
             self._retry_timer.stop()  # moving on: a reconnect for the old station isn't wanted
@@ -1534,24 +1729,34 @@ class Player(QObject):
             return
         if track_kind(track) == "station" and track.get("station"):
             track.update(title=track["station"], artist="", stream_title="")  # the song it said last is over
-        exists = is_url(path) or (isinstance(path, str) and os.path.isfile(path))
-        if not exists or not (is_url(path) or is_readable_audio(path)):
+        if not is_url(path) and not remote.is_remote(path):
+            answered, ok = self._check_file(path, i, autoplay, fade_ms, drain)
+            if not answered:
+                return  # a slow disk: it carries on once the file has answered
+        else:
+            ok = _playable(path)
+        if not ok:
             self._index = i
-            reason = "File not found" if not exists else "Unreadable audio file"
-            self._set_error(f"{reason}: {path}")
+            if remote.is_remote(path):
+                self._set_error("Offline mode is on" if net.is_offline() else "The music server can't be reached")
+            else:
+                exists = isinstance(path, str) and os.path.isfile(path)
+                self._set_error(f"{'Unreadable audio file' if exists else 'File not found'}: {path}")
             candidates = list(range(i + 1, len(self._queue)))
             if self._shuffle:
                 candidates = [j for j in range(len(self._queue)) if j != i and j not in self._played]
                 random.shuffle(candidates)
             elif self._repeat == REPEAT_ALL:
                 candidates += list(range(0, i))
-            for candidate in candidates:
-                candidate_path = track_file(self._queue[candidate])
-                if is_url(candidate_path) or (isinstance(candidate_path, str) and os.path.isfile(candidate_path)
-                                              and is_readable_audio(candidate_path)):
+            for candidate in candidates:  # the next one that can play: songs on a server that's down are passed
+                if self._maybe_playable(track_file(self._queue[candidate])):
                     self._load(candidate, autoplay=autoplay, record=False)
                     return
             self._reset_empty()
+            return
+        name = _net_host(path)
+        if not _host_ready(name):
+            self._await_host(name, i, autoplay, fade_ms, drain)
             return
         self._end_fade()
         self._index = i
@@ -1622,6 +1827,95 @@ class Player(QObject):
         self.durationChanged.emit()
         self.positionChanged.emit()
 
+    def _check_file(self, path, i, autoplay, fade_ms, drain):
+        """(answered, playable) for a song file, checked on a thread so a disk waking up or a network share
+        that's gone away can't hold the window. Not answered quickly: "Opening…" shows and the song loads
+        once it does (or, after FILE_TIMEOUT_MS, says it couldn't be opened)."""
+        token = self._host_wait
+        me = weakref.ref(self)
+
+        def late(ok):
+            owner = me()
+            try:
+                if owner is not None:
+                    owner._file_checked.emit((token, ok, path, i, autoplay, fade_ms, drain))
+            except RuntimeError:  # the player is gone (the app closed meanwhile)
+                pass
+
+        answered, ok = fileready.soon(lambda: _playable(path), late, FILE_WAIT_S)
+        if answered:
+            return True, ok
+        self._set_error("Opening…")
+        QTimer.singleShot(FILE_TIMEOUT_MS, self, lambda: me() is not None and me()._on_file_checked(
+            (token, None, path, i, autoplay, fade_ms, drain)))
+        return False, False
+
+    @Slot(object)
+    def _on_file_checked(self, r):
+        token, ok, path, i, autoplay, fade_ms, drain = r
+        if token != self._host_wait or not 0 <= i < len(self._queue):
+            return  # something else was chosen meanwhile (or this check already answered, or timed out)
+        self._host_wait += 1
+        if ok is None:  # still not answered: don't wait on it again, nor on the songs after it
+            self._end_fade()
+            for v in self._voices:
+                v.clear()
+            self._index = i
+            self._set_error(f"The file didn't open (is its disk or network share there?): {path}")
+            self.trackChanged.emit()
+            self.stateChanged.emit()
+            return
+        self._load(i, autoplay=autoplay, record=False, fade_ms=fade_ms, drain=drain)
+
+    def _maybe_playable(self, path):
+        """For passing over songs that can't play: True unless it surely can't (a slow file counts as maybe,
+        and is then loaded the careful way)."""
+        if is_url(path) or remote.is_remote(path):
+            return _playable(path)
+        answered, ok = fileready.soon(lambda: _playable(path), lambda _ok: None, FILE_WAIT_S)
+        return ok or not answered
+
+    def _await_host(self, name, i, autoplay, fade_ms, drain):
+        """Look a stream's host up in the background, then load it (see _resolve). A lookup that doesn't
+        answer in RESOLVE_TIMEOUT_MS counts as failed."""
+        token = self._host_wait
+        self._set_error("Connecting…")
+
+        signal_owner = weakref.ref(self)
+
+        def done(ok):
+            owner = signal_owner()
+            try:
+                if owner is not None:
+                    owner._host_looked_up.emit((token, ok, name, i, autoplay, fade_ms, drain))
+            except RuntimeError:  # the player is gone (the app closed meanwhile)
+                pass
+
+        _resolve_in_background(name, done)
+        me = weakref.ref(self)
+        QTimer.singleShot(RESOLVE_TIMEOUT_MS, self, lambda: me() is not None and me()._on_host_looked_up(
+            (token, False, name, i, autoplay, fade_ms, drain)))
+
+    @Slot(object)
+    def _on_host_looked_up(self, r):
+        token, ok, name, i, autoplay, fade_ms, drain = r
+        if token != self._host_wait or not 0 <= i < len(self._queue):
+            return  # something else was chosen meanwhile (or this lookup already answered, or timed out)
+        self._host_wait += 1  # answered: its timeout (or a late answer) does nothing
+        if ok:
+            self._load(i, autoplay=autoplay, record=False, fade_ms=fade_ms, drain=drain)
+            return
+        self._index = i
+        kind = track_kind(self._queue[i])
+        self._set_error(f"Couldn't find {'the station' if kind == 'station' else 'the server'} ({name}): "
+                        "check your connection")
+        self.trackChanged.emit()
+        self.stateChanged.emit()
+        if kind == "music" and autoplay:  # a server song: move on, as for any song that can't play
+            self._error_streak += 1
+            if self._error_streak < len(self._queue):
+                QTimer.singleShot(300, self._skip_after_error)
+
     def _maybe_preload(self):
         if not self.hasTrack or not self.playing or self._fading:
             return
@@ -1637,6 +1931,12 @@ class Player(QObject):
             return
         if track.get("file") and track_file(track) == self._voice.path:
             return  # the next song of the same CUE sheet: this voice carries on into it
+        name = _net_host(track_file(track))
+        if not _host_ready(name):
+            if name not in self._looking_up:  # once, not on every position tick
+                self._looking_up.add(name)
+                _resolve_in_background(name, lambda _ok, n=name: self._looking_up.discard(n))
+            return  # ready by the time it's due, or loaded the careful way then
         sb.player.pause()
         sb.load(nxt, track)
         sb.player.pause()  # prepare the decoder without taking the audio device
@@ -1812,6 +2112,13 @@ class Player(QObject):
             return
         if self._reconnect_stream(message):
             return
+        if self.hasTrack and not self.playing and not self._voice.play_on_load and _is_network(self._voice.path):
+            # a paused stream whose connection went away: hang up; play connects again where it was
+            self._park(self._index, self._voice.position())
+            return
+        if self.hasTrack and remote.is_remote(self._queue[self._index].get("path")):
+            # the backend's words for a server stream can include its link, sign-in and all: say it plainly
+            message = "The music server couldn't play this song"
         self._set_error(message or "Playback error")
         self._error_streak += 1
         if self._error_streak < len(self._queue):
@@ -1819,9 +2126,11 @@ class Player(QObject):
 
     def _reconnect_stream(self, message):
         """A station that drops or errors is reconnected a few times, further apart each time. True if a
-        reconnect was scheduled."""
+        reconnect was scheduled. Only while you're listening: a station that's only shown is never connected."""
         if not self.hasTrack or track_kind(self.current) != "station" or net.is_offline():
             return False
+        if self._parked:
+            return True  # nothing to reconnect; the error is the old connection going away
         if self._retry_timer.isActive():
             return True  # a reconnect is already on its way
         if self._stream_retries >= STREAM_RETRIES:
@@ -1835,6 +2144,32 @@ class Player(QObject):
         self._retry_index = self._index
         self._retry_timer.start(delay)
         return True
+
+    def _park_station(self, index):
+        self._park(index)
+
+    def _park(self, index, position=0):
+        """Show a stream (a station, a streamed episode, a server's song) without connecting to it: restored
+        at start, a station paused, or a paused stream whose connection dropped. Nothing is fetched until you
+        press play, which picks up where it was (live radio: what's on now)."""
+        self._retry_timer.stop()
+        self._quiet_timer.stop()
+        self._end_fade()
+        self._host_wait += 1
+        self._index = index
+        self._parked = True
+        self._ended = False
+        self._stream_retries = 0
+        for v in self._voices:
+            v.clear()
+        entry = self._queue[index]
+        if entry.get("station"):
+            entry.update(title=entry["station"], artist="", stream_title="")  # the song it said last is over
+        elif position > 0:
+            entry["resume_ms"] = int(position)  # play picks up here (it's how a voice starts mid-way)
+        self._set_error("")
+        self.trackChanged.emit()
+        self.stateChanged.emit()
 
     def _retry_stream_now(self):
         self._retry_stream(self._retry_index)
@@ -1860,8 +2195,11 @@ class Player(QObject):
             self._reconnect_stream("The station went quiet")
 
     def _retry_stream(self, index):
-        if index == self._index and self.hasTrack and track_kind(self.current) == "station":
+        if index == self._index and self.hasTrack and track_kind(self.current) == "station" and not self._parked:
             retries = self._stream_retries
+            import urllib.parse
+
+            _resolved_hosts.pop(urllib.parse.urlsplit(track_file(self.current)).hostname or "", None)  # afresh
             self._load(index, record=False)
             self._stream_retries = retries
 
@@ -1896,6 +2234,8 @@ class Player(QObject):
             self.errorChanged.emit()
 
     def shutdown(self):
+        self._host_wait += 1
+        self._reap_timer.stop()
         self._fade_timer.stop()
         self._handoff_timer.stop()
         self._visualizer_generation += 1
@@ -1943,7 +2283,7 @@ class Player(QObject):
             queue = [
                 t for t in data["queue"]
                 if isinstance(t, dict) and isinstance(t.get("path"), str)
-                and (is_url(t["path"]) or os.path.isfile(track_file(t)))
+                and (is_url(t["path"]) or remote.is_remote(t["path"]) or os.path.isfile(track_file(t)))
             ]
             index = int(data.get("index", -1))
             pos = int(data.get("position", 0))
@@ -1956,7 +2296,7 @@ class Player(QObject):
         old = data["queue"]
         if 0 <= index < len(old):
             keep = [i for i, t in enumerate(old) if isinstance(t, dict)
-                    and (is_url(t.get("path")) or os.path.isfile(track_file(t)))]
+                    and (is_url(t.get("path")) or remote.is_remote(t.get("path")) or os.path.isfile(track_file(t)))]
             if index in keep:
                 index = keep.index(index)
             else:  # the song that was playing is gone: start the one after it from the beginning
@@ -1970,5 +2310,10 @@ class Player(QObject):
         self.shuffleChanged.emit()
         self.repeatChanged.emit()
         self._load(index, autoplay=False, record=False)
-        self._restore_pos = max(pos, 0) if track_kind(self._queue[index]) != "station" else 0
+        if self._parked:  # a stream, only shown: play connects and picks up where it was
+            if pos > 0 and track_kind(self._queue[index]) != "station":
+                self._queue[index]["resume_ms"] = int(pos)
+            self._restore_pos = 0
+        else:
+            self._restore_pos = max(pos, 0) if track_kind(self._queue[index]) != "station" else 0
         return True

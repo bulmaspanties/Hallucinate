@@ -2,7 +2,8 @@
 
 QAudioDecoder decodes on FFmpeg's own thread but only delivers buffers to a thread with the GUI event loop
 (created on a QThread it never reports anything), so the service lives on the GUI thread; it only receives
-small 8 kHz mono buffers there, roughly a third of a second of work for a five-minute track in all.
+small 8 kHz mono buffers there, roughly a third of a second of work for a five-minute track in all. Each file
+is opened on a thread first (fileready.py), so a slow disk can't hold the window while the decoder opens it.
 Results are cached on disk (one small file per track, keyed by path, size and modification time, so edited
 files are analysed again) and in memory for the session."""
 import hashlib
@@ -17,6 +18,7 @@ from PySide6.QtMultimedia import QAudioDecoder, QAudioFormat
 
 from .cachetrim import touch_if_stale
 from .core.atomic import write_atomic
+from .fileready import FileReady
 
 logger = logging.getLogger(__name__)
 POINTS = 600
@@ -80,9 +82,9 @@ def mono_samples(buf):
     return np.abs(raw.reshape(-1, channels)).max(axis=1) if channels > 1 else raw
 
 
-def cache_name(path):
+def cache_name(path, st=None):
     try:
-        st = os.stat(path)
+        st = st or os.stat(path)
     except OSError:
         return None
     key = f"{path}|{st.st_size}|{st.st_mtime_ns}".encode("utf-8", "surrogatepass")
@@ -138,6 +140,7 @@ class _Worker(QObject):
         self._peak = []
         self._rate = 0
         self._envelopes = set()  # files whose whole envelope is wanted too (CUE sheet albums)
+        self._ready = FileReady(self)  # each file is opened off this thread first (a slow disk can't hang it)
 
     def want_envelope(self, path):
         self._envelopes.add(path)
@@ -153,10 +156,20 @@ class _Worker(QObject):
         self._next()
 
     def _next(self):
-        if self._decoder is not None or not self._queue:
+        if self._decoder is not None or self._ready.waiting or not self._queue:
             return
         self._path = self._queue.pop(0)
         self._ms, self._peak, self._rate = [], [], 0
+        self._ready.check(self._path, self._opened)
+
+    def _opened(self, ok):
+        if not ok:
+            path, self._path = self._path, ""
+            logger.debug("Waveform unavailable for %s: the file didn't open", path)
+            self._envelopes.discard(path)
+            self.done.emit(path, {"peaks": [], "envelope": None})
+            self._next()
+            return
         # Decode in the file's own format: asking QAudioDecoder to resample stalls on some files (MP3).
         self._decoder = QAudioDecoder(self)
         self._decoder.bufferReady.connect(self._on_buffer)
@@ -221,6 +234,8 @@ class _Worker(QObject):
     @Slot()
     def stop(self):
         self._queue.clear()
+        self._ready.cancel()
+        self._path = ""
         if self._decoder is not None:
             self._decoder.blockSignals(True)
             self._decoder.stop()
@@ -241,6 +256,19 @@ class WaveformService(QObject):
         self._windows = {}  # song key -> (file, start s, end s) waiting for the file's envelope
         self._worker = _Worker(cache_dir, self)
         self._worker.done.connect(self._on_done)
+        from .core import tagedit
+
+        tagedit.on_rewritten(self._carry)  # a rating or tag saved into a song doesn't change its waveform
+
+    def _carry(self, path, before, after):
+        old, new = cache_name(path, before), cache_name(path, after)
+        if not old or not new or old == new:
+            return
+        for a, b in ((old, new), (old[:-3] + ".env.npz", new[:-3] + ".env.npz")):
+            try:
+                os.replace(self._cache_dir / a, self._cache_dir / b)
+            except OSError:
+                pass
 
     def peaks(self, path):
         """The waveform if known (memory or disk), else None."""
@@ -300,4 +328,7 @@ class WaveformService(QObject):
             self.ready.emit(key)
 
     def shutdown(self):
+        from .core import tagedit
+
+        tagedit.forget_rewritten(self._carry)
         self._worker.stop()

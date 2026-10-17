@@ -21,12 +21,60 @@ def default_server_name(env=None, platform=None):
     runtime = env.get("XDG_RUNTIME_DIR", "")
     if platform.startswith("linux") and runtime and os.path.isdir(runtime) and not env.get("FLATPAK_ID"):
         return os.path.join(runtime, "hallucinate-control")
+    if not platform.startswith(("win", "darwin")) and not env.get("FLATPAK_ID") and hasattr(os, "getuid"):
+        # No runtime folder (a bare X session, ssh): a folder of our own in the cache, closed to other users.
+        # macOS's temp folder and the Flatpak's /tmp are already private; Windows has no folders for pipes.
+        home = env.get("HOME") or os.path.expanduser("~")
+        folder = os.path.join(env.get("XDG_CACHE_HOME") or os.path.join(home, ".cache"), "hallucinate")
+        path = os.path.join(folder, "control")
+        if len(path) < 100:  # a Unix socket's path has to fit in 108 bytes
+            try:
+                os.makedirs(folder, mode=0o700, exist_ok=True)
+                st = os.lstat(folder)
+                if os.path.isdir(folder) and not os.path.islink(folder) and st.st_uid == os.getuid():
+                    os.chmod(folder, 0o700)
+                    return path
+            except OSError:
+                pass
     try:
         user = getpass.getuser()
     except Exception:  # noqa: BLE001 - no login name: fall back to the uid where there is one
         user = str(os.getuid()) if hasattr(os, "getuid") else "user"
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in user)[:40]
+    if platform.startswith("win"):
+        # Pipe names are machine-wide and a user name is easy to guess: add a random part kept in your own
+        # app-data folder, which other accounts can't read, so they can't take the name before you do.
+        secret = _private_token(env)
+        if secret:
+            return f"hallucinate-control-{safe}-{secret}"
     return f"hallucinate-control-{safe}"
+
+
+def _private_token(env):
+    """A random name part kept in the user's own app-data folder (made once), or "" if it can't be kept."""
+    import secrets
+
+    base = env.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+    folder = os.path.join(base, "hallucinate")
+    path = os.path.join(folder, "control-name")
+    try:
+        with open(path, encoding="ascii") as fh:
+            token = fh.read().strip()
+        if len(token) == 16 and all(c in "0123456789abcdef" for c in token):
+            return token
+    except (OSError, UnicodeDecodeError):
+        pass
+    token = secrets.token_hex(8)
+    try:
+        os.makedirs(folder, exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="ascii") as fh:
+            fh.write(token)
+        os.replace(tmp, path)
+        with open(path, encoding="ascii") as fh:
+            return fh.read().strip() or token  # two first starts at once: both end up with the one kept
+    except (OSError, UnicodeDecodeError):
+        return ""
 
 
 SERVER_NAME = default_server_name()

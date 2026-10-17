@@ -248,16 +248,3 @@ def search_directory(query, limit=60, servers=None, timeout=10):
             last_error = exc
     raise last_error or OSError("Radio Browser didn't answer")
 
-
-def count_click(uuid, servers=None, timeout=5):
-    """Tell Radio Browser a station was played: it's how its directory ranks what people listen to."""
-    if not uuid:
-        return
-    for server in servers or directory_servers():
-        try:
-            with net.urlopen(_request(f"https://{server}/json/url/{urllib.parse.quote(uuid)}"),
-                             timeout=timeout, limit=100_000) as resp:
-                resp.read()
-            return
-        except OSError:
-            continue

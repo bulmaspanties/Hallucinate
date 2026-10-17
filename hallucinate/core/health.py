@@ -5,7 +5,9 @@ Pure functions over a Database. Every check returns {"id", "title", "detail", "c
 is capped (count is the full number)."""
 import os
 
+from . import remote
 from .insights import LOSSLESS
+from .remote import SQL_LOCAL
 
 LIMIT = 200
 UNKNOWN_ARTIST = "Unknown Artist"
@@ -96,7 +98,7 @@ def missing_replaygain(db):
     return _check("replaygain", "Songs without ReplayGain",
                   "Without it, loud and quiet records jump in volume. Hallucinate can measure them "
                   "(your files aren't changed).", "album",
-                  _albums(db, "SUM(CASE WHEN rg_track IS NULL AND file IS NULL THEN 1 ELSE 0 END) > 0"))
+                  _albums(db, f"SUM(CASE WHEN rg_track IS NULL AND file IS NULL AND {SQL_LOCAL} THEN 1 ELSE 0 END) > 0"))
 
 
 def low_bitrate(db):
@@ -120,10 +122,12 @@ def duplicates(db):
 
 
 def _quality(row):
-    """How good a copy is, for keeping the best of a set of duplicates: lossless first, then the higher bitrate,
-    then the higher sample rate; ties go to the shorter (usually tidier) path."""
+    """How good a copy is, for keeping the best of a set of duplicates: your own file before a server's copy,
+    then lossless, then the higher bitrate, then the higher sample rate; ties go to the shorter (usually tidier)
+    path."""
     fmt = (row.get("codec") or row.get("fmt") or "").upper()
-    return (fmt in LOSSLESS, row.get("bitrate") or 0, row.get("sample_rate") or 0, -len(row.get("path") or ""))
+    return (not remote.is_remote(row.get("path")), fmt in LOSSLESS, row.get("bitrate") or 0,
+            row.get("sample_rate") or 0, -len(row.get("path") or ""))
 
 
 def extra_copies(db):

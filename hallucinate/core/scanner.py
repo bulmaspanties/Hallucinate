@@ -1,12 +1,14 @@
 """Incremental folder scanner: only new/changed files are parsed."""
 import os
 import re
+import time
 from typing import Callable, Optional
 
 from . import cue, tags
 from .db import Database
 
 _CUE_SONG = re.compile(r"^(.*\.[A-Za-z0-9]+)#\d+$")
+COMMIT_EVERY_S = 0.2  # changes waiting longer than this are saved before the next file is read
 
 
 class Scanner:
@@ -56,6 +58,7 @@ class Scanner:
                 embedded.setdefault(m.group(1), []).append(p)
         seen = set()
         pending = 0
+        last_commit = time.monotonic()
         visited = set()
         for root, dirs, files in os.walk(folder, followlinks=True):
             real = os.path.realpath(root)
@@ -95,6 +98,11 @@ class Scanner:
                     seen.update(songs)  # a file split by its own CUE sheet, unchanged
                     stats["unchanged"] += len(songs)
                     continue
+                if pending and time.monotonic() - last_commit > COMMIT_EVERY_S:
+                    # Not while reading a file (a slow or network disk): the library's other writers
+                    # (adding a folder, saving a play) would wait on this scan's lock until it's done.
+                    self.db.commit()
+                    pending, last_commit = 0, time.monotonic()
                 t = tags.read_track(path, art_known=lambda k: k in self._art)
                 if t is None:
                     stats["errors"] += 1
@@ -117,7 +125,7 @@ class Scanner:
                 pending += 1
                 if pending >= 200:
                     self.db.commit()
-                    pending = 0
+                    pending, last_commit = 0, time.monotonic()
         gone = [p for p in existing if p not in seen]
         if gone:
             self.db.remove_paths(gone)
@@ -146,9 +154,12 @@ class Scanner:
         sheet, entry, cue_mtime = found
         expected = [cue.virtual_path(path, t["number"]) for t in entry["tracks"]]
         mtime = max(st.st_mtime, cue_mtime)
-        if all(existing.get(p) == (mtime, st.st_size) for p in expected):
-            seen.update(expected)
-            stats["unchanged"] += len(expected)
+        # A song with no length (a last track past the end of the file) is never stored, so it can't count
+        # against "unchanged": editing the sheet or the file changes mtime for every song that is.
+        known = [p for p in expected if p in existing]
+        if known and all(existing[p] == (mtime, st.st_size) for p in known):
+            seen.update(known)
+            stats["unchanged"] += len(known)
             return 0
         whole = tags.read_track(path, art_known=lambda k: False)
         if whole is None:
@@ -187,10 +198,14 @@ class Scanner:
             t["art"] = self._art[key]
             return
         path = None
-        if raw:
+        chosen = self.db.chosen_art(key)
+        if chosen and os.path.isfile(chosen):
+            path = chosen  # you picked this one: the file's own picture doesn't replace it
+        elif raw:
             path = os.path.join(self.art_dir, key + tags._image_ext(raw))
             from .atomic import write_atomic
 
+            os.makedirs(self.art_dir, exist_ok=True)  # the cover cache may have been cleared
             write_atomic(path, lambda fh: fh.write(raw))  # never a half-written cover, even if stopped
         else:
             path = tags.find_folder_art(directory)

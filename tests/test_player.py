@@ -474,3 +474,74 @@ def test_queue_changes_can_be_undone(make_player, clips):
     p.undoQueue()
     assert titles() == ["T0", "T1", "T2", "T3"] and p.current["title"] == "T1"
     assert wait_for(lambda: is_playing(p))  # undoing while music plays keeps the music playing
+
+
+def test_sound_devices_changing_while_idle_wait_until_play(make_player):
+    """A monitor going to sleep takes its HDMI sound away: nothing is reconfigured while nothing plays."""
+    player = make_player()
+    calls = []
+    player._reapply_outputs = lambda: calls.append(1)
+    player._on_audio_outputs_changed()
+    assert calls == [] and player._outputs_changed
+    player.play()
+    assert calls == [1] and not player._outputs_changed
+
+
+def test_a_song_on_a_slow_disk_opens_without_holding_the_window(make_player, clips, monkeypatch):
+    """A disk waking up (or a network share) answers late: the window carries on and the song plays after."""
+    import threading
+
+    import hallucinate.player as player_mod
+
+    real, gate = player_mod._playable, threading.Event()
+
+    def slow(path):
+        gate.wait(5)
+        return real(path)
+
+    monkeypatch.setattr(player_mod, "_playable", slow)
+    player = make_player(session=False)
+    started = time.monotonic()
+    player.playList([clips[0]], 0)
+    assert time.monotonic() - started < 1.0  # didn't wait for the disk
+    assert player.error == "Opening…" and not is_playing(player)
+    monkeypatch.setattr(player_mod, "_playable", real)
+    gate.set()
+    assert wait_for(lambda: is_playing(player)), player.error
+    assert player.error == ""
+
+
+def test_a_song_whose_disk_never_answers_says_so(make_player, clips, monkeypatch):
+    import threading
+
+    import hallucinate.player as player_mod
+
+    gate = threading.Event()
+    monkeypatch.setattr(player_mod, "FILE_TIMEOUT_MS", 300)
+    monkeypatch.setattr(player_mod, "_playable", lambda _p: gate.wait(10))
+    player = make_player(session=False)
+    player.playList([clips[0], clips[1]], 0)
+    assert wait_for(lambda: "didn't open" in player.error), player.error
+    assert not is_playing(player) and player.currentIndex == 0
+    gate.set()  # its late answer changes nothing now
+    time.sleep(0.2)
+    assert "didn't open" in player.error
+
+
+def test_switching_away_from_a_file_still_opening_sets_it_aside(make_player, clips):
+    from PySide6.QtMultimedia import QMediaPlayer
+
+    import hallucinate.player as player_mod
+
+    player = make_player(session=False)
+    player.playList([clips[0], clips[1]], 0)
+    voice = player._voice
+    old = voice.player
+    status = QMediaPlayer.MediaStatus.LoadingMedia
+    old.mediaStatus = lambda: status  # still opening (a disk waking up)
+    player.next()
+    assert voice.player is not old and any(item[0] is old for item in player_mod._set_aside)
+    assert player_mod.still_opening()
+    status = QMediaPlayer.MediaStatus.LoadedMedia
+    assert not player_mod.still_opening()
+    assert wait_for(lambda: is_playing(player)), player.error

@@ -12,6 +12,7 @@ from .core import albums as album_views
 from .core import artists as artist_views
 from .core import folders as folder_views
 from .core import health as health_checks
+from .core import remote
 from .core.db import Database, fold, group_index, search_groups
 from .core.radio import radio_tracks
 from .core.scanner import Scanner
@@ -905,7 +906,8 @@ class Library(QObject):
         roots = {os.path.normpath(f) for f in self._db.folders()}
 
         def work(db):
-            files = list(dict.fromkeys(db.file_of(p) for p in paths))
+            # a song on a music server isn't a file here: it can't go in the trash, and mustn't vanish as if it had
+            files = list(dict.fromkeys(db.file_of(p) for p in paths if not remote.is_remote(p)))
             done, failed, dirs = set(), 0, set()
             for f in files:
                 if not os.path.exists(f) or QFile.moveToTrash(f):
@@ -933,7 +935,8 @@ class Library(QObject):
         row = self._db.track_by_path(path) or {}
         return {"album_key": row.get("album_key") or "", "album": row.get("album") or "",
                 "artist": row.get("artist") or "", "album_artist": row.get("album_artist") or "",
-                "cue": bool(row.get("file")), "exists": os.path.exists(self._db.file_of(path)) if path else False}
+                "cue": bool(row.get("file")), "remote": remote.is_remote(path),
+                "exists": (not remote.is_remote(path) and os.path.exists(self._db.file_of(path))) if path else False}
 
     @Slot(str)
     def showInFolder(self, path):

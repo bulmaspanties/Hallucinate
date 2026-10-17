@@ -5,8 +5,10 @@ $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..\..")
 if (-not $Version) { $Version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value }
 
-python -m pip install --upgrade pip
-python -m pip install . pyinstaller
+python -m pip install --require-hashes -r packaging\build-requirements.txt
+if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
+python -m pip install --no-deps --no-build-isolation .
+if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
 python -m PyInstaller --noconfirm --distpath dist --workpath build\pyinstaller packaging\windows\hallucinate.spec
 python packaging\qt_prune.py dist\Hallucinate  # drop the parts of Qt the app never uses
 if ($LASTEXITCODE -ne 0) { throw "qt_prune failed" }

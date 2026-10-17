@@ -5,6 +5,95 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.9.9.4] - 2026-10-17
+
+Music servers, your choices saved into the files, and a fix for the window freezing while left idle.
+
+### Added
+- Music servers: songs on your Jellyfin server, or your Navidrome, Gonic, Airsonic or other Subsonic server,
+  join your library and play like your own files, in albums, artists, search, playlists, smart playlists, stats and history. Switch
+  it on in Settings → Features, then add a server in Settings → Music servers.
+  - Your sign-in is kept in your system keyring. For Subsonic it's the password, which is never sent: each
+    request carries a one-time code. For Jellyfin it's only the access token the server gives; the password
+    isn't kept, and removing the server signs it out there.
+  - The app warns about a link that isn't secure and isn't on your home network.
+  - Each server's albums are its own, so they don't merge with copies you have as files, and duplicate
+    checks keep your own file.
+  - A sync adds, updates and takes out songs to match the server, keeps songs you removed out, and fetches
+    each album's cover once.
+  - Songs from a server that can't be reached, or while offline mode is on, are skipped. The server is tried
+    again every few minutes.
+  - Plays count on the server too.
+  - Server songs can't be put in the trash, and their tags are edited on the server.
+- Star ratings are saved in the songs' own tags too, so other players (foobar2000, MusicBee, Strawberry,
+  Windows) see them. On by default; switch it off in Settings → Library.
+- A cover you add is also saved as cover.jpg in the album's folder (not in a folder shared with other
+  albums, where it would become all of theirs). "Also embed in the audio files" is remembered, and both are
+  in Settings → Library.
+- MP4 and WMA ratings from other players are read too.
+
+### Fixed
+- The window could stop responding while sitting idle with a radio station restored from last time. A
+  station was connected (paused) at start; when the station dropped that idle connection, Hallucinate
+  reconnected over and over in the background, and a reconnect that got stuck looking up the station's
+  address froze the window. Now:
+  - A station is connected only while you listen. Restored at start, it's only shown, and pausing hangs up
+    (live radio can't be paused). Play connects again, to what's on now.
+  - Nothing reconnects in the background while you're not listening.
+  - Before any stream is handed to the player (a station, a podcast stream, a music server's song), its
+    server's address is looked up in the background, so a slow or broken lookup can't freeze the window.
+    One that fails says "Couldn't find the station" instead.
+  - A stream that's still opening when you pause, stop or switch is set aside to finish on its own, instead
+    of the window waiting for it.
+  - Sound devices appearing or going away while nothing plays (a headset sleeping, a monitor's speakers)
+    are picked up when you press play, instead of reopening the player each time.
+- A system keyring that's locked or slow to answer no longer holds up the window at start: Last.fm and
+  ListenBrainz say "Waiting for the system keyring to unlock…" and sign in once it answers.
+- A library scan that's slow reading a file (a network share, a drive waking up) no longer keeps the
+  library locked while it waits, so the rest of the app carries on.
+- A song on a disk that's waking up, or on a network share that has gone away, no longer freezes the window:
+  - Playing it shows "Opening…" and starts once the disk answers, or says the file didn't open.
+  - Switching away from a song that's still opening doesn't wait for it.
+  - Waveforms and ReplayGain measuring open each file in the background first.
+  - Quitting doesn't leave the app running in the background, waiting on a file or stream that won't open.
+- Saving or removing a Last.fm or ListenBrainz sign-in can't hang the window on a keyring that doesn't
+  answer, and neither can moving sign-ins over from an old version at start.
+- Checking podcasts for new episodes is lighter: only episodes the feed changed are written, and the lists
+  refresh once after every show is checked instead of after each one.
+- Last.fm and ListenBrainz errors are in plain words ("Couldn't reach Last.fm: the server is having trouble;
+  try again later" rather than "HTTP Error 500: Internal Server Error"), and their requests carry the real
+  version.
+- What you choose stays chosen:
+  - A cover you picked is no longer replaced by the songs' own picture when the files are read again.
+  - A rating you cleared no longer comes back from the file's tags at the next scan.
+  - Lyrics of your own (embedded, or an .lrc beside the song) now win over lyrics found online earlier.
+- Nothing is looked up again for no reason:
+  - When LRCLIB has no lyrics for a song, that's remembered for a month instead of asked again every play.
+  - Saving tags or a rating into a song no longer makes the app measure its loudness or draw its waveform
+    again (the audio is the same).
+- A rating of one star written as RATING=1 (foobar2000) was read as five stars.
+- Clearing a field in a WMA file's tags failed to save.
+- The cover saved for an album is written whole or not at all, and the one it replaces is removed instead of
+  piling up.
+- Two saves of the same song at once (a tag edit and a rating) can't undo each other.
+- A full rescan no longer waits on album and artist pages kept underneath for Back: they catch up when you
+  go back to them.
+- A CUE sheet whose last song starts past the end of its file is no longer read again on every library scan.
+- A star rating or like you just set no longer flips back for a moment when the lists refresh.
+- Without a private runtime folder (some X sessions, ssh), the control socket lives in a folder of its own
+  that other users can't use, instead of a shared name another user could take first.
+- On Windows, the control connection's name has a random part kept in your own app-data folder, so another
+  account on the same PC can't take it first and stop Hallucinate starting.
+- Debug info and crash reports now leave out song files, music folders and links, as well as the home
+  folder. Log lines no longer name the album or station they're about.
+
+### Changed
+- Finding lyrics online (LRCLIB) has its own switch in Settings → Internet & sharing.
+- Playing a station from the Radio Browser directory no longer tells Radio Browser you played it.
+- The README has a Privacy section: what goes online, when, and what's sent.
+- Release builds install exact versions of every package, checked against their checksums, and a fixed
+  release of appimagetool, also checked: a build gets the same files every time.
+
 ## [0.9.9.3] - 2026-10-17
 
 Hardening on the way to 1.0, plus a few things asked for while testing.

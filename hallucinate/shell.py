@@ -16,7 +16,7 @@ CLOSE_ACTIONS = ("ask", "quit", "minimize", "tray")
 # feature that's off is gone everywhere: the sidebar, Ctrl+K, menus, Home and its shortcuts.
 FEATURES = {
     "liked": True, "folders": True, "stats": True, "history": True, "recap": True, "visualizer": True,
-    "health": True, "lyrics": True, "stations": False, "podcasts": False,
+    "health": True, "lyrics": True, "stations": False, "podcasts": False, "servers": False,
     "homeRandom": True, "homeListening": True, "homeFacts": True, "homeShelves": True,
 }
 # The sidebar's pages in their usual order; people can rearrange them (Settings → Appearance or right-click).

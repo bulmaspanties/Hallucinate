@@ -271,17 +271,22 @@ class StreamsDB:
         """Add new episodes and refresh what the feed says about known ones, keeping what's ours (where you
         stopped, played, the downloaded file). Returns the ids of the episodes that are new."""
         new = []
+        names = [k for k in EPISODE_FIELDS if k != "local_path"]
+        # What's known already, read in one go: an episode the feed says nothing new about isn't written
+        # (a refresh of a long feed that hasn't changed then costs next to nothing).
+        known = {r["guid"]: r for r in self.conn.execute(
+            f"SELECT id, {', '.join(names)} FROM episodes WHERE podcast_id=?", (podcast_id,))}
         for ep in episodes:
             fields = {k: ep.get(k) if ep.get(k) is not None else ("" if k not in ("size", "published", "duration") else 0)
-                      for k in EPISODE_FIELDS if k != "local_path"}
+                      for k in names}
             if not fields["guid"]:
                 continue
-            row = self.conn.execute("SELECT id FROM episodes WHERE podcast_id=? AND guid=?",
-                                    (podcast_id, fields["guid"])).fetchone()
+            row = known.get(fields["guid"])
             if row:
-                sets = ", ".join(f"{k}=?" for k in fields if k != "guid")
-                self.conn.execute(f"UPDATE episodes SET {sets} WHERE id=?",
-                                  (*[v for k, v in fields.items() if k != "guid"], row["id"]))
+                changed = {k: v for k, v in fields.items() if k != "guid" and row[k] != v}
+                if changed:
+                    sets = ", ".join(f"{k}=?" for k in changed)
+                    self.conn.execute(f"UPDATE episodes SET {sets} WHERE id=?", (*changed.values(), row["id"]))
             else:
                 if ep.get("local_path"):
                     fields["local_path"] = ep["local_path"]
@@ -289,6 +294,7 @@ class StreamsDB:
                     f"INSERT INTO episodes(podcast_id, {', '.join(fields)}) VALUES (?, {', '.join('?' * len(fields))})",
                     (podcast_id, *fields.values()))
                 new.append(cur.lastrowid)
+                known[fields["guid"]] = {"id": cur.lastrowid, **fields}  # a feed listing it twice: once
         self.conn.commit()
         return new
 

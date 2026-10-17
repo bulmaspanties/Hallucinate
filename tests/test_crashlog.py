@@ -54,7 +54,7 @@ def test_a_killed_run_is_not_reported_as_a_crash(tmp_path):
     assert crashlog.take_previous(tmp_path) == ("", False)
 
 
-def test_unhandled_errors_are_recorded_without_home_paths(tmp_path):
+def test_unhandled_errors_are_recorded_without_home_paths_or_song_files(tmp_path):
     from hallucinate import crashlog
 
     home = os.path.expanduser("~")
@@ -76,7 +76,7 @@ def test_unhandled_errors_are_recorded_without_home_paths(tmp_path):
     assert r.returncode == 0, r.stderr
     report, crashed = crashlog.take_previous(tmp_path)
     assert not crashed
-    assert "ValueError: bad tag in ~/Music/song.flac" in report and "thread scanner" in report
+    assert "ValueError: bad tag in <song file>" in report and "thread scanner" in report
     assert "RuntimeError: slot failed" in report  # an exception in a Qt slot goes through sys.excepthook
     if home not in ("/", "~"):
         assert home not in report

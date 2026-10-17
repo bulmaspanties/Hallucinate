@@ -288,7 +288,12 @@ Dialog {
                         onClicked: metaEditor.fetchCover(dlg.albumKey, dlg.original.album_artist || dlg.original.artist || "", dlg.original.album || "", embedBox.checked)
                     }
                 }
-                StyledCheck { id: embedBox; text: "Also embed in the audio files" }
+                StyledCheck {
+                    id: embedBox
+                    text: "Also embed in the audio files"
+                    checked: metaEditor.embedCovers
+                    onToggled: metaEditor.setEmbedCovers(checked)  // remembered for next time
+                }
             }
         }
         Text {

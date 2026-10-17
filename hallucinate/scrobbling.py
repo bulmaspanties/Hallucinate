@@ -14,6 +14,7 @@ import keyring
 from PySide6.QtCore import Property, QObject, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 
+from . import __version__, keyringwait
 from .core import net
 from .core.kinds import counts_for_scrobbling, scrobble_fields, track_kind
 
@@ -22,6 +23,13 @@ AUTH_URL = "https://www.last.fm/api/auth/"
 KEYRING_SERVICE = "Hallucinate Last.fm"
 MAX_RETRY_SECONDS = 900
 logger = logging.getLogger(__name__)
+
+
+def _words(exc):
+    """A network or parsing error in plain words (never the request, which holds the API key)."""
+    if isinstance(exc, ValueError) and not isinstance(exc, OSError):
+        return "its answer couldn't be read"
+    return net.describe(exc)
 
 
 def api_signature(params: dict, secret: str) -> str:
@@ -42,14 +50,14 @@ def api_request(method, params, api_key, api_secret, session_key=None, signed=Tr
         fields["api_sig"] = api_signature(fields, api_secret)
     fields["format"] = "json"
     req = Request(API_URL, data=urlencode(fields).encode("utf-8"), headers={
-        "User-Agent": "Hallucinate/0.1",
+        "User-Agent": f"Hallucinate/{__version__}",
         "Content-Type": "application/x-www-form-urlencoded",
     })
     try:
         with net.urlopen(req, timeout=15) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
-        raise RuntimeError(f"Last.fm request failed: {exc}") from exc
+        raise RuntimeError(f"Couldn't reach Last.fm: {_words(exc)}") from exc
     if not isinstance(data, dict):
         raise RuntimeError("Last.fm returned an invalid response")
     if "error" in data:
@@ -88,6 +96,7 @@ class LastFmScrobbler(QObject):
     syncChanged = Signal()
     lovesImported = Signal(object)  # [(artist, title)] loved on Last.fm, for the library to like
     _loves_done = Signal(object)
+    _keyring_late = Signal(object)
 
     def __init__(self, player, data_dir, parent=None):
         super().__init__(parent)
@@ -136,16 +145,28 @@ class LastFmScrobbler(QObject):
         self._on_track_changed()
 
     def _load_keyring(self):
-        try:
-            if not self._api_key:
-                self._api_key = keyring.get_password(KEYRING_SERVICE, "api_key") or ""
-            if not self._api_secret:
-                self._api_secret = keyring.get_password(KEYRING_SERVICE, "api_secret") or ""
-            self._session_key = keyring.get_password(KEYRING_SERVICE, "session") or ""
-        except Exception as exc:
-            self._keyring_error = str(exc)
-            logger.warning("Last.fm system keyring unavailable: %s", exc)
+
+        self._keyring_late.connect(self._apply_keyring)
+        got = keyringwait.read(lambda k: keyring.get_password(KEYRING_SERVICE, k),
+                               ("api_key", "api_secret", "session"), late=self._keyring_late.emit)
+        if got is None:
+            self._set_status("Waiting for the system keyring to unlock…")
+            return
+        self._apply_keyring(got)
+
+    @Slot(object)
+    def _apply_keyring(self, got):
+        if got["error"]:
+            self._keyring_error = got["error"]
+            logger.warning("Last.fm system keyring unavailable: %s", got["error"])
+        values = got["values"]
+        if not self._api_key:
+            self._api_key = values.get("api_key", "")
+        if not self._api_secret:
+            self._api_secret = values.get("api_secret", "")
+        self._session_key = values.get("session", "") or self._session_key
         self._set_status(self._initial_status())
+        self.connectionChanged.emit()
 
     def _load_queue(self):
         try:
@@ -215,11 +236,10 @@ class LastFmScrobbler(QObject):
         if self._keyring_error:
             self._set_status(f"Cannot store API credentials securely: {self._keyring_error}")
             return
-        try:
-            keyring.set_password(KEYRING_SERVICE, "api_key", api_key)
-            keyring.set_password(KEYRING_SERVICE, "api_secret", api_secret)
-        except Exception as exc:
-            self._set_status(f"Could not save API credentials to the system keyring: {exc}")
+        error = keyringwait.call(lambda: (keyring.set_password(KEYRING_SERVICE, "api_key", api_key),
+                                          keyring.set_password(KEYRING_SERVICE, "api_secret", api_secret)))
+        if error:
+            self._set_status(f"Could not save API credentials to the system keyring: {error}")
             return
         self._api_key, self._api_secret = api_key, api_secret
         self.statusChanged.emit()
@@ -265,11 +285,13 @@ class LastFmScrobbler(QObject):
         if self._busy:
             self._set_status("Wait for the current Last.fm request to finish before disconnecting.")
             return
-        try:
+        def forget():
             if keyring.get_password(KEYRING_SERVICE, "session"):
                 keyring.delete_password(KEYRING_SERVICE, "session")
-        except Exception as exc:
-            self._set_status(f"Could not remove the Last.fm session from the system keyring: {exc}")
+
+        error = keyringwait.call(forget)
+        if error:
+            self._set_status(f"Could not remove the Last.fm session from the system keyring: {error}")
             return
         self._session_key = ""
         self._auth_token = ""
@@ -320,9 +342,12 @@ class LastFmScrobbler(QObject):
             try:
                 session_key = result["session"]["key"]
                 username = result["session"].get("name", "")
-                keyring.set_password(KEYRING_SERVICE, "session", session_key)
-            except Exception as exc:
-                self._set_status(f"Could not store Last.fm session securely: {exc}")
+            except (KeyError, TypeError, AttributeError):
+                self._set_status("Last.fm didn't return a session.")
+                return
+            error = keyringwait.call(lambda: keyring.set_password(KEYRING_SERVICE, "session", session_key))
+            if error:
+                self._set_status(f"Could not store Last.fm session securely: {error}")
                 return
             self._session_key = session_key
             self._auth_token = ""

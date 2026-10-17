@@ -7,7 +7,7 @@ import mutagen
 import pytest
 from audio import FFMPEG, encode
 from conftest import PNG, make_mp3, wait_for
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QSettings, Signal
 
 from hallucinate.core import artfetch, lyrics, tagedit
 from hallucinate.core.db import Database
@@ -288,6 +288,38 @@ class FakePlayer(QObject):
         return bool(self.current)
 
 
+@pytest.fixture(autouse=True)
+def _lyrics_online_setting():
+    """The online-lyrics switch is saved; put back what was there."""
+    settings = QSettings("hallucinate", "hallucinate")
+    before = settings.value("lyrics/online")
+    yield
+    if before is None:
+        settings.remove("lyrics/online")
+    else:
+        settings.setValue("lyrics/online", before)
+
+
+def test_finding_lyrics_online_can_be_switched_off_and_stays_off(qapp, lib, monkeypatch):
+    tmp, root = lib
+    calls = []
+    monkeypatch.setattr(lyrics, "fetch_lrclib", lambda *a, **k: calls.append(a) or ("", "words"))
+    pl = FakePlayer()
+    ctl = LyricsController(tmp / "lib.db", pl)
+    assert ctl.onlineLookup  # on unless switched off
+    ctl.setOnlineLookup(False)
+    ctl.shutdown()
+    ctl = LyricsController(tmp / "lib.db", pl)
+    try:
+        assert not ctl.onlineLookup  # remembered
+        pl.current = {"path": str(root / "02.mp3"), "artist": "Band", "title": "Two", "album": "Disc", "duration": 3}
+        pl.trackChanged.emit()
+        assert wait_for(lambda: ctl.status == "none")
+        assert calls == []  # nothing was sent
+    finally:
+        ctl.shutdown()
+
+
 def test_lyrics_controller_sidecar_and_sync(qapp, lib):
     tmp, root = lib
     (root / "01.lrc").write_text("[00:01.00]first\n[00:05.00]second", encoding="utf-8")
@@ -503,3 +535,47 @@ def test_a_failed_tag_save_leaves_the_song_untouched(tmp_path, monkeypatch):
         tagedit.write_tags(str(src), {"title": "New"})
     assert src.read_bytes() == before
     assert [p.name for p in tmp_path.iterdir()] == ["a.flac"]  # no leftover copy
+
+
+def test_lyrics_found_nowhere_are_not_looked_up_every_time(qapp, lib, monkeypatch):
+    tmp, root = lib
+    calls = []
+    monkeypatch.setattr(lyrics, "fetch_lrclib", lambda a, t, *rest, **k: calls.append(t))  # nothing found
+    pl = FakePlayer()
+    ctl = LyricsController(tmp / "lib.db", pl)
+    try:
+        ctl.setOnlineLookup(True)
+        song = {"path": str(root / "01.mp3"), "artist": "Band", "title": "One", "album": "Disc", "duration": 3}
+        for other in ("02.mp3", "01.mp3"):
+            pl.current = dict(song)
+            pl.trackChanged.emit()
+            assert wait_for(lambda: ctl.status == "none")
+            pl.current = {**song, "path": str(root / other), "title": other}
+            pl.trackChanged.emit()
+            assert wait_for(lambda: ctl.status == "none")
+        assert calls.count("One") == 1  # asked once, remembered for a month
+    finally:
+        ctl.shutdown()
+
+
+def test_your_own_lrc_beats_lyrics_found_online_earlier(qapp, lib, monkeypatch):
+    tmp, root = lib
+    monkeypatch.setattr(lyrics, "fetch_lrclib", lambda *a, **k: ("", "words from online"))
+    pl = FakePlayer()
+    ctl = LyricsController(tmp / "lib.db", pl)
+    try:
+        ctl.setOnlineLookup(True)
+        song = {"path": str(root / "01.mp3"), "artist": "Band", "title": "One", "album": "Disc", "duration": 3}
+        pl.current = song
+        pl.trackChanged.emit()
+        assert wait_for(lambda: ctl.status == "found") and ctl.plain == "words from online"
+        (root / "01.lrc").write_text("[00:01.00]my own words", encoding="utf-8")
+        pl.current = {**song, "path": str(root / "02.mp3")}  # play something else, then come back
+        pl.trackChanged.emit()
+        assert wait_for(lambda: ctl.status != "loading")
+        pl.current = song
+        pl.trackChanged.emit()
+        assert wait_for(lambda: ctl.status == "found" and ctl.source != "LRCLIB")
+        assert [ln["text"] for ln in ctl.lines] == ["my own words"]
+    finally:
+        ctl.shutdown()

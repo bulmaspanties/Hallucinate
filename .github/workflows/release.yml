@@ -61,6 +61,8 @@ jobs:
           python-version: "3.12"
       - name: Build AppImage
         run: |
+          # appimagetool checks the desktop file with desktop-file-validate
+          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils
           OUT="hallucinate-${LABEL#v}-x86_64.AppImage" packaging/appimage/build.sh
       - name: Smoke test (offscreen)
         env:

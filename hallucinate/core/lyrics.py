@@ -46,7 +46,7 @@ def format_lrc(lines, offset_ms=0):
 
 def sidecar_path(path):
     """Where a song's .lrc file goes (next to it, same name); None for songs that aren't files of their own."""
-    if not path or cue.is_virtual(path):
+    if not path or cue.is_virtual(path) or "://" in path:  # a CUE sheet song, or a song on a music server
         return None
     return os.path.splitext(path)[0] + ".lrc"
 
@@ -80,6 +80,8 @@ def read_embedded(path):
     """Lyrics text from tags (USLT, LYRICS, \xa9lyr) or a sidecar .lrc/.txt file; "" if none."""
     if cue.is_virtual(path):
         return ""  # a CUE sheet song: the file's lyrics and sidecars are for the whole album
+    if "://" in path:
+        return ""  # a song on a music server: no file here (lyrics come from LRCLIB, if that's on)
     stem = os.path.splitext(path)[0]
     for ext in (".lrc", ".LRC", ".txt"):
         side = stem + ext

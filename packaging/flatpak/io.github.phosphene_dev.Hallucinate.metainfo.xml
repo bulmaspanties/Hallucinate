@@ -95,6 +95,13 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.9.4" date="2026-10-17">
+      <description>
+        <p>Music servers: songs on a Jellyfin, Navidrome or other Subsonic server join your library and play like your own files. Off until you switch it on.</p>
+        <p>Star ratings are saved in the songs' tags and added covers as cover.jpg in the album's folder. A cover you picked, a rating you cleared and your own lyrics are no longer replaced.</p>
+        <p>Fixed the window freezing while left open with a radio station from last time. Slow networks, sleeping disks and locked keyrings can no longer freeze it.</p>
+      </description>
+    </release>
     <release version="0.9.9.3" date="2026-10-17">
       <description>
         <p>Rearrange the sidebar, and find genres online for one album or every album without one, checked before anything is saved.</p>

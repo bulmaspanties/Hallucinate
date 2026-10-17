@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hallucinate"
-version = "0.9.9.3"
+version = "0.9.9.4"
 description = "A fast desktop music player for the music you own: liquid, cover-coloured, gapless and private"
 readme = "README.md"
 requires-python = ">=3.10"

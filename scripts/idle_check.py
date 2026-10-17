@@ -64,6 +64,7 @@ def main():
     from hallucinate.podcasts import Podcasts
     from hallucinate.replaygain import ReplayGainAnalyzer
     from hallucinate.scrobbling import LastFmScrobbler
+    from hallucinate.servers import Servers
     from hallucinate.shell import DesktopShell
     from hallucinate.stations import Stations
     from hallucinate.themes import ThemeManager
@@ -94,6 +95,7 @@ def main():
         "replayGain": ReplayGainAnalyzer(db), "headphones": HeadphoneFinder(tmp / "cache", player),
         "discord": DiscordPresence(player), "themeManager": ThemeManager(tmp / "config", player),
         "stations": Stations(tmp / "streams.db", tmp / "cache", player),
+        "servers": Servers(db, tmp / "art", player),
         "podcasts": Podcasts(tmp / "streams.db", tmp / "data", tmp / "cache", player),
     }
     engine = QQmlApplicationEngine()

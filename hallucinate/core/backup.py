@@ -81,7 +81,7 @@ def export(library_db, streams_db, target):
 
 
 def summary(data):
-    return {"likes": len(data.get("likes", [])), "ratings": len(data.get("ratings", [])),
+    return {"likes": len(data.get("likes", [])), "ratings": sum(1 for r in data.get("ratings", []) if r.get("stars")),
             "playlists": len(data.get("playlists", [])) + len(data.get("smart_playlists", [])),
             "listens": len(data.get("play_log", [])), "stations": len(data.get("stations", [])),
             "podcasts": len(data.get("podcasts", []))}

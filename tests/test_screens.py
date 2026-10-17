@@ -102,6 +102,7 @@ def app_window(qapp, tmp_path, monkeypatch, request):
     from hallucinate.podcasts import Podcasts
     from hallucinate.replaygain import ReplayGainAnalyzer
     from hallucinate.scrobbling import LastFmScrobbler
+    from hallucinate.servers import Servers
     from hallucinate.shell import DesktopShell
     from hallucinate.stations import Stations
     from hallucinate.themes import ThemeManager
@@ -130,6 +131,7 @@ def app_window(qapp, tmp_path, monkeypatch, request):
         "discord": DiscordPresence(player),
         "themeManager": ThemeManager(tmp_path / "config", player),
         "stations": Stations(tmp_path / "streams.db", tmp_path / "cache", player),
+        "servers": Servers(db_path, tmp_path / "art", player),
         "podcasts": Podcasts(tmp_path / "streams.db", tmp_path / "data", tmp_path / "cache", player),
     }
     engine = QQmlApplicationEngine()
@@ -695,6 +697,17 @@ def test_back_and_forward_like_a_browser(qapp, app_window):
     call("openAlbum", track["album_key"])  # a new visit drops what was ahead
     assert window.property("forwardRoutes").toVariant() == []
     assert album_page is not None
+    call("openAlbum", track["album_key"])
+    under = stack.property("currentItem")
+    call("openArtist", track["album_artist"])
+    before = under.property("revision")
+    objects["library"]._detail_revision += 1
+    objects["library"].detailChanged.emit()  # a reload: only the page on screen reads again now
+    for _ in range(3):
+        qapp.processEvents()
+    assert under.property("revision") == before
+    call("goBack")
+    assert stack.property("currentItem") == under and under.property("revision") == before + 1  # caught up
     call("openPlaylist", 7, "Gone soon")
     call("go", "stats")
     call("forgetRoute", "playlist", 7)  # deleted: Back skips it
@@ -1271,3 +1284,37 @@ def test_sidebar_entries_are_dragged_into_a_new_order(qapp, app_window):
     finally:
         shell.resetSidebarOrder()
     assert not [w for w in warnings if "Sidebar" in w or "SettingsPage" in w], warnings
+
+
+def test_music_servers_section_and_its_add_dialog(qapp, app_window):
+    """Switched on, Settings gets a Music servers section; adding one warns about a link that isn't secure."""
+    window, objects, warnings = app_window
+    shell = objects["shell"]
+    from conftest import wait_for
+
+    def go(page):
+        QMetaObject.invokeMethod(window, "go", Qt.ConnectionType.DirectConnection, Q_ARG("QVariant", page))
+        for _ in range(3):
+            qapp.processEvents()
+
+    go("settings")
+    assert "settings_servers" not in visible_names(window, "settings_servers")  # off to begin with
+    shell.setFeature("servers", True)
+    try:
+        for _ in range(3):
+            qapp.processEvents()
+        assert visible_names(window, "settings_servers") and find_item(window, "addServer") is not None
+        dlg = window.findChild(QObject, "addServerDialog")
+        QMetaObject.invokeMethod(dlg, "open")
+        assert wait_for(lambda: dlg.property("opened"), timeout=2)
+        assert dlg.property("ready") is False  # OK waits for a link, a user name and a password
+        window.findChild(QObject, "serverLink").setProperty("text", "http://music.example.com")
+        window.findChild(QObject, "serverUser").setProperty("text", "me")
+        window.findChild(QObject, "serverPassword").setProperty("text", "pw")
+        assert dlg.property("ready") is True
+        assert objects["servers"].linkIsSecure("http://music.example.com") is False
+        assert objects["servers"].linkIsSecure("http://192.168.1.4:4533") is True
+        QMetaObject.invokeMethod(dlg, "close")
+        assert not [w for w in warnings if "SettingsPage" in w or "main.qml" in w], warnings[:3]
+    finally:
+        shell.setFeature("servers", False)

@@ -11,6 +11,7 @@ from urllib.request import Request
 import keyring
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from . import __version__, keyringwait
 from .core import net
 from .core.kinds import counts_for_scrobbling, scrobble_fields
 
@@ -18,6 +19,13 @@ DEFAULT_URL = "https://api.listenbrainz.org"
 KEYRING_SERVICE = "Hallucinate ListenBrainz"
 MAX_RETRY_SECONDS = 900
 logger = logging.getLogger(__name__)
+
+
+def _words(exc):
+    """A network or parsing error in plain words (never the request, which holds the API key)."""
+    if isinstance(exc, ValueError) and not isinstance(exc, OSError):
+        return "its answer couldn't be read"
+    return net.describe(exc)
 
 
 def lb_request(base, path, token=None, payload=None, params=None):
@@ -36,9 +44,9 @@ def lb_request(base, path, token=None, payload=None, params=None):
     except HTTPError as exc:
         if exc.code in (400, 401, 403):  # rejected for good, retrying won't help
             raise PermissionError(f"ListenBrainz rejected the request ({exc.code})") from exc
-        raise RuntimeError(f"ListenBrainz request failed: {exc}") from exc
+        raise RuntimeError(f"Couldn't reach ListenBrainz: {_words(exc)}") from exc
     except (URLError, TimeoutError, OSError, ValueError) as exc:
-        raise RuntimeError(f"ListenBrainz request failed: {exc}") from exc
+        raise RuntimeError(f"Couldn't reach ListenBrainz: {_words(exc)}") from exc
 
 
 def track_metadata(track):
@@ -110,10 +118,10 @@ def fetch_lastfm_history(user, api_key, progress=None, max_pages=500):
         url = API_URL + "?" + urlencode({"method": "user.getrecenttracks", "user": user, "api_key": api_key,
                                          "format": "json", "limit": 200, "page": page})
         try:
-            with net.urlopen(Request(url, headers={"User-Agent": "Hallucinate/0.3"}), timeout=20) as r:
+            with net.urlopen(Request(url, headers={"User-Agent": f"Hallucinate/{__version__}"}), timeout=20) as r:
                 data = json.loads(r.read().decode("utf-8"))
         except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
-            raise RuntimeError(f"Last.fm request failed: {exc}") from exc
+            raise RuntimeError(f"Couldn't reach Last.fm: {_words(exc)}") from exc
         if "error" in data:
             raise RuntimeError(f"Last.fm error {data['error']}: {data.get('message', '')}")
         got, pages = parse_lastfm_page(data)
@@ -126,6 +134,7 @@ def fetch_lastfm_history(user, api_key, progress=None, max_pages=500):
 
 class ListenBrainzScrobbler(QObject):
     statusChanged = Signal()
+    _keyring_late = Signal(object)
     connectionChanged = Signal()
     pendingCountChanged = Signal()
     busyChanged = Signal()
@@ -167,11 +176,22 @@ class ListenBrainzScrobbler(QObject):
 
     # --- state ---------------------------------------------------------------
     def _load_keyring(self):
-        try:
-            self._token = keyring.get_password(KEYRING_SERVICE, "token") or ""
-            self._user = keyring.get_password(KEYRING_SERVICE, "user") or ""
-        except Exception as exc:  # noqa: BLE001
-            self._keyring_error = str(exc)
+
+        self._keyring_late.connect(self._apply_keyring)
+        got = keyringwait.read(lambda k: keyring.get_password(KEYRING_SERVICE, k), ("token", "user"),
+                               late=self._keyring_late.emit)
+        if got is None:
+            self._set_status("Waiting for the system keyring to unlock…")
+            return
+        self._apply_keyring(got)
+
+    @Slot(object)
+    def _apply_keyring(self, got):
+        if got["error"]:
+            self._keyring_error = got["error"]
+        self._token = got["values"].get("token", "") or self._token
+        self._user = got["values"].get("user", "") or self._user
+        self.connectionChanged.emit()
         self._set_status(f"System keyring unavailable: {self._keyring_error}" if self._keyring_error
                          else ("Connected to ListenBrainz" + (f" as {self._user}." if self._user else "."))
                          if self._token else "Not connected to ListenBrainz.")
@@ -256,12 +276,14 @@ class ListenBrainzScrobbler(QObject):
         if self._busy:
             self._set_status("Wait for the current ListenBrainz request to finish before disconnecting.")
             return
-        try:
+        def forget():
             for k in ("token", "user"):
                 if keyring.get_password(KEYRING_SERVICE, k):
                     keyring.delete_password(KEYRING_SERVICE, k)
-        except Exception as exc:  # noqa: BLE001
-            self._set_status(f"Could not remove the token from the keyring: {exc}")
+
+        error = keyringwait.call(forget)
+        if error:
+            self._set_status(f"Could not remove the token from the keyring: {error}")
             return
         self._token = self._user = ""
         self.connectionChanged.emit()
@@ -301,11 +323,10 @@ class ListenBrainzScrobbler(QObject):
             if not result.get("valid"):
                 self._set_status("ListenBrainz says that token is not valid.")
                 return
-            try:
-                keyring.set_password(KEYRING_SERVICE, "token", item)
-                keyring.set_password(KEYRING_SERVICE, "user", result.get("user_name", ""))
-            except Exception as exc:  # noqa: BLE001
-                self._set_status(f"Could not store the token securely: {exc}")
+            error = keyringwait.call(lambda: (keyring.set_password(KEYRING_SERVICE, "token", item),
+                                              keyring.set_password(KEYRING_SERVICE, "user", result.get("user_name", ""))))
+            if error:
+                self._set_status(f"Could not store the token securely: {error}")
                 return
             self._token, self._user = item, result.get("user_name", "")
             self.connectionChanged.emit()

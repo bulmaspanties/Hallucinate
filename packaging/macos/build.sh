@@ -5,8 +5,8 @@ repo="$(cd "$(dirname "$0")/../.." && pwd)"
 version="${1:-$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/pyproject.toml" | head -n1)}"
 cd "$repo"
 
-python3 -m pip install --upgrade pip
-python3 -m pip install . pyinstaller
+python3 -m pip install --require-hashes -r packaging/build-requirements.txt
+python3 -m pip install --no-deps --no-build-isolation .
 mkdir -p build/macos
 sips -s format icns hallucinate/assets/hallucinate.png --out build/macos/hallucinate.icns >/dev/null
 

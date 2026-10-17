@@ -9,7 +9,7 @@ import random
 import sqlite3
 import time
 
-from PySide6.QtCore import Property, QObject, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, QUrl, Signal, Slot
 
 from .core import history, insights, player_import, playlist_files, recap
 from .core import rules as smart_rules
@@ -28,6 +28,26 @@ HISTORY_KEYS = ["id", "ts", "day", "dayLabel", "time", "title", "artist", "album
                 "durText", "source", "available"]
 HISTORY_PAGE = 200
 HISTORY_WEEKS = 53
+
+
+def _write_ratings(db, paths, stars):
+    """Put a rating in each song's tags. Songs that can't hold one (CUE sheet songs, read-only files, formats
+    without rating tags) keep it in the library only, as before."""
+    from .core import cue, tagedit
+
+    for path in paths:
+        if cue.is_virtual(path) or not os.path.isfile(path):
+            continue
+        try:
+            tagedit.write_rating(path, stars)
+            st = os.stat(path)
+            # only the rating changed: the library's row, its loudness and waveform stay right for the file
+            db.carry_file_caches(path, st.st_mtime, st.st_size)
+            db.commit()
+        except tagedit.TagWriteError as exc:
+            logger.debug("Rating kept in the library only: %s", exc)
+        except OSError as exc:
+            logger.debug("Rating kept in the library only: %s", exc)
 
 
 class UserLibrary(QObject):
@@ -65,6 +85,15 @@ class UserLibrary(QObject):
         self._liked = set()
         self._ratings = {}
         self._likes_revision = 0
+        # Likes and ratings change here at once and are written behind; a refresh read before such a write
+        # would put the old value back, so a refresh only takes them if nothing was changed since it started.
+        self._edits = 0
+        # Settings → Library: ratings also go in the songs' own tags, so other players (and this one, after a
+        # reinstall) see them. Written on the bulk worker; on Windows a playing file waits until it's let go.
+        self._ratings_in_files = QSettings("hallucinate", "hallucinate").value("ratings/inFiles", True, type=bool)
+        self._waiting_ratings = {}  # path -> stars, for the song that's playing (Windows can't replace it)
+        if player is not None and hasattr(player, "trackChanged"):
+            player.trackChanged.connect(self._flush_waiting_ratings)
         self._playlist_id = -1
         self._playlist_items = []
         self._stats_period = "all"
@@ -153,9 +182,12 @@ class UserLibrary(QObject):
 
     # --- refresh ------------------------------------------------------------
     def refresh(self):
+        edits = self._edits
+
         def work(db):
             try:
                 data = {
+                    "edits": edits,
                     "liked_paths": db.liked_paths(),
                     "ratings": db.ratings(),
                     "playlists": db.playlists(),
@@ -183,8 +215,9 @@ class UserLibrary(QObject):
 
     @Slot(object)
     def _apply_refresh(self, data):
-        self._liked = data["liked_paths"]
-        self._ratings = data["ratings"]
+        if data["edits"] == self._edits:
+            self._liked = data["liked_paths"]
+            self._ratings = data["ratings"]
         m = self._models
         m["playlists"].set_items(data["playlists"])
         m["liked"].set_items(data["liked"])
@@ -296,6 +329,7 @@ class UserLibrary(QObject):
             return
         liked = path not in self._liked
         (self._liked.add if liked else self._liked.discard)(path)
+        self._edits += 1
         self._likes_revision += 1
         self.likesChanged.emit()
         self._write(lambda db, p, v: (db.set_liked(p, v), self._announce_likes(db, [p], v)), path, liked)
@@ -317,12 +351,44 @@ class UserLibrary(QObject):
             self._ratings[path] = stars
         else:
             self._ratings.pop(path, None)
+        self._edits += 1
         self._likes_revision += 1
         self.likesChanged.emit()
         self._write(lambda db, p, s: db.set_rating(p, s), path, stars, refresh=False)
+        self._rating_to_files([path], stars)
         if self._smart_id >= 0:  # an open smart playlist may filter or sort by rating
             sid = self._smart_id
             self._reader.submit(lambda db: self._load_smart(db, sid))
+
+    @Property(bool, notify=likesChanged)
+    def ratingsInFiles(self):
+        return self._ratings_in_files
+
+    @Slot(bool)
+    def setRatingsInFiles(self, on):
+        on = bool(on)
+        if on != self._ratings_in_files:
+            self._ratings_in_files = on
+            QSettings("hallucinate", "hallucinate").setValue("ratings/inFiles", on)
+            self.likesChanged.emit()
+
+    def _rating_to_files(self, paths, stars):
+        if not self._ratings_in_files:
+            return
+        playing = ""
+        if os.name == "nt" and self._player is not None and getattr(self._player, "hasTrack", False):
+            playing = (self._player.current or {}).get("path", "")
+        now = [p for p in paths if p != playing]
+        if playing in paths:
+            self._waiting_ratings[playing] = stars
+        if now:
+            self._bulk.submit(lambda db, ps=now, s=stars: _write_ratings(db, ps, s))
+
+    @Slot()
+    def _flush_waiting_ratings(self):
+        playing = (self._player.current or {}).get("path", "") if getattr(self._player, "hasTrack", False) else ""
+        for path in [p for p in self._waiting_ratings if p != playing]:
+            self._rating_to_files([path], self._waiting_ratings.pop(path))
 
     @Slot(int)
     def playLiked(self, index):
@@ -744,6 +810,7 @@ class UserLibrary(QObject):
             return
         for p in paths:
             (self._liked.add if liked else self._liked.discard)(p)
+        self._edits += 1
         self._likes_revision += 1
         self.likesChanged.emit()
 
@@ -788,9 +855,11 @@ class UserLibrary(QObject):
                 self._ratings[p] = stars
             else:
                 self._ratings.pop(p, None)
+        self._edits += 1
         self._likes_revision += 1
         self.likesChanged.emit()
         self._write(lambda db, ps, s: [db.set_rating(p, s) for p in ps], paths, stars, refresh=False)
+        self._rating_to_files(paths, stars)
         if self._smart_id >= 0:
             sid = self._smart_id
             self._reader.submit(lambda db: self._load_smart(db, sid))

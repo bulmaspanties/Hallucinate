@@ -258,6 +258,10 @@ def test_settings_theme_switcher_updates_the_live_window(qapp, tmp_path, monkeyp
 
     podcasts = Podcasts(tmp_path / "streams.db", tmp_path / "data", tmp_path / "cache", player)
     context.setContextProperty("podcasts", podcasts)
+    from hallucinate.servers import Servers
+
+    servers = Servers(tmp_path / "lib.db", tmp_path / "art", player)
+    context.setContextProperty("servers", servers)
     qml_dir = Path(__file__).parents[1] / "hallucinate" / "qml"
     engine.addImportPath(str(qml_dir))
     qml_warnings = []

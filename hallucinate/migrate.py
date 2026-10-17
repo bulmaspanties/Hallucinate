@@ -96,7 +96,10 @@ def migrate_legacy(data_new: Path, config_new: Path, old_locations, settings_new
         result["cache"] = migrate_dir(old_cache, cache_new)
     if settings_new is not None:
         result["settings"] = migrate_settings(settings_new, config_new)
-    result["keyring"] = migrate_keyring()
+    from . import keyringwait
+
+    got = keyringwait.read(lambda _k: migrate_keyring(), ("moved",))  # a locked keyring can't hold up the start
+    result["keyring"] = int((got or {}).get("values", {}).get("moved") or 0)
     try:
         data_new.mkdir(parents=True, exist_ok=True)
         marker.write_text("ok", encoding="utf-8")

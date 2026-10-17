@@ -101,3 +101,16 @@ def test_player_waveform_follows_the_current_track(qapp, tmp_path):
     finally:
         player.shutdown()
         service.shutdown()
+
+
+@needs_ffmpeg
+def test_a_file_that_wont_open_is_passed_over_and_the_next_one_done(qapp, tmp_path):
+    good = encode(tmp_path / "b.flac", "flac", seconds=1)
+    svc = wf.WaveformService(tmp_path / "cache")
+    got = []
+    svc.ready.connect(got.append)
+    svc.request(str(tmp_path / "gone" / "a.flac"))
+    svc.request(str(good), urgent=False)
+    assert wait_for(lambda: len(got) == 2), got
+    assert svc.peaks(str(tmp_path / "gone" / "a.flac")) == [] and svc.peaks(str(good))
+    svc.shutdown()

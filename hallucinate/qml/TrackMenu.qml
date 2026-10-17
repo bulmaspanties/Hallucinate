@@ -17,6 +17,8 @@ Menu {
     readonly property bool single: paths.length <= 1
     // a radio station or a streamed episode: no tags, ratings, playlists or files to act on
     readonly property bool stream: paths.some(function (p) { return /^https?:\/\//.test(p) || podcasts.isEpisode(p) })
+    // a song on a music server: no file here to show, edit or put in the trash
+    readonly property bool onServer: paths.some(function (p) { return /^(subsonic|jellyfin):\/\//.test(p) })
     readonly property string what: single ? "“" + trackTitle + "”" : paths.length + " songs"
 
     function show(p, t, c, i) {
@@ -115,7 +117,7 @@ Menu {
     }
     MenuItem {
         objectName: "trackShowInFolder"
-        visible: menu.single && !menu.stream
+        visible: menu.single && !menu.stream && !menu.onServer
         height: visible ? implicitHeight : 0
         enabled: menu.info.exists === true
         text: "Show in folder"
@@ -126,8 +128,8 @@ Menu {
         visible: !menu.stream; height: visible ? implicitHeight : 0
         text: "Edit tags…"
         icon.name: "edit"
-        // CUE sheet songs are edited in the .cue file
-        enabled: menu.paths.every(function (p) { return !/\.[A-Za-z0-9]+#\d+$/.test(p) })
+        // CUE sheet songs are edited in the .cue file, and a server's songs on the server
+        enabled: !menu.onServer && menu.paths.every(function (p) { return !/\.[A-Za-z0-9]+#\d+$/.test(p) })
         onTriggered: menu.single ? Nav.editTags(menu.path) : Nav.editTagsMany(menu.paths)
     }
     MenuItem {
@@ -155,7 +157,7 @@ Menu {
     }
     MenuItem {
         objectName: "trackTrash"
-        visible: !menu.stream; height: visible ? implicitHeight : 0
+        visible: !menu.stream && !menu.onServer; height: visible ? implicitHeight : 0
         text: "Move to trash…"; icon.name: "trash"; icon.color: Theme.error
         enabled: !menu.single || menu.info.exists === true
         onTriggered: Nav.trashSongs(menu.paths, menu.what)

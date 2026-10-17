@@ -106,8 +106,10 @@ class _WebOnlyRedirects(urllib.request.HTTPRedirectHandler):
         if not is_web_url(target):
             raise NotWebLink(newurl)
         new = super().redirect_request(req, fp, code, msg, headers, newurl)
-        if new is not None and urllib.parse.urlsplit(target).netloc != urllib.parse.urlsplit(req.full_url).netloc:
-            # urllib forwards every header: a token meant for one server mustn't reach the next one
+        old, to = urllib.parse.urlsplit(req.full_url), urllib.parse.urlsplit(target)
+        if new is not None and (to.netloc != old.netloc or to.scheme.lower() != old.scheme.lower()):
+            # urllib forwards every header: a token meant for one server mustn't reach the next one, nor go
+            # out unencrypted when a secure link redirects to a plain one
             for name in list(new.headers):
                 if name.lower() in ("authorization", "cookie"):
                     del new.headers[name]

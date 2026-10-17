@@ -134,6 +134,7 @@ def metadata(player) -> dict:
         "xesam:artist": [t.get("artist", "")],
         "xesam:album": t.get("album", ""),
         "xesam:url": (t["path"] if str(t.get("path", "")).startswith(("http://", "https://"))
+                      else "" if "://" in str(t.get("path", ""))  # a server song: no link without a login in it
                       else QUrl.fromLocalFile(t.get("file") or t.get("path", "")).toString()),
     }
     if t.get("artUrl"):

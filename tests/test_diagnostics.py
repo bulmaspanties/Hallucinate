@@ -18,7 +18,26 @@ def test_report_lists_versions_audio_and_log_without_personal_paths(qapp, tmp_pa
     assert text.startswith(f"Hallucinate {__version__}")
     for part in ("OS:", "PySide6", "Qt ", "Display:", "Audio output:", "Playback: ReplayGain", "Recent log"):
         assert part in text, part
-    assert "~/Music/secret.flac" in text and home + "/" not in text  # the home folder (user name) is redacted
+    assert "secret.flac" not in text and "<song file>" in text and home + "/" not in text
+
+
+def test_reports_leave_out_songs_folders_and_links():
+    from hallucinate import diagnostics
+
+    diagnostics.set_private_folders(["/mnt/Media Drive/Music"])
+    try:
+        lines = {
+            "File not found: /srv/other music/Björk/Homogenic/03 Jóga.mp3": "File not found: <song file>",
+            r"Unreadable audio file: D:\Musik\Artist\x y.m4a": "Unreadable audio file: <song file>",
+            "Gone: /mnt/Media Drive/Music/a.flac#03 now": "Gone: <song file> now",
+            "Scanning /mnt/Media Drive/Music/Live": "Scanning <music folder>/Live",
+            "Blocked https://img.example/a.jpg?token=abc, then http://r.example/live":
+                "Blocked <link>, then <link>",
+        }
+        for line, want in lines.items():
+            assert diagnostics._redact(line) == want
+    finally:
+        diagnostics.set_private_folders([])
 
 
 def test_shell_copies_debug_info(qapp):

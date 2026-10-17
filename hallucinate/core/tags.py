@@ -102,14 +102,23 @@ def read_rating(tags) -> int:
             if stars:
                 return 1 if stars < 32 else 2 if stars < 96 else 3 if stars < 160 else 4 if stars < 224 else 5
     for key, value in items:
-        k = str(key).lower().removeprefix("txxx:")
+        k = str(key).lower().removeprefix("txxx:").removeprefix("----:com.apple.itunes:")
+        if k == "wm/shareduserrating":  # WMA: 1, 25, 50, 75, 99
+            try:
+                v = int(value[0].value if hasattr(value[0], "value") else value[0])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if v > 0:
+                return 1 if v < 13 else 2 if v < 38 else 3 if v < 63 else 4 if v < 87 else 5
+            continue
         if k not in ("fmps_rating", "rating"):
             continue
-        strs = _strs(value)
+        strs = [s.decode("utf-8", "replace") if isinstance(s, bytes) else s for s in _strs(value)]
         v = _rg_value(strs[0]) if strs else None
         if v is None or v <= 0:
             continue
-        if k == "fmps_rating" or v <= 1:  # 0.0–1.0
+        # FMPS is 0.0-1.0; a RATING below 1, or written as a fraction ("1.0"), is too. A plain "1" is one star.
+        if k == "fmps_rating" or v < 1 or (v == 1 and "." in str(strs[0])):
             return max(1, min(5, round(v * 5)))
         if v <= 5:
             return int(round(v))

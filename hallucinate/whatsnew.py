@@ -2,6 +2,16 @@
 in ten seconds; the changelog has the rest."""
 
 HIGHLIGHTS = {
+    "0.9.9.4": [
+        "Music servers: songs on your Jellyfin, Navidrome or other Subsonic server join your library "
+        "(switch it on in Settings → Features, then add a server in Settings → Music servers).",
+        "Star ratings are saved in the songs' own tags, and a cover you add is saved as cover.jpg in the "
+        "album's folder, so other players see them too.",
+        "What you choose stays chosen: a cover you picked, a rating you cleared and your own lyrics are no "
+        "longer replaced.",
+        "Fixed: the window could stop responding while left open, with a radio station from last time. "
+        "Slow networks, sleeping disks and locked keyrings can't freeze it any more.",
+    ],
     "0.9.9.3": [
         "Rearrange the sidebar: drag an entry, right-click it, or use Settings → Features.",
         "Find genres online, for one album in Edit album or for every album without one in Library health. "

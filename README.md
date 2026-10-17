@@ -36,6 +36,7 @@
 - **Browse like a record shelf.** Album and artist pages, a colour wall that sorts every cover round the colour wheel, a timeline by decade and year, and your own folders.
 - **Every listen remembered.** A searchable history of everything you played, recaps of every week, month and year, and your Last.fm, ListenBrainz or old player's history brought over.
 - **Plays everything well.** FLAC, MP3, AAC/ALAC, Ogg, Opus, WAV, WavPack, AIFF and more, CUE sheet albums too, with true gapless playback, ReplayGain (measured where tags are missing), a 10-band equalizer, headphone correction and crossfeed, and a signal path readout that tells you when the sound is untouched.
+- **Your music server too, if you have one.** Songs on a Jellyfin server, or a Navidrome, Gonic, Airsonic or other Subsonic server, join your library and play like your own files; songs from a server that can't be reached are skipped. Off until you switch it on in Settings → Features.
 - **Internet radio and podcasts, if you want them.** Both are off until you switch them on in Settings → Features (where anything else you don't use can be switched off too). Stations come from their stream links or the Radio Browser directory and show the song they're playing; podcasts come from RSS feeds, the Apple Podcasts directory, OPML files from other apps or a folder of episodes, remember where you stopped, line up in an Up next list and have settings of their own, per show too. Neither ever counts toward your stats.
 - **Radio mode and smart playlists.** Similar songs from your library keep playing when the queue runs out (songs you keep skipping come up less); playlists update themselves from rules, ratings included.
 - **Fast to drive.** Instant search even across a quarter of a million songs, Ctrl+K for anything, Ctrl/Shift+click to act on many songs at once, and Ctrl+Z when the queue goes wrong.
@@ -132,7 +133,7 @@ _Screenshots are rendered from a synthetic library by `scripts/screenshots.py` (
 - Artist pages: a picture lit by its own colours, facts, your listening (plays, rank, first listen, plays per month), most played songs, the discography by year and albums they appear on; radio from their most played song.
 - Recap: a week, month or year of listening summed up (time, top artists, albums, songs and genres, new artists, the busiest day, longest streak, when you listen), with a highlights card to save as an image.
 - Folder view: browse your folders on disk with breadcrumbs, and play, shuffle or queue a folder with everything below it.
-- Star ratings (1–5, alongside Like) from the track menu, the player or Ctrl+1…5; ratings from other players' tags are read, and smart playlists can use them.
+- Star ratings (1–5, alongside Like) from the track menu, the player or Ctrl+1…5; ratings are saved in the songs' own tags (POPM, RATING/FMPS_RATING, WMA's rating) so other players see them, ratings from other players' tags are read, and smart playlists can use them.
 - CUE sheets: a single-file album with a .cue (or a sheet embedded in the file) appears as its separate songs, each with its own waveform, and plays gaplessly.
 - First-run welcome: choose your music folders, a theme and scrobbling on a fresh install.
 - Album menus and multi-select: right-click an album (or Ctrl/Shift+click several) to play, queue, add to a playlist, edit, remove from the library (files kept; Settings → Library brings them back) or move to the trash.
@@ -159,9 +160,9 @@ _Screenshots are rendered from a synthetic library by `scripts/screenshots.py` (
 - ReplayGain (track/album, preamp, read from tags, or measured with EBU R128 for files without tags, which are never modified; new music can be measured after each scan by itself), optional crossfade (0–12 s), gapless playback that plays every track to its last sample, and a 10-band equalizer with presets (needs numpy).
 - The visualizer's FFT analysis runs on a worker thread and can be turned off ("React to the music").
 - Optional compact format/average-bitrate badges in track rows and the now-playing bar (Settings → Appearance); the display is off by default, shows approximate average kb/s, and leaves unavailable bitrates out rather than displaying zero.
-- Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE), with MusicBrainz lookup for a whole album's title, album artist, year, genre and track titles, a genre lookup for one album or (from Library health, reviewed before saving) every album without one, and cover art: set from an image file, fetch from MusicBrainz / Cover Art Archive, optionally embed in files.
+- Tag editor (single track or whole album; MP3, FLAC, Ogg/Opus, M4A, WMA, APE), with MusicBrainz lookup for a whole album's title, album artist, year, genre and track titles, a genre lookup for one album or (from Library health, reviewed before saving) every album without one, and cover art: set from an image file or fetch from MusicBrainz / Cover Art Archive, saved as `cover.jpg` in the album's folder and optionally embedded in the files. A cover you choose stays: the files' own pictures don't replace it.
 - Headphone correction from AutoEQ's profiles (search by model, or import a ParametricEQ / GraphicEQ file), applied under the equalizer bands, and headphone crossfeed (light, medium, strong). Optionally a separate equalizer for each output device, switched as devices come and go.
-- Lyrics panel with synced highlighting, and karaoke-style lyrics in Now Playing: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; can be disabled). Nudge synced lyrics that run early or late and save the timing as an `.lrc` next to the song.
+- Lyrics panel with synced highlighting, and karaoke-style lyrics in Now Playing: embedded tags, sidecar `.lrc`, or LRCLIB (cached locally; switch it off in Settings → Internet & sharing). Nudge synced lyrics that run early or late and save the timing as an `.lrc` next to the song.
 - Import M3U, M3U8 and PLS playlists (matched by path, then artist and title, then file name) and export any playlist, Liked Songs or the queue as M3U8.
 - Backup and restore (Settings → Library): likes, ratings, playlists, play counts, listening history, folders, stations and podcasts in one `.hallucinate-backup` file; restoring merges, never deletes.
 - Undo on the toasts after removing songs, clearing the queue, removing a station or marking a show played; a short What's new card after updates.
@@ -249,8 +250,27 @@ virtualized and thumbnails are cached under the data directory. `tests/test_perf
 library and asserts the UI thread is never blocked for long. For bigger collections, `scripts/scale_check.py` runs
 the whole app against a synthetic library (250,000 songs by default) and reports the worst stall for every page and
 action, `scripts/startup_check.py` times each step of starting up on it and measures memory, and
-`scripts/bench_library.py` times the queries behind them. With 250,000 songs the window is up about 0.8 s after
+`scripts/bench_library.py` times the queries behind them, and `scripts/soak_check.py` uses the app round and round to check its memory levels off instead of climbing. With 250,000 songs the window is up about 0.8 s after
 launch and the library has loaded in the background a few seconds later.
+
+## Privacy
+
+Hallucinate has no accounts, no analytics, no usage pings and no install ID. Nothing is ever sent to the project. Your library, history, ratings and settings stay on your computer, in a data folder only your user account can open. Offline mode (Settings → Internet & sharing) stops every connection at once.
+
+What does go online, and only when:
+
+| What | When | What's sent |
+|---|---|---|
+| Lyrics (LRCLIB) | A song with no lyrics of its own starts; switch off in Settings → Internet & sharing | Artist, title, album, length |
+| Covers and tags (MusicBrainz, Cover Art Archive) | Only when you click Find online, Find all, or Look up | Album and artist |
+| Last.fm, ListenBrainz | Only after you connect your own account | What you play (scrobbles); keys stay in your system keyring |
+| Discord status | Only if you switch it on; talks to the Discord app on your computer | The song, or just "Listening to music" in privacy mode. To show the cover, the album and artist are looked up on MusicBrainz (not when the cover is hidden) |
+| Music servers | Only if you switch them on and add one | Requests to your own server only. The sign-in stays in your system keyring: for Subsonic, each request signs in with a one-time code; for Jellyfin, only the server's access token is kept, not your password |
+| Internet radio, podcasts | Only if you switch them on and use them | Requests to the station or feed you chose; directory searches send your search words |
+| Headphone EQ (AutoEQ) | Only when you search for headphones | The profile list is downloaded from GitHub |
+| Update check | Off unless you switch it on; once a day | Asks GitHub for the latest version |
+
+Crash records stay on your computer. When the app starts after a crash, it offers a report you can read and copy yourself. Debug info works the same way. Neither is sent anywhere, and both leave out song files, music folders, links and your user name.
 
 ## Last.fm
 In Settings, enter the API key and secret for a Last.fm API application (create

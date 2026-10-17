@@ -9,11 +9,26 @@ Item {
     id: page
     objectName: "album"
     property string albumKey
+    // Pages kept underneath for Back catch up when they're shown again: refreshing them all on every rescan
+    // would make each reload wait on queries for pages nobody is looking at.
+    readonly property bool shown: StackView.status === StackView.Active || StackView.status === StackView.Activating
+                                  || StackView.view === null
+    property int revision: 0  // bumped to read the page again
+    property int seenRevision: -1  // the library's revision the page last read
+    function catchUp() {
+        if (seenRevision !== library.detailRevision) { seenRevision = library.detailRevision; revision++ }
+    }
+    Component.onCompleted: seenRevision = library.detailRevision
+    Connections {
+        target: library
+        function onDetailChanged() { if (page.shown) page.catchUp() }
+    }
+    onShownChanged: if (shown) catchUp()
     // Everything on the page follows edits and rescans (a new cover, year or genre), not only the track list
-    readonly property var info: library.detailRevision >= 0 ? library.albumInfo(albumKey) : ({})
-    readonly property var tracks: library.detailRevision >= 0 ? library.albumTracksModel(albumKey) : null
-    readonly property var notes: library.detailRevision >= 0 ? library.albumNotes(albumKey) : ({})
-    readonly property var coverColors: library.detailRevision >= 0 ? library.albumPalette(albumKey) : []
+    readonly property var info: page.revision >= 0 ? library.albumInfo(albumKey) : ({})
+    readonly property var tracks: page.revision >= 0 ? library.albumTracksModel(albumKey) : null
+    readonly property var notes: page.revision >= 0 ? library.albumNotes(albumKey) : ({})
+    readonly property var coverColors: page.revision >= 0 ? library.albumPalette(albumKey) : []
     readonly property color glow0: coverColors.length > 0 ? coverColors[0] : Theme.accent
     readonly property color glow1: coverColors.length > 1 ? coverColors[1] : Theme.art1
     readonly property bool multiDisc: (notes.discs || 0) > 1

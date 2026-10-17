@@ -1,13 +1,16 @@
 """Lyrics for the playing track: DB cache -> embedded/.lrc -> LRCLIB, with synced line tracking."""
 import logging
 import os
+import time
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QSettings, Signal, Slot
 
 from .core import lyrics as lx
 from .library import _Reader
 
 logger = logging.getLogger(__name__)
+NOT_FOUND = "none"  # remembered when LRCLIB has no lyrics for a song
+RETRY_MISSING_S = 30 * 86400  # ...and asked again after a month, in case someone has added them
 
 
 class LyricsController(QObject):
@@ -27,7 +30,10 @@ class LyricsController(QObject):
         self._source = ""
         self._line = -1
         self._token = 0
-        self._online = True
+        self._settings = QSettings("hallucinate", "hallucinate")
+        # Settings → Internet & sharing: look up songs with no lyrics of their own on LRCLIB (artist, title, album
+        # and length are sent; no account, nothing else)
+        self._online = self._settings.value("lyrics/online", True, type=bool)
         self._enabled = True  # Settings → Features; off, nothing is read or looked up
         self._offset = 0  # ms; positive shows lines earlier (as LRC's [offset:])
         self._loaded.connect(self._apply)
@@ -108,8 +114,10 @@ class LyricsController(QObject):
 
     @Slot(bool)
     def setOnlineLookup(self, on):
+        on = bool(on)
         if on != self._online:
             self._online = on
+            self._settings.setValue("lyrics/online", on)
             self.changed.emit()
             self.reload()
 
@@ -145,16 +153,21 @@ class LyricsController(QObject):
             result = {"token": token, "path": path, "synced": "", "plain": "", "source": "", "status": "none"}
             try:
                 cached = db.get_lyrics(path)
-                if cached and (cached["synced"] or cached["plain"]):
-                    result.update(synced=cached["synced"], plain=cached["plain"], source=cached["source"], status="found")
-                    return self._loaded.emit(result)
+                # Lyrics of your own (in the file's tags or an .lrc beside it) come first, even when they were
+                # added after lyrics were found online
                 text = lx.read_embedded(path)
                 if text.strip():
                     synced = text if lx.is_synced(text) else ""
                     result.update(synced=synced, plain=lx.strip_timestamps(text) if synced else text,
                                   source="embedded", status="found")
                     return self._loaded.emit(result)
-                if online:
+                if cached and (cached["synced"] or cached["plain"]):
+                    result.update(synced=cached["synced"], plain=cached["plain"], source=cached["source"], status="found")
+                    return self._loaded.emit(result)
+                # LRCLIB had nothing last time: ask again only after a while, not every time the song plays
+                recently_missed = (cached and cached["source"] == NOT_FOUND
+                                   and time.time() - (cached["fetched"] or 0) < RETRY_MISSING_S)
+                if online and not recently_missed:
                     try:
                         found = lx.fetch_lrclib(info["artist"], info["title"], info["album"], info["duration"])
                     except OSError:
@@ -165,6 +178,8 @@ class LyricsController(QObject):
                         db.set_lyrics(path, synced, plain or lx.strip_timestamps(synced), "LRCLIB")
                         result.update(synced=synced, plain=plain or lx.strip_timestamps(synced), source="LRCLIB",
                                       status="found")
+                    else:
+                        db.set_lyrics(path, "", "", NOT_FOUND)
             except Exception:  # noqa: BLE001
                 logger.exception("Lyrics lookup failed")
             self._loaded.emit(result)

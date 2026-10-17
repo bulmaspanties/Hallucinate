@@ -131,6 +131,8 @@ def main(argv=None) -> int:
     db_notice = " ".join(n for n in (db_notice, dbguard.check(streams_db, backup_dir)) if n)
     _mark("application")
     library = Library(paths.db_path(), paths.art_dir())
+    diagnostics.set_private_folders(library.folders)  # kept out of debug info and crash reports
+    library.foldersChanged.connect(lambda: diagnostics.set_private_folders(library.folders))
     _mark("library-opened")
     dbguard.backup_if_due(paths.db_path(), backup_dir)
     dbguard.backup_if_due(streams_db, backup_dir)
@@ -167,11 +169,17 @@ def main(argv=None) -> int:
     stations = Stations(paths.data_dir() / "streams.db", paths.cache_dir(), player)
     stations.setLibraryDb(paths.db_path())
     podcasts = Podcasts(paths.data_dir() / "streams.db", paths.data_dir(), paths.cache_dir(), player)
+    from .servers import Servers
+
+    servers = Servers(paths.db_path(), paths.art_dir(), player)
+    servers.libraryChanged.connect(library.reload)
+    shell.settingsChanged.connect(servers.recheck)  # offline mode switched off: try servers again
 
     def apply_features():
         lyrics.setEnabled(shell.featureOn("lyrics"))
         stations.setEnabled(shell.featureOn("stations"))
         podcasts.setEnabled(shell.featureOn("podcasts"))
+        servers.setEnabled(shell.featureOn("servers"))
 
     apply_features()
     shell.featuresChanged.connect(apply_features)
@@ -220,6 +228,7 @@ def main(argv=None) -> int:
     ctx.setContextProperty("discord", discord)
     ctx.setContextProperty("themeManager", theme_manager)
     ctx.setContextProperty("stations", stations)
+    ctx.setContextProperty("servers", servers)
     ctx.setContextProperty("podcasts", podcasts)
     engine.addImportPath(str(HERE / "qml"))
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "main.qml")))
@@ -287,6 +296,7 @@ def main(argv=None) -> int:
     headphones.shutdown()
     lyrics.shutdown()
     stations.shutdown()
+    servers.shutdown()
     podcasts.shutdown()
     meta_editor.shutdown()
     user_lib.shutdown()
@@ -296,6 +306,14 @@ def main(argv=None) -> int:
     del scrobbler, listenbrainz
     del mpris
     crashlog.finish()
+    from .player import still_opening
+
+    if still_opening():
+        # A stream or file still opening (a stuck lookup, a network share gone away) would keep the app
+        # running, window closed, until it gives up. Everything is saved and closed by now: leave at once.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)
     return code
 
 
